@@ -6,7 +6,7 @@
 
 This contains everything you need to run your app locally.
 
-View your app in AI Studio: https://ai.studio/apps/9dd85f56-5c0f-4011-a8b6-cf17c32df1d8
+View your app in AI Studio: https://edubenin.kochidigital229.workers.dev/
 
 ## Run Locally
 

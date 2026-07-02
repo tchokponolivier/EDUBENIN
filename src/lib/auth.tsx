@@ -4,6 +4,7 @@ import { supabase } from "./supabase";
 
 interface AuthContextType {
   user: User | null;
+  isLoading: boolean;
   login: (email: string) => void; // Keeps mock support
   loginWithGoogle: () => Promise<void>;
   logout: () => Promise<void>;
@@ -50,6 +51,7 @@ const MOCK_USERS: Record<string, User> = {
 
 export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     // 1. Check Supabase auth state first
@@ -69,6 +71,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           setUser(JSON.parse(savedUser));
         }
       }
+      setIsLoading(false);
     });
 
     // Listen to Supabase auth changes
@@ -90,6 +93,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           setUser(null);
         }
       }
+      setIsLoading(false);
     });
 
     return () => subscription.unsubscribe();
@@ -133,7 +137,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   };
 
   return (
-    <AuthContext.Provider value={{ user, login, loginWithGoogle, logout }}>
+    <AuthContext.Provider value={{ user, isLoading, login, loginWithGoogle, logout }}>
       {children}
     </AuthContext.Provider>
   );

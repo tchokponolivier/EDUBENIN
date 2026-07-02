@@ -20,18 +20,22 @@ import { ParentProspectus } from './pages/ParentProspectus';
 import { TeacherDashboard } from './pages/TeacherDashboard';
 import { TeacherProfile } from './pages/TeacherProfile';
 
+import { LoadingSkeleton } from './components/layout/LoadingSkeleton';
+
 // Role-based Dashboards (Placeholders for SuperAdmin and Teacher for now)
 const SuperAdminDashboard = () => <div className="p-4 bg-white rounded-xl shadow-sm border border-gray-100"><h2 className="text-2xl font-bold text-gray-900 mb-4">Espace Super Admin</h2><p>Gestion des établissements...</p></div>;
 
 function ProtectedRoute({ children, allowedRoles }: { children: React.ReactNode, allowedRoles?: string[] }) {
-  const { user } = useAuth();
+  const { user, isLoading } = useAuth();
+  if (isLoading) return <LoadingSkeleton />;
   if (!user) return <Navigate to="/" replace />;
   if (allowedRoles && !allowedRoles.includes(user.role)) return <Navigate to="/dashboard" replace />;
   return <DashboardLayout>{children}</DashboardLayout>;
 }
 
 function RoleRouter() {
-  const { user } = useAuth();
+  const { user, isLoading } = useAuth();
+  if (isLoading) return <LoadingSkeleton />;
   if (!user) return <Navigate to="/" replace />;
   switch (user.role) {
     case 'SUPER_ADMIN': return <Navigate to="/super-admin" replace />;
@@ -43,12 +47,19 @@ function RoleRouter() {
   }
 }
 
+function PublicRoute({ children }: { children: React.ReactNode }) {
+  const { user, isLoading } = useAuth();
+  if (isLoading) return <LoadingSkeleton />;
+  if (user) return <Navigate to="/dashboard" replace />;
+  return <>{children}</>;
+}
+
 export default function App() {
   return (
     <BrowserRouter>
       <AuthProvider>
         <Routes>
-          <Route path="/" element={<LoginPage />} />
+          <Route path="/" element={<PublicRoute><LoginPage /></PublicRoute>} />
           <Route path="/dashboard" element={<RoleRouter />} />
           
           <Route path="/super-admin/*" element={<ProtectedRoute allowedRoles={['SUPER_ADMIN']}><SuperAdminDashboard /></ProtectedRoute>} />

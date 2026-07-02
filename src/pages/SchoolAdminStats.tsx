@@ -48,8 +48,8 @@ export function SchoolAdminStats() {
         <div className="flex flex-col gap-6">
           <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-4 w-full md:w-1/2">
              <h3 className="font-bold text-slate-800 text-sm uppercase tracking-wider mb-4">Répartition des élèves par classe</h3>
-             <div className="h-[300px]">
-                <ResponsiveContainer width="100%" height="100%">
+             <div className="h-[300px] w-full min-h-[300px]">
+                <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
                    <PieChart>
                      <Pie
                        data={pieData}

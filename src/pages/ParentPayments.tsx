@@ -371,11 +371,11 @@ export function ParentPayments() {
     const element = document.getElementById('receipt-print-area');
     if (element) {
       const opt = {
-        margin:       [0.3, 0.3, 0.3, 0.3] as [number, number, number, number], // top, left, bottom, right
+        margin:       [0.3, 0.3, 0.3, 0.3], // top, left, bottom, right
         filename:     `Recu_${payment.reference}.pdf`,
-        image:        { type: 'jpeg' as const, quality: 0.98 },
+        image:        { type: 'jpeg', quality: 0.98 },
         html2canvas:  { scale: 2 },
-        jsPDF:        { unit: 'in', format: 'a4', orientation: 'portrait' as const }
+        jsPDF:        { unit: 'in', format: 'a4', orientation: 'portrait' }
       };
       // Forcing the height to fit onto a single page by tweaking scale if necessary,
       // but 'avoid-all' prevents unwanted splitting. A4 height is 11.69 inches.

@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from "react";
 import { db } from "../lib/db";
 import { Payment, Student } from "../types";
 import { useAuth } from "../lib/auth";
-import { CreditCard, History, Search, MessageCircle, Printer, Plus, Trash2, CheckSquare, Square, X } from "lucide-react";
+import { CreditCard, History, Search, MessageCircle, Printer, Plus, Trash2, CheckSquare, Square } from "lucide-react";
 
 const getTranchesForLevel = (level: string) => {
   if (["Maternelle 1", "Maternelle 2"].includes(level)) {
@@ -262,7 +262,7 @@ export function SchoolAdminPayments() {
 
   const executeWhatsAppReceipt = (phone: string, payment: Payment, student: Student) => {
     const formattedPhone = phone.replace(/\D/g, '');
-    const settings = db.getSchoolSettings();
+    const settings = db.getSettings();
     const dateStr = new Date(payment.date).toLocaleDateString();
     
     // items text
@@ -280,7 +280,7 @@ export function SchoolAdminPayments() {
   };
 
   const printReceipt = (payment: Payment, student: Student) => {
-    const settings = db.getSchoolSettings();
+    const settings = db.getSettings();
     const dateStr = new Date(payment.date).toLocaleDateString();
     
     const w = window.open('', '_blank');

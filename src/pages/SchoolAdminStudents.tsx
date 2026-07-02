@@ -112,8 +112,10 @@ export function SchoolAdminStudents() {
 
   const filteredStudents = students.filter(s => {
     if (selectedClass && s.level !== selectedClass) return false;
+    const searchLower = searchTerm.toLowerCase();
     const nameStr = `${s.firstName} ${s.lastName}`.toLowerCase();
-    return nameStr.includes(searchTerm.toLowerCase());
+    const idStr = s.id.toLowerCase();
+    return nameStr.includes(searchLower) || idStr.includes(searchLower);
   });
 
   const getClassesToDisplay = () => {
@@ -183,7 +185,7 @@ export function SchoolAdminStudents() {
                <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
                <input 
                  type="text" 
-                 placeholder="Rechercher un élève..." 
+                 placeholder="Rechercher par nom ou ID..." 
                  value={searchTerm}
                  onChange={e => setSearchTerm(e.target.value)}
                  className="pl-9 pr-4 py-1.5 border border-slate-200 rounded-md text-sm focus:ring-emerald-500 focus:border-emerald-500 outline-none w-full sm:w-64"
@@ -228,7 +230,10 @@ export function SchoolAdminStudents() {
                          }}
                       />
                    </td>
-                   <td className="px-4 py-3 font-semibold text-slate-800">{student.lastName} {student.firstName}</td>
+                   <td className="px-4 py-3">
+                     <div className="font-semibold text-slate-800">{student.lastName} {student.firstName}</div>
+                     <div className="text-[10px] text-slate-400 font-mono">ID: {student.id}</div>
+                   </td>
                    <td className="px-4 py-3 text-slate-600">{student.level}</td>
                    <td className="px-4 py-3 text-slate-500 font-mono text-xs">
                      {student.fatherContact || student.motherContact || student.guardianContact || "-"}

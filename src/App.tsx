@@ -23,7 +23,7 @@ import { TeacherProfile } from './pages/TeacherProfile';
 import { LoadingSkeleton } from './components/layout/LoadingSkeleton';
 
 // Role-based Dashboards (Placeholders for SuperAdmin and Teacher for now)
-const SuperAdminDashboard = () => <div className="p-4 bg-white rounded-xl shadow-sm border border-gray-100"><h2 className="text-2xl font-bold text-gray-900 mb-4">Espace Super Admin</h2><p>Gestion des établissements...</p></div>;
+const SuperAdminDashboard = () => <div className="p-4 bg-white rounded-xl shadow-sm border border-gray-100"><h2 className="text-2xl font-bold text-gray-700 mb-4">Espace Super Admin</h2><p>Gestion des établissements...</p></div>;
 
 function ProtectedRoute({ children, allowedRoles }: { children: React.ReactNode, allowedRoles?: string[] }) {
   const { user, isLoading } = useAuth();

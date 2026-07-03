@@ -53,7 +53,7 @@ export function TeacherProfile() {
   return (
     <div className="max-w-4xl mx-auto p-4 animate-in fade-in">
       <div className="mb-6">
-        <h1 className="text-2xl font-bold text-slate-800">Mon Profil Professeur</h1>
+        <h1 className="text-2xl font-bold text-gray-700">Mon Profil Professeur</h1>
         <p className="text-sm text-slate-500 mt-1 flex items-center gap-2">
             <ShieldCheck size={14} className="text-emerald-500" /> Vos informations sont sécurisées et destinées à l'administration de l'établissement.
         </p>
@@ -75,7 +75,7 @@ export function TeacherProfile() {
               </div>
            </div>
            <div className="text-center sm:text-left mt-2 sm:mt-0 flex-1">
-              <h2 className="text-lg font-bold text-slate-800 uppercase tracking-wide">Informations Personnelles</h2>
+              <h2 className="text-lg font-bold text-gray-700 uppercase tracking-wide">Informations Personnelles</h2>
               <p className="text-xs text-slate-500 mb-2">Cliquez sur l'image pour mettre à jour votre photo de profil.</p>
               <input type="file" accept="image/*" className="hidden" ref={fileInputRef} onChange={handlePhotoUpload} />
            </div>
@@ -84,7 +84,7 @@ export function TeacherProfile() {
         <form onSubmit={handleSave} className="p-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
             <div className="col-span-1 md:col-span-2">
-               <h3 className="text-sm font-bold text-slate-700 uppercase tracking-wider mb-4 border-b border-slate-100 pb-2">Identité & Contact</h3>
+               <h3 className="text-sm font-bold text-gray-700 uppercase tracking-wider mb-4 border-b border-slate-100 pb-2">Identité & Contact</h3>
             </div>
             
             <div>
@@ -113,7 +113,7 @@ export function TeacherProfile() {
             </div>
 
             <div className="col-span-1 md:col-span-2 mt-4">
-               <h3 className="text-sm font-bold text-slate-700 uppercase tracking-wider mb-4 border-b border-slate-100 pb-2">Parcours & Spécialisation</h3>
+               <h3 className="text-sm font-bold text-gray-700 uppercase tracking-wider mb-4 border-b border-slate-100 pb-2">Parcours & Spécialisation</h3>
             </div>
 
             <div>

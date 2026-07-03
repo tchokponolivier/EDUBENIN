@@ -11,7 +11,7 @@ export function ParentProspectus() {
     <div className="p-8 animate-in fade-in">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8">
         <div>
-          <h1 className="text-3xl font-bold text-slate-800 mb-2">Prospectus de l'école</h1>
+          <h1 className="text-3xl font-bold text-gray-700 mb-2">Prospectus de l'école</h1>
           <p className="text-slate-500">Découvrez la vision, les activités et les conditions de notre établissement.</p>
         </div>
         <a href="https://images.unsplash.com/photo-1523050854058-8df90110c9f1?auto=format&fit=crop&q=80&w=2400" download="Prospectus_EduBenin.jpg" target="_blank" rel="noreferrer" className="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded font-bold uppercase tracking-wider text-xs hover:bg-emerald-700 transition">
@@ -32,7 +32,7 @@ export function ParentProspectus() {
         </div>
         <div className="p-8 grid grid-cols-1 md:grid-cols-2 gap-8">
           <div>
-             <h3 className="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2"><FileText size={18} className="text-emerald-600" /> Nos Valeurs</h3>
+             <h3 className="text-lg font-bold text-gray-700 mb-4 flex items-center gap-2"><FileText size={18} className="text-emerald-600" /> Nos Valeurs</h3>
              <ul className="space-y-2 text-sm text-slate-600">
                <li>• Excellence académique</li>
                <li>• Rigueur et discipline</li>
@@ -41,7 +41,7 @@ export function ParentProspectus() {
              </ul>
           </div>
           <div>
-             <h3 className="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2"><FileText size={18} className="text-emerald-600" /> Informations Pratiques</h3>
+             <h3 className="text-lg font-bold text-gray-700 mb-4 flex items-center gap-2"><FileText size={18} className="text-emerald-600" /> Informations Pratiques</h3>
              <ul className="space-y-2 text-sm text-slate-600">
                <li><strong>Horaires :</strong> 08h00 - 17h00</li>
                <li><strong>Cantine :</strong> Disponible (sur inscription)</li>

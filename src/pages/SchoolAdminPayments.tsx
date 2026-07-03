@@ -373,7 +373,7 @@ export function SchoolAdminPayments() {
     <div className="flex flex-col gap-6">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-xl font-bold text-slate-800">Gestion des Paiements</h1>
+          <h1 className="text-xl font-bold text-gray-700">Gestion des Paiements</h1>
           <p className="text-xs text-slate-500 mt-1">Supervisez et enregistrez les paiements depuis la caisse</p>
         </div>
         <button
@@ -386,7 +386,7 @@ export function SchoolAdminPayments() {
 
       <div className="bg-white rounded-xl border border-slate-200 shadow-sm">
          <div className="p-4 border-b border-slate-100 flex items-center justify-between">
-           <h3 className="font-bold text-slate-800 flex items-center gap-2"><History size={18}/> Historique Global</h3>
+           <h3 className="font-bold text-gray-700 flex items-center gap-2"><History size={18}/> Historique Global</h3>
            <div className="relative">
              <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
              <input 
@@ -422,10 +422,10 @@ export function SchoolAdminPayments() {
                      <td className="px-4 py-3 text-right">
                        {student && (
                          <div className="flex items-center justify-end gap-2">
-                            <button onClick={() => printReceipt(payment, student)} className="p-1.5 text-slate-500 hover:text-slate-800 hover:bg-slate-200 rounded transition-colors" title="Imprimer le reçu">
+                            <button onClick={() => printReceipt(payment, student)} className="p-1.5 text-slate-500 hover:text-gray-700 hover:bg-slate-200 rounded transition-colors" title="Imprimer le reçu">
                                <Printer size={16} />
                             </button>
-                            <button onClick={() => sendWhatsAppReceipt(payment, student)} className="p-1.5 text-emerald-600 hover:text-emerald-800 hover:bg-emerald-100 rounded transition-colors" title="Envoyer par WhatsApp">
+                            <button onClick={() => sendWhatsAppReceipt(payment, student)} className="p-1.5 text-emerald-600 hover:text-gray-700 hover:bg-emerald-100 rounded transition-colors" title="Envoyer par WhatsApp">
                                <MessageCircle size={16} />
                             </button>
                          </div>
@@ -443,11 +443,11 @@ export function SchoolAdminPayments() {
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
           <div className="bg-white rounded-xl shadow-xl w-full max-w-md animate-in zoom-in-95">
             <div className="p-4 border-b border-slate-100">
-               <h3 className="font-bold text-lg text-slate-800">Encaisser un paiement</h3>
+               <h3 className="font-bold text-lg text-gray-700">Encaisser un paiement</h3>
             </div>
             <form onSubmit={handleManualPayment} className="p-4 space-y-4 max-h-[70vh] overflow-y-auto">
                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1 uppercase tracking-wide">Élève</label>
+                  <label className="block text-xs font-semibold text-gray-700 mb-1 uppercase tracking-wide">Élève</label>
                   <select required value={selectedStudentId} onChange={e => {
                      setSelectedStudentId(e.target.value);
                      setSelectedFeeIds([]);
@@ -462,7 +462,7 @@ export function SchoolAdminPayments() {
                {selectedStudent && (
                  <>
                    <div className="space-y-2">
-                     <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider">Moyen de paiement</h4>
+                     <h4 className="text-xs font-bold text-gray-700 uppercase tracking-wider">Moyen de paiement</h4>
                      <select value={paymentMethod} onChange={e => setPaymentMethod(e.target.value as any)} className="w-full px-3 py-2 border border-slate-300 rounded text-sm focus:ring-emerald-500 focus:border-emerald-500 outline-none">
                         <option value="ESPÈCES">Espèces (Caisse)</option>
                         <option value="MTN Bénin">MTN Money</option>
@@ -472,7 +472,7 @@ export function SchoolAdminPayments() {
                    </div>
 
                    <div className="space-y-2 pt-2">
-                     <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider">Frais Applicables</h4>
+                     <h4 className="text-xs font-bold text-gray-700 uppercase tracking-wider">Frais Applicables</h4>
                      {availableFees.filter(f => (f.amount - (paidAmountsPerFee[f.id] || 0)) > 0).map(fee => {
                        const amountLeft = fee.amount - (paidAmountsPerFee[fee.id] || 0);
                        const isSelected = selectedFeeIds.includes(fee.id);
@@ -482,10 +482,10 @@ export function SchoolAdminPayments() {
                               <CheckSquare size={14} className={isSelected ? 'text-white' : 'text-transparent hidden'} />
                            </div>
                            <div className="flex-1">
-                             <div className="text-sm font-semibold text-slate-800">{fee.name}</div>
+                             <div className="text-sm font-semibold text-gray-700">{fee.name}</div>
                            </div>
                            <div className="text-right">
-                             <div className="font-bold font-mono text-slate-800">{amountLeft.toLocaleString()} F</div>
+                             <div className="font-bold font-mono text-gray-700">{amountLeft.toLocaleString()} F</div>
                              {paidAmountsPerFee[fee.id] > 0 && <div className="text-[10px] text-slate-500">Reste à payer</div>}
                            </div>
                          </div>
@@ -510,17 +510,17 @@ export function SchoolAdminPayments() {
                                 <CheckSquare size={14} className={isSelected ? 'text-white' : 'text-transparent hidden'} />
                              </div>
                              <div className="flex-1">
-                               <div className="text-sm font-semibold text-slate-800">Scolarité - {tranche.name}</div>
+                               <div className="text-sm font-semibold text-gray-700">Scolarité - {tranche.name}</div>
                                <div className="text-xs text-slate-500">À solder avant {tranche.limit}</div>
                              </div>
                              <div className="text-right">
-                               <div className="font-bold font-mono text-slate-800">Max: {maxPay.toLocaleString()} F</div>
+                               <div className="font-bold font-mono text-gray-700">Max: {maxPay.toLocaleString()} F</div>
                                <div className="text-[10px] uppercase text-emerald-600 font-bold">Personnalisable</div>
                              </div>
                            </div>
                            {isSelected && (
                              <div className="pl-8 pt-2">
-                               <label className="block text-xs font-semibold text-slate-700 mb-1">Montant à régler (FCFA)</label>
+                               <label className="block text-xs font-semibold text-gray-700 mb-1">Montant à régler (FCFA)</label>
                                <input type="number" min="1" max={maxPay} required value={trancheAmounts[tranche.id] || ""} onChange={e => {
                                  let val = e.target.value;
                                  if (Number(val) > maxPay) val = maxPay.toString();
@@ -535,8 +535,8 @@ export function SchoolAdminPayments() {
 
                    <div className="pt-4 border-t border-slate-100">
                      <div className="flex items-center justify-between mb-2">
-                       <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider">Frais Personnalisés</h4>
-                       <button type="button" onClick={addCustomItem} className="flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider text-emerald-600 hover:text-emerald-700 bg-emerald-50 hover:bg-emerald-100 px-2 py-1 rounded transition-colors">
+                       <h4 className="text-xs font-bold text-gray-700 uppercase tracking-wider">Frais Personnalisés</h4>
+                       <button type="button" onClick={addCustomItem} className="flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider text-emerald-600 hover:text-gray-700 bg-emerald-50 hover:bg-emerald-100 px-2 py-1 rounded transition-colors">
                          <Plus size={12} /> Ajouter
                        </button>
                      </div>
@@ -569,11 +569,11 @@ export function SchoolAdminPayments() {
                    </div>
                    
                    <div className="p-4 bg-emerald-50 border border-emerald-100 rounded-lg flex items-center justify-between">
-                     <span className="text-sm font-bold text-emerald-900 uppercase">Total à Encaisser {isMomo && '(+ 1% Frais)'}</span>
-                     <span className="text-lg font-black font-mono text-emerald-700">{totalAmountWithFee.toLocaleString()} F</span>
+                     <span className="text-sm font-bold text-gray-700 uppercase">Total à Encaisser {isMomo && '(+ 1% Frais)'}</span>
+                     <span className="text-lg font-black font-mono text-gray-700">{totalAmountWithFee.toLocaleString()} F</span>
                    </div>
                    
-                   <div className="text-[10px] text-emerald-800 font-medium text-center italic">
+                   <div className="text-[10px] text-gray-700 font-medium text-center italic">
                       {isMomo ? "Les frais de transaction de 1% sont appliqués aux paiements par Mobile Money." : "Les paiements en espèces (Caisse Administration) n'incluent pas les 1% de frais d'opérateur."}
                    </div>
                  </>
@@ -591,13 +591,13 @@ export function SchoolAdminPayments() {
         <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
           <div className="bg-white rounded-xl shadow-xl w-full max-w-sm animate-in zoom-in-95 overflow-hidden">
             <div className="p-4 border-b border-slate-100 flex items-center justify-between">
-               <h3 className="font-bold text-slate-800 flex items-center gap-2"><MessageCircle size={18} className="text-emerald-500"/> Envoi par WhatsApp</h3>
+               <h3 className="font-bold text-gray-700 flex items-center gap-2"><MessageCircle size={18} className="text-emerald-500"/> Envoi par WhatsApp</h3>
                <button onClick={() => setWhatsappPromptInfo(null)} className="text-slate-400 hover:text-slate-600">
                   <X size={20} />
                </button>
             </div>
             <div className="p-4">
-              <label className="block text-xs font-semibold text-slate-700 mb-1 uppercase tracking-wide">Numéro WhatsApp</label>
+              <label className="block text-xs font-semibold text-gray-700 mb-1 uppercase tracking-wide">Numéro WhatsApp</label>
               <input 
                 type="text" 
                 value={whatsappInputPhone}

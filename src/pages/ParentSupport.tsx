@@ -35,7 +35,7 @@ export function ParentSupport() {
   return (
     <div className="flex flex-col gap-6 max-w-3xl mx-auto">
       <div>
-        <h1 className="text-xl font-bold text-slate-800">Assistance & Signalement</h1>
+        <h1 className="text-xl font-bold text-gray-700">Assistance & Signalement</h1>
         <p className="text-xs text-slate-500 mt-1">Signalez un problème ou proposez une amélioration à l'administration</p>
       </div>
 
@@ -46,13 +46,13 @@ export function ParentSupport() {
               <div className="w-16 h-16 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mb-4">
                 <CheckCircle2 size={32} />
               </div>
-              <h3 className="text-lg font-bold text-emerald-800 mb-2">Message envoyé !</h3>
+              <h3 className="text-lg font-bold text-gray-700 mb-2">Message envoyé !</h3>
               <p className="text-sm text-emerald-600">Votre signalement a été transmis à l'administration de l'établissement. Nous vous répondrons dans les plus brefs délais.</p>
             </div>
           ) : (
             <form onSubmit={handleSubmit} className="space-y-6">
               <div className="space-y-4">
-                <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wide">Type de requête</label>
+                <label className="block text-xs font-semibold text-gray-700 uppercase tracking-wide">Type de requête</label>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <label className={`cursor-pointer border rounded-xl p-4 flex items-start gap-4 transition-colors ${topic === 'paiment' ? 'border-emerald-500 bg-emerald-50' : 'border-slate-200 hover:border-slate-300 bg-white'}`}>
                     <input type="radio" value="paiment" checked={topic === 'paiment'} onChange={() => setTopic('paiment')} className="hidden" />
@@ -60,7 +60,7 @@ export function ParentSupport() {
                       {topic === 'paiment' && <div className="w-2.5 h-2.5 rounded-full bg-emerald-500" />}
                     </div>
                     <div>
-                      <h4 className={`font-bold ${topic === 'paiment' ? 'text-emerald-800' : 'text-slate-800'}`}>Problème de paiement</h4>
+                      <h4 className={`font-bold ${topic === 'paiment' ? 'text-gray-700' : 'text-gray-700'}`}>Problème de paiement</h4>
                       <p className={`text-xs mt-1 ${topic === 'paiment' ? 'text-emerald-600' : 'text-slate-500'}`}>Erreur de transaction, non reçu, etc.</p>
                     </div>
                   </label>
@@ -71,7 +71,7 @@ export function ParentSupport() {
                       {topic === 'amelioration' && <div className="w-2.5 h-2.5 rounded-full bg-emerald-500" />}
                     </div>
                     <div>
-                      <h4 className={`font-bold ${topic === 'amelioration' ? 'text-emerald-800' : 'text-slate-800'}`}>Suggestion / Amélioration</h4>
+                      <h4 className={`font-bold ${topic === 'amelioration' ? 'text-gray-700' : 'text-gray-700'}`}>Suggestion / Amélioration</h4>
                       <p className={`text-xs mt-1 ${topic === 'amelioration' ? 'text-emerald-600' : 'text-slate-500'}`}>Idées pour améliorer l'école ou l'app</p>
                     </div>
                   </label>
@@ -79,7 +79,7 @@ export function ParentSupport() {
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-2 uppercase tracking-wide">Votre message</label>
+                <label className="block text-xs font-semibold text-gray-700 mb-2 uppercase tracking-wide">Votre message</label>
                 <textarea
                   required
                   rows={6}
@@ -90,7 +90,7 @@ export function ParentSupport() {
                 ></textarea>
 
                 <div className="flex flex-col gap-2">
-                  <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wide">Photo (Optionnelle)</label>
+                  <label className="block text-xs font-semibold text-gray-700 uppercase tracking-wide">Photo (Optionnelle)</label>
                   {photo ? (
                     <div className="relative w-32 h-32 rounded-lg border border-slate-200 overflow-hidden">
                       <img src={photo} alt="Aperçu" className="w-full h-full object-cover" />
@@ -106,7 +106,7 @@ export function ParentSupport() {
                     <button
                       type="button"
                       onClick={() => fileInputRef.current?.click()}
-                      className="inline-flex items-center justify-center gap-2 w-full sm:w-auto px-4 py-3 border-2 border-dashed border-slate-300 rounded-lg text-slate-500 hover:text-slate-700 hover:border-slate-400 hover:bg-slate-50 transition-colors text-sm font-medium"
+                      className="inline-flex items-center justify-center gap-2 w-full sm:w-auto px-4 py-3 border-2 border-dashed border-slate-300 rounded-lg text-slate-500 hover:text-gray-700 hover:border-slate-400 hover:bg-slate-50 transition-colors text-sm font-medium"
                     >
                       <Camera size={20} />
                       Ajouter une photo

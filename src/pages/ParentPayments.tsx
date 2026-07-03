@@ -415,7 +415,7 @@ export function ParentPayments() {
     <div className="flex flex-col gap-6 relative">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-xl font-bold text-slate-800">Paiements de Scolarité</h1>
+          <h1 className="text-xl font-bold text-gray-700">Paiements de Scolarité</h1>
           <p className="text-xs text-slate-500 mt-1">Acquittez-vous des frais scolaires via Mobile Money</p>
         </div>
         <button 
@@ -431,10 +431,10 @@ export function ParentPayments() {
       {showPayModal && (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 animate-in fade-in slide-in-from-top-4">
           <div className="lg:col-span-2 bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
-            <h3 className="font-bold text-slate-800 mb-4">Paiement Mobile Money</h3>
+            <h3 className="font-bold text-gray-700 mb-4">Paiement Mobile Money</h3>
             <form onSubmit={handlePaymentSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="md:col-span-2">
-              <label className="block text-xs font-semibold text-slate-700 mb-1 uppercase tracking-wide">Enfant</label>
+              <label className="block text-xs font-semibold text-gray-700 mb-1 uppercase tracking-wide">Enfant</label>
               <select required value={selectedChildId} onChange={e => setSelectedChildId(e.target.value)} className="w-full px-3 py-2 border border-slate-300 rounded text-sm focus:ring-emerald-500 focus:border-emerald-500 outline-none">
                 {children.map(c => <option key={c.id} value={c.id}>{c.firstName} {c.lastName} ({c.level})</option>)}
               </select>
@@ -442,7 +442,7 @@ export function ParentPayments() {
             
             {selectedChild && (
               <div className="md:col-span-2 bg-slate-50 p-4 rounded border border-slate-200">
-                 <h4 className="text-xs font-bold uppercase text-slate-700 mb-3 tracking-wide">Éléments à Payer</h4>
+                 <h4 className="text-xs font-bold uppercase text-gray-700 mb-3 tracking-wide">Éléments à Payer</h4>
                  <div className="space-y-3">
                    
                    {/* Options de Scolarité */}
@@ -463,7 +463,7 @@ export function ParentPayments() {
                              onChange={e => handleFeeToggle(tranche.id, e.target.checked)} 
                              className="w-3.5 h-3.5 rounded text-emerald-600 focus:ring-emerald-500 border-slate-300 disabled:opacity-50" 
                            />
-                           <span className="text-sm font-medium text-slate-800">
+                           <span className="text-sm font-medium text-gray-700">
                              {tranche.name} <span className="text-[10px] text-red-500 ml-1">(Max: {tranche.limit})</span>
                            </span>
                          </label>
@@ -509,9 +509,9 @@ export function ParentPayments() {
                             onChange={e => handleFeeToggle(fee.id, e.target.checked)}
                             className="w-3.5 h-3.5 rounded text-emerald-600 focus:ring-emerald-500 border-slate-300 disabled:opacity-50" 
                           />
-                          <span className="text-sm font-medium text-slate-800">{fee.name}</span>
+                          <span className="text-sm font-medium text-gray-700">{fee.name}</span>
                         </div>
-                        <span className="text-sm font-bold text-emerald-700">
+                        <span className="text-sm font-bold text-gray-700">
                           {isPaidOut ? "Payé" : (paid > 0 ? `Reste: ${remaining.toLocaleString()}F (Total: ${fee.amount.toLocaleString()}F)` : `${fee.amount.toLocaleString()} F`)}
                         </span>
                      </label>
@@ -523,13 +523,13 @@ export function ParentPayments() {
 
             <div className="md:col-span-2">
                <div className="flex justify-between items-center bg-emerald-50 px-4 py-3 border border-emerald-100 rounded-lg mb-4">
-                 <span className="text-sm font-bold text-slate-800 uppercase tracking-wide">Total à payer (dont 1% frais)</span>
+                 <span className="text-sm font-bold text-gray-700 uppercase tracking-wide">Total à payer (dont 1% frais)</span>
                  <span className="font-mono text-xl font-bold text-emerald-600">{totalAmountWithFee.toLocaleString()} FCFA</span>
                </div>
             </div>
 
             <div>
-               <label className="block text-xs font-semibold text-slate-700 mb-1 uppercase tracking-wide">Réseau Mobile</label>
+               <label className="block text-xs font-semibold text-gray-700 mb-1 uppercase tracking-wide">Réseau Mobile</label>
                <select required value={network} onChange={e => setNetwork(e.target.value as any)} className="w-full px-3 py-2 border border-slate-300 rounded text-sm focus:ring-emerald-500 focus:border-emerald-500 outline-none">
                  <option value="MTN Bénin">MTN Mobile Money</option>
                  <option value="Moov Bénin">Moov Money</option>
@@ -539,7 +539,7 @@ export function ParentPayments() {
             
             {hasPartialPayment && (
                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1 uppercase tracking-wide">Prochain règlement</label>
+                  <label className="block text-xs font-semibold text-gray-700 mb-1 uppercase tracking-wide">Prochain règlement</label>
                   <input type="date" required value={nextPaymentDate} onChange={e => setNextPaymentDate(e.target.value)} className="w-full px-3 py-2 border border-slate-300 rounded text-sm focus:ring-emerald-500 focus:border-emerald-500 outline-none" min={new Date().toISOString().split('T')[0]} />
                </div>
             )}
@@ -568,19 +568,19 @@ export function ParentPayments() {
                <div className="w-16 h-16 bg-yellow-100 text-yellow-600 rounded-full flex items-center justify-center mx-auto mb-4">
                   <AlertTriangle size={32} />
                </div>
-               <h3 className="text-xl font-bold text-slate-900">Confirmer le paiement</h3>
+               <h3 className="text-xl font-bold text-gray-700">Confirmer le paiement</h3>
                <p className="text-slate-500 text-xs mt-2">Veuillez vérifier les informations de la transaction avant de valider.</p>
             </div>
             
             <div className="bg-slate-50 p-4 rounded border border-slate-100 space-y-3 mb-6">
                <div className="flex justify-between text-sm">
                  <span className="text-slate-500 font-medium font-semibold uppercase text-[10px] tracking-wide">Enfant</span>
-                 <span className="font-bold text-slate-900">{children.find(c => c.id === selectedChildId)?.firstName} {children.find(c => c.id === selectedChildId)?.lastName}</span>
+                 <span className="font-bold text-gray-700">{children.find(c => c.id === selectedChildId)?.firstName} {children.find(c => c.id === selectedChildId)?.lastName}</span>
                </div>
                <div className="border-t border-slate-200"></div>
                <div className="flex justify-between text-sm">
                  <span className="text-slate-500 font-medium font-semibold uppercase text-[10px] tracking-wide">Réseau</span>
-                 <span className="font-bold text-slate-900">{network}</span>
+                 <span className="font-bold text-gray-700">{network}</span>
                </div>
                <div className="border-t border-slate-200"></div>
                <div className="flex justify-between text-sm items-center">
@@ -616,7 +616,7 @@ export function ParentPayments() {
       <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden flex flex-col">
         <div className="p-4 border-b border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-4">
           <div className="flex items-center gap-2">
-            <h3 className="font-bold text-slate-800">Historique des transactions</h3>
+            <h3 className="font-bold text-gray-700">Historique des transactions</h3>
           </div>
           
           <div className="flex items-center gap-3">
@@ -628,11 +628,11 @@ export function ParentPayments() {
               <Download size={14} /> Exporter
             </button>
             <div className="flex p-1 bg-slate-100 rounded overflow-x-auto">
-               <button onClick={() => setDateFilter('ALL')} className={`px-3 py-1 rounded text-[10px] font-bold uppercase tracking-wider transition-colors ${dateFilter === 'ALL' ? 'bg-white shadow-sm text-slate-800' : 'text-slate-500 hover:text-slate-700'}`}>Tous</button>
-               <button onClick={() => setDateFilter('DAY')} className={`px-3 py-1 rounded text-[10px] font-bold uppercase tracking-wider transition-colors ${dateFilter === 'DAY' ? 'bg-white shadow-sm text-slate-800' : 'text-slate-500 hover:text-slate-700'}`}>Jour</button>
-               <button onClick={() => setDateFilter('WEEK')} className={`px-3 py-1 rounded text-[10px] font-bold uppercase tracking-wider transition-colors ${dateFilter === 'WEEK' ? 'bg-white shadow-sm text-slate-800' : 'text-slate-500 hover:text-slate-700'}`}>Sem</button>
-               <button onClick={() => setDateFilter('MONTH')} className={`px-3 py-1 rounded text-[10px] font-bold uppercase tracking-wider transition-colors ${dateFilter === 'MONTH' ? 'bg-white shadow-sm text-slate-800' : 'text-slate-500 hover:text-slate-700'}`}>Mois</button>
-               <button onClick={() => setDateFilter('YEAR')} className={`px-3 py-1 rounded text-[10px] font-bold uppercase tracking-wider transition-colors ${dateFilter === 'YEAR' ? 'bg-white shadow-sm text-slate-800' : 'text-slate-500 hover:text-slate-700'}`}>An</button>
+               <button onClick={() => setDateFilter('ALL')} className={`px-3 py-1 rounded text-[10px] font-bold uppercase tracking-wider transition-colors ${dateFilter === 'ALL' ? 'bg-white shadow-sm text-gray-700' : 'text-slate-500 hover:text-gray-700'}`}>Tous</button>
+               <button onClick={() => setDateFilter('DAY')} className={`px-3 py-1 rounded text-[10px] font-bold uppercase tracking-wider transition-colors ${dateFilter === 'DAY' ? 'bg-white shadow-sm text-gray-700' : 'text-slate-500 hover:text-gray-700'}`}>Jour</button>
+               <button onClick={() => setDateFilter('WEEK')} className={`px-3 py-1 rounded text-[10px] font-bold uppercase tracking-wider transition-colors ${dateFilter === 'WEEK' ? 'bg-white shadow-sm text-gray-700' : 'text-slate-500 hover:text-gray-700'}`}>Sem</button>
+               <button onClick={() => setDateFilter('MONTH')} className={`px-3 py-1 rounded text-[10px] font-bold uppercase tracking-wider transition-colors ${dateFilter === 'MONTH' ? 'bg-white shadow-sm text-gray-700' : 'text-slate-500 hover:text-gray-700'}`}>Mois</button>
+               <button onClick={() => setDateFilter('YEAR')} className={`px-3 py-1 rounded text-[10px] font-bold uppercase tracking-wider transition-colors ${dateFilter === 'YEAR' ? 'bg-white shadow-sm text-gray-700' : 'text-slate-500 hover:text-gray-700'}`}>An</button>
             </div>
           </div>
         </div>
@@ -671,7 +671,7 @@ export function ParentPayments() {
                         {new Date(payment.date).toLocaleDateString()}
                       </td>
                       <td className="px-4 py-3 text-slate-400 font-mono text-[10px] uppercase">{payment.reference}</td>
-                      <td className="px-4 py-3 font-semibold text-slate-700 text-xs">{childName}</td>
+                      <td className="px-4 py-3 font-semibold text-gray-700 text-xs">{childName}</td>
                       <td className="px-4 py-3">
                          <span className="flex items-center gap-2 text-xs">
                            <span className={`w-2 h-2 rounded-full ${networkDotColor}`}></span>
@@ -714,7 +714,7 @@ export function ParentPayments() {
                       type="text"
                       id="whatsapp-phone-input"
                       placeholder="Numéro WhatsApp..."
-                      className="px-2 py-1 text-xs outline-none w-32 text-slate-800"
+                      className="px-2 py-1 text-xs outline-none w-32 text-gray-700"
                       defaultValue={children.find(c => c.id === showReceiptModal.studentId)?.fatherContact || children.find(c => c.id === showReceiptModal.studentId)?.motherContact || children.find(c => c.id === showReceiptModal.studentId)?.guardianContact || ""}
                    />
                    <button onClick={() => {
@@ -738,14 +738,14 @@ export function ParentPayments() {
                      <img src={settings.logo} alt="Logo" className="w-16 h-16 object-contain rounded" />
                    )}
                    <div>
-                     <h2 className="text-lg font-bold text-slate-900 uppercase tracking-wide">{settings.name}</h2>
+                     <h2 className="text-lg font-bold text-gray-700 uppercase tracking-wide">{settings.name}</h2>
                      <p className="text-[11px] text-slate-600 mt-0.5">{settings.address}</p>
                      <p className="text-[11px] text-slate-600">{settings.contact}</p>
                    </div>
                  </div>
                  <div className="text-right">
-                   <h1 className="text-xl font-black text-slate-900 uppercase tracking-widest mb-1">Reçu</h1>
-                   <p className="text-xs font-bold text-slate-700 uppercase">N° {showReceiptModal.reference}</p>
+                   <h1 className="text-xl font-black text-gray-700 uppercase tracking-widest mb-1">Reçu</h1>
+                   <p className="text-xs font-bold text-gray-700 uppercase">N° {showReceiptModal.reference}</p>
                    <p className="text-[10px] text-slate-500">Date: {new Date(showReceiptModal.date).toLocaleDateString()}</p>
                  </div>
                </div>
@@ -757,11 +757,11 @@ export function ParentPayments() {
                    <div className="bg-slate-50 border border-slate-200 p-3 rounded-lg mb-4 flex flex-wrap gap-x-8 gap-y-2">
                      <div>
                        <span className="block text-[9px] font-bold text-slate-500 uppercase tracking-wider">Élève</span>
-                       <span className="font-bold text-xs text-slate-900">{currentChild.lastName} {currentChild.firstName}</span>
+                       <span className="font-bold text-xs text-gray-700">{currentChild.lastName} {currentChild.firstName}</span>
                      </div>
                      <div>
                        <span className="block text-[9px] font-bold text-slate-500 uppercase tracking-wider">Classe</span>
-                       <span className="font-bold text-xs text-slate-900">{currentChild.level}</span>
+                       <span className="font-bold text-xs text-gray-700">{currentChild.level}</span>
                      </div>
                    </div>
                  ) : null;
@@ -781,7 +781,7 @@ export function ParentPayments() {
                      const isPartial = item.remaining !== undefined && item.remaining > 0;
                      return (
                        <tr key={idx} className="text-xs border-b border-slate-200">
-                         <td className="p-2 font-medium text-slate-800">
+                         <td className="p-2 font-medium text-gray-700">
                            {item.name}
                            {isPartial && (
                               <span className="block text-[9px] text-red-500 font-bold uppercase mt-0.5">
@@ -794,13 +794,13 @@ export function ParentPayments() {
                      );
                    }) || (
                      <tr className="text-xs border-b border-slate-200">
-                       <td className="p-2 font-medium text-slate-800">Scolarité</td>
+                       <td className="p-2 font-medium text-gray-700">Scolarité</td>
                        <td className="p-2 font-mono text-right">{showReceiptModal.amount.toLocaleString()} F</td>
                      </tr>
                    )}
                    <tr className="bg-slate-50 font-bold text-sm">
                      <td className="p-2 text-right uppercase text-[10px] tracking-wider">Total Réglé</td>
-                     <td className="p-2 text-right font-mono text-emerald-700 border-t-2 border-slate-800">
+                     <td className="p-2 text-right font-mono text-gray-700 border-t-2 border-slate-800">
                        {showReceiptModal.amount.toLocaleString()} FCFA
                      </td>
                    </tr>
@@ -827,7 +827,7 @@ export function ParentPayments() {
                        <tbody>
                          {remainings.map((req, idx) => (
                            <tr key={idx} className="border-b border-slate-100 last:border-0">
-                             <td className="py-1 text-slate-700">{req.name}</td>
+                             <td className="py-1 text-gray-700">{req.name}</td>
                              <td className="py-1 text-right font-mono text-red-600 font-bold">{req.remaining.toLocaleString()} F</td>
                            </tr>
                          ))}
@@ -840,16 +840,16 @@ export function ParentPayments() {
                {showReceiptModal.nextPaymentDate && (
                  <div className="mb-4 p-3 rounded border border-orange-200 bg-orange-50/50 flex items-center justify-center gap-2">
                     <Calendar size={14} className="text-orange-500" />
-                    <p className="text-xs text-slate-800 font-medium">Date du prochain règlement: <span className="font-bold text-orange-600 ml-1">{new Date(showReceiptModal.nextPaymentDate).toLocaleDateString()}</span></p>
+                    <p className="text-xs text-gray-700 font-medium">Date du prochain règlement: <span className="font-bold text-orange-600 ml-1">{new Date(showReceiptModal.nextPaymentDate).toLocaleDateString()}</span></p>
                  </div>
                )}
                
                <div className="mt-2 pt-4 border-t border-slate-200 flex justify-between items-center text-xs">
                  <div className="text-slate-500">
-                   Moyen de paiement : <span className="font-bold text-slate-700">{showReceiptModal.network}</span>
+                   Moyen de paiement : <span className="font-bold text-gray-700">{showReceiptModal.network}</span>
                  </div>
                  <div className="text-right">
-                   <span className="inline-flex items-center gap-1.5 px-2 py-1 bg-emerald-50 text-emerald-700 rounded-full font-bold uppercase tracking-widest text-[9px]">
+                   <span className="inline-flex items-center gap-1.5 px-2 py-1 bg-emerald-50 text-gray-700 rounded-full font-bold uppercase tracking-widest text-[9px]">
                      <CheckCircle2 size={10} /> Réglé
                    </span>
                  </div>

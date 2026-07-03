@@ -137,7 +137,7 @@ export function SchoolAdminStudents() {
     <div className="flex flex-col gap-6 animate-in fade-in">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-xl font-bold text-slate-800">Gestion des Élèves</h1>
+          <h1 className="text-xl font-bold text-gray-700">Gestion des Élèves</h1>
           <p className="text-xs text-slate-500 mt-1">Gérez le statut (abandon, exclus), les remises et les infos</p>
         </div>
         <button 
@@ -159,7 +159,7 @@ export function SchoolAdminStudents() {
                  <div className="w-12 h-12 bg-emerald-50 rounded-full flex items-center justify-center text-emerald-600 group-hover:scale-110 transition-transform">
                     <LayoutGrid size={24} />
                  </div>
-                 <span className="font-bold text-slate-800 text-lg text-center">{c.level}</span>
+                 <span className="font-bold text-gray-700 text-lg text-center">{c.level}</span>
                  <span className="text-xs font-semibold text-slate-500 bg-slate-100 px-3 py-1 rounded-full">{c.count} élève{c.count > 1 ? 's' : ''}</span>
               </div>
             ))}
@@ -173,10 +173,10 @@ export function SchoolAdminStudents() {
         <div className="bg-white rounded-xl border border-slate-200 shadow-sm">
            <div className="p-4 border-b border-slate-100 flex items-center justify-between gap-4 flex-wrap">
              <div className="flex items-center gap-3">
-               <button onClick={() => setSelectedClass(null)} className="p-2 hover:bg-slate-100 rounded-lg text-slate-500 hover:text-slate-700 transition-colors" title="Retour aux classes">
+               <button onClick={() => setSelectedClass(null)} className="p-2 hover:bg-slate-100 rounded-lg text-slate-500 hover:text-gray-700 transition-colors" title="Retour aux classes">
                  <ArrowLeft size={18} />
                </button>
-               <h3 className="font-bold text-slate-800 flex items-center gap-2 text-lg">
+               <h3 className="font-bold text-gray-700 flex items-center gap-2 text-lg">
                  <Users size={18} className="text-emerald-600" />
                  Classe : {selectedClass}
                </h3>
@@ -231,7 +231,7 @@ export function SchoolAdminStudents() {
                       />
                    </td>
                    <td className="px-4 py-3">
-                     <div className="font-semibold text-slate-800">{student.lastName} {student.firstName}</div>
+                     <div className="font-semibold text-gray-700">{student.lastName} {student.firstName}</div>
                      <div className="text-[10px] text-slate-400 font-mono">ID: {student.id}</div>
                    </td>
                    <td className="px-4 py-3 text-slate-600">{student.level}</td>
@@ -248,7 +248,7 @@ export function SchoolAdminStudents() {
                      {student.status === "PASSING" ? <span className="text-blue-600 bg-blue-50 px-2 py-0.5 rounded text-[10px] uppercase font-bold">Admis</span> : null}
                      {student.status === "REPEATING" ? <span className="text-yellow-600 bg-yellow-50 px-2 py-0.5 rounded text-[10px] uppercase font-bold">Redoublant</span> : null}
                    </td>
-                   <td className="px-4 py-3 text-right font-mono font-bold text-slate-700">{student.discountPercentage || 0}%</td>
+                   <td className="px-4 py-3 text-right font-mono font-bold text-gray-700">{student.discountPercentage || 0}%</td>
                    <td className="px-4 py-3 text-center flex items-center justify-center gap-2">
                       <button 
                          onClick={() => {
@@ -279,12 +279,12 @@ export function SchoolAdminStudents() {
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
           <div className="bg-white rounded-xl shadow-xl w-full max-w-md animate-in zoom-in-95">
             <div className="p-4 border-b border-slate-100 flex flex-col">
-               <h3 className="font-bold text-lg text-slate-800">Éditer {showEditModal.firstName}</h3>
+               <h3 className="font-bold text-lg text-gray-700">Éditer {showEditModal.firstName}</h3>
                <p className="text-xs text-slate-500">Mise à jour du statut ou de la remise</p>
             </div>
             <form onSubmit={handleSaveStudent} className="p-4 space-y-4">
                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1 uppercase tracking-wide">Statut</label>
+                  <label className="block text-xs font-semibold text-gray-700 mb-1 uppercase tracking-wide">Statut</label>
                   <select required value={showEditModal.status || "ACTIVE"} onChange={e => setShowEditModal({...showEditModal, status: e.target.value as any})} className="w-full px-3 py-2 border border-slate-300 rounded text-sm focus:ring-emerald-500 focus:border-emerald-500 outline-none">
                      <option value="ACTIVE">Actif (Inscrit normalement)</option>
                      <option value="DROPOUT">Abandon</option>
@@ -297,7 +297,7 @@ export function SchoolAdminStudents() {
                   )}
                </div>
                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1 uppercase tracking-wide">Remise sur scolarité (%)</label>
+                  <label className="block text-xs font-semibold text-gray-700 mb-1 uppercase tracking-wide">Remise sur scolarité (%)</label>
                   <input required type="number" min="0" max="100" value={showEditModal.discountPercentage || 0} onChange={e => setShowEditModal({...showEditModal, discountPercentage: Number(e.target.value)})} className="w-full px-3 py-2 border border-slate-300 rounded text-sm outline-none" />
                   <p className="text-[10px] text-slate-500 mt-1">Exemple: 10 pour 10% de réduction.</p>
                </div>
@@ -316,13 +316,13 @@ export function SchoolAdminStudents() {
           <div className="bg-white rounded-xl shadow-xl w-full max-w-md animate-in zoom-in-95">
             <div className="p-4 border-b border-slate-100 flex items-center justify-between">
                 <div>
-                   <h3 className="font-bold text-lg text-slate-800">Exporter les Données</h3>
+                   <h3 className="font-bold text-lg text-gray-700">Exporter les Données</h3>
                    <p className="text-xs text-slate-500">Configurez l'export CSV</p>
                 </div>
             </div>
             <div className="p-4 space-y-4">
                 <div>
-                   <label className="block text-xs font-semibold text-slate-700 mb-1 uppercase tracking-wide">Type d'Export</label>
+                   <label className="block text-xs font-semibold text-gray-700 mb-1 uppercase tracking-wide">Type d'Export</label>
                    <select value={exportFormat} onChange={e => setExportFormat(e.target.value as any)} className="w-full px-3 py-2 border border-slate-300 rounded text-sm focus:ring-emerald-500 focus:border-emerald-500 outline-none">
                       <option value="CONTACTS">Contacts Parents (Nom parent, Tél, Relation, Nom Élève)</option>
                       <option value="SIMPLE">Liste Simple (Nom, Prénom, Sexe, Date naiss.)</option>
@@ -330,14 +330,14 @@ export function SchoolAdminStudents() {
                    </select>
                 </div>
                 <div>
-                   <label className="block text-xs font-semibold text-slate-700 mb-1 uppercase tracking-wide">Filtrer par Classe</label>
+                   <label className="block text-xs font-semibold text-gray-700 mb-1 uppercase tracking-wide">Filtrer par Classe</label>
                    <select value={exportClass} onChange={e => setExportClass(e.target.value)} className="w-full px-3 py-2 border border-slate-300 rounded text-sm focus:ring-emerald-500 focus:border-emerald-500 outline-none">
                       <option value="ALL">Toutes les classes</option>
                       {LEVELS.map(l => <option key={l} value={l}>{l}</option>)}
                    </select>
                 </div>
                 <div>
-                   <label className="block text-xs font-semibold text-slate-700 mb-1 uppercase tracking-wide">Filtre Statut Initiale (Élève)</label>
+                   <label className="block text-xs font-semibold text-gray-700 mb-1 uppercase tracking-wide">Filtre Statut Initiale (Élève)</label>
                    <select value={exportStatus} onChange={e => setExportStatus(e.target.value as any)} className="w-full px-3 py-2 border border-slate-300 rounded text-sm focus:ring-emerald-500 focus:border-emerald-500 outline-none">
                       <option value="ALL">Tous (Nouveaux et Anciens)</option>
                       <option value="NEW">Nouveaux Élèves Uniquement</option>

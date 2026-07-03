@@ -5,7 +5,7 @@ import { supabase } from "./supabase";
 interface AuthContextType {
   user: User | null;
   isLoading: boolean;
-  login: (email: string) => void; // Keeps mock support
+  login: (email: string, fullName?: string, password?: string) => void; // Keeps mock support
   loginWithGoogle: () => Promise<void>;
   logout: () => Promise<void>;
 }
@@ -112,7 +112,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     }
   };
 
-  const login = (email: string) => {
+  const login = (email: string, fullName?: string, password?: string) => {
     const foundUser = MOCK_USERS[email];
     if (foundUser) {
       setUser(foundUser);
@@ -122,7 +122,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       const newUser: User = {
         id: `user_${Date.now()}`,
         email,
-        name: email.split("@")[0],
+        name: fullName || email.split("@")[0],
         role: "PARENT"
       };
       setUser(newUser);

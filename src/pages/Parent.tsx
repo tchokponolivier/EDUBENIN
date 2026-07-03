@@ -398,7 +398,7 @@ Le Parent ou Tuteur légal (Signature précédée de la mention « Lu et approuv
     <div className="flex flex-col gap-6">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-xl font-bold text-slate-800">Mes Enfants</h1>
+          <h1 className="text-xl font-bold text-gray-700">Mes Enfants</h1>
           <p className="text-xs text-slate-500 mt-1">Gérez la scolarité de vos enfants et suivez leurs paiements</p>
         </div>
         <button 
@@ -412,7 +412,7 @@ Le Parent ou Tuteur légal (Signature précédée de la mention « Lu et approuv
 
       {announcements.length > 0 && !showAddForm && (
         <div className="mb-2 relative">
-          <h2 className="text-sm font-bold text-slate-800 mb-3 uppercase tracking-widest flex items-center gap-2">
+          <h2 className="text-sm font-bold text-gray-700 mb-3 uppercase tracking-widest flex items-center gap-2">
             <Megaphone size={16} className="text-emerald-600" />
             Annonces de l'école
           </h2>
@@ -428,12 +428,12 @@ Le Parent ou Tuteur légal (Signature précédée de la mention « Lu et approuv
             {announcements.map((ann, idx) => (
               <div key={ann.id} className="min-w-[85vw] sm:min-w-[400px] shrink-0 bg-emerald-50 border border-emerald-100 p-5 rounded-2xl shadow-sm snap-center flex flex-col">
                 <div className="flex justify-between items-start gap-4 mb-3">
-                  <h3 className="font-bold text-slate-800 text-lg leading-tight">{ann.title}</h3>
-                  <span className="text-[10px] text-emerald-700 font-bold uppercase tracking-widest shrink-0 bg-emerald-100/50 px-2 py-1 rounded">
+                  <h3 className="font-bold text-gray-700 text-lg leading-tight">{ann.title}</h3>
+                  <span className="text-[10px] text-gray-700 font-bold uppercase tracking-widest shrink-0 bg-emerald-100/50 px-2 py-1 rounded">
                     {new Date(ann.date).toLocaleDateString()}
                   </span>
                 </div>
-                <p className="text-sm text-slate-700 whitespace-pre-wrap flex-1">{ann.content}</p>
+                <p className="text-sm text-gray-700 whitespace-pre-wrap flex-1">{ann.content}</p>
                 <div className="mt-4 pt-3 border-t border-emerald-100 flex justify-between items-center text-xs text-slate-500 italic">
                   <span>Publié par: {ann.authorName}</span>
                 </div>
@@ -458,12 +458,12 @@ Le Parent ou Tuteur légal (Signature précédée de la mention « Lu et approuv
       {showAddForm && (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 animate-in fade-in slide-in-from-top-4">
           <div className="lg:col-span-2 bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
-            <h3 className="font-bold text-slate-800 mb-6 pb-2 border-b border-slate-100">{editingChildId ? "Modifier l'inscription" : "Nouvelle Inscription"}</h3>
+            <h3 className="font-bold text-gray-700 mb-6 pb-2 border-b border-slate-100">{editingChildId ? "Modifier l'inscription" : "Nouvelle Inscription"}</h3>
             <form onSubmit={handleSubmit} className="space-y-8">
             
             {/* Section 1: Informations de l'enfant */}
             <div>
-              <h4 className="text-sm font-bold text-slate-700 mb-4 uppercase tracking-widest border-l-4 border-emerald-500 pl-2">Informations de l'élève</h4>
+              <h4 className="text-sm font-bold text-gray-700 mb-4 uppercase tracking-widest border-l-4 border-emerald-500 pl-2">Informations de l'élève</h4>
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
                 <div className="lg:col-span-3 flex items-center gap-4">
                    <div 
@@ -473,47 +473,47 @@ Le Parent ou Tuteur légal (Signature précédée de la mention « Lu et approuv
                      {photo ? <img src={photo} className="w-full h-full object-cover" /> : <Camera className="w-6 h-6 text-slate-400" />}
                    </div>
                    <div>
-                      <p className="text-xs font-bold text-slate-700">Photo de l'enfant</p>
+                      <p className="text-xs font-bold text-gray-700">Photo de l'enfant</p>
                       <p className="text-[10px] text-slate-500">Cliquez pour ajouter</p>
                       <input type="file" accept="image/*" className="hidden" ref={fileInputRef} onChange={handlePhotoUpload} />
                    </div>
                 </div>
                 
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1 uppercase tracking-wide">Statut Élève</label>
+                  <label className="block text-xs font-semibold text-gray-700 mb-1 uppercase tracking-wide">Statut Élève</label>
                   <select value={studentType} onChange={e => setStudentType(e.target.value as any)} className="w-full px-3 py-2 border border-slate-300 rounded text-sm focus:ring-emerald-500 focus:border-emerald-500 outline-none">
                     <option value="NEW">Nouvel élève</option>
                     <option value="OLD">Ancien élève (Réinscription)</option>
                   </select>
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1 uppercase tracking-wide">Prénom</label>
+                  <label className="block text-xs font-semibold text-gray-700 mb-1 uppercase tracking-wide">Prénom</label>
                   <input required value={firstName} onChange={e => setFirstName(e.target.value)} type="text" className="w-full px-3 py-2 border border-slate-300 rounded text-sm focus:ring-emerald-500 focus:border-emerald-500 outline-none" />
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1 uppercase tracking-wide">Nom</label>
+                  <label className="block text-xs font-semibold text-gray-700 mb-1 uppercase tracking-wide">Nom</label>
                   <input required value={lastName} onChange={e => setLastName(e.target.value)} type="text" className="w-full px-3 py-2 border border-slate-300 rounded text-sm focus:ring-emerald-500 focus:border-emerald-500 outline-none" />
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1 uppercase tracking-wide">Sexe</label>
+                  <label className="block text-xs font-semibold text-gray-700 mb-1 uppercase tracking-wide">Sexe</label>
                   <select value={gender} onChange={e => setGender(e.target.value as any)} className="w-full px-3 py-2 border border-slate-300 rounded text-sm focus:ring-emerald-500 focus:border-emerald-500 outline-none">
                     <option value="MALE">Masculin</option>
                     <option value="FEMALE">Féminin</option>
                   </select>
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1 uppercase tracking-wide">Date de naissance</label>
+                  <label className="block text-xs font-semibold text-gray-700 mb-1 uppercase tracking-wide">Date de naissance</label>
                   <div className="relative">
                     <Calendar className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
                     <input required value={dateOfBirth} onChange={e => setDateOfBirth(e.target.value)} type="date" className="w-full pl-9 pr-3 py-2 border border-slate-300 rounded text-sm focus:ring-emerald-500 focus:border-emerald-500 outline-none" />
                   </div>
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1 uppercase tracking-wide">Lieu de naissance</label>
+                  <label className="block text-xs font-semibold text-gray-700 mb-1 uppercase tracking-wide">Lieu de naissance</label>
                   <input required value={placeOfBirth} onChange={e => setPlaceOfBirth(e.target.value)} type="text" className="w-full px-3 py-2 border border-slate-300 rounded text-sm focus:ring-emerald-500 focus:border-emerald-500 outline-none" />
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1 uppercase tracking-wide">Nationalité</label>
+                  <label className="block text-xs font-semibold text-gray-700 mb-1 uppercase tracking-wide">Nationalité</label>
                   <select required value={nationality} onChange={e => setNationality(e.target.value)} className="w-full px-3 py-2 border border-slate-300 rounded text-sm focus:ring-emerald-500 focus:border-emerald-500 outline-none">
                     <option value="Béninoise">Béninoise</option>
                     <option value="Togolaise">Togolaise</option>
@@ -523,7 +523,7 @@ Le Parent ou Tuteur légal (Signature précédée de la mention « Lu et approuv
                   </select>
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1 uppercase tracking-wide">Religion</label>
+                  <label className="block text-xs font-semibold text-gray-700 mb-1 uppercase tracking-wide">Religion</label>
                   <select required value={religion} onChange={e => setReligion(e.target.value)} className="w-full px-3 py-2 border border-slate-300 rounded text-sm focus:ring-emerald-500 focus:border-emerald-500 outline-none">
                     <option value="Christianisme">Christianisme</option>
                     <option value="Islam">Islam</option>
@@ -536,16 +536,16 @@ Le Parent ou Tuteur légal (Signature précédée de la mention « Lu et approuv
 
             {/* Section 2: Parcours scolaire */}
             <div>
-              <h4 className="text-sm font-bold text-slate-700 mb-4 uppercase tracking-widest border-l-4 border-emerald-500 pl-2">Parcours scolaire</h4>
+              <h4 className="text-sm font-bold text-gray-700 mb-4 uppercase tracking-widest border-l-4 border-emerald-500 pl-2">Parcours scolaire</h4>
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1 uppercase tracking-wide">Classe demandée</label>
+                  <label className="block text-xs font-semibold text-gray-700 mb-1 uppercase tracking-wide">Classe demandée</label>
                   <select value={level} onChange={e => setLevel(e.target.value)} className="w-full px-3 py-2 border border-slate-300 rounded text-sm focus:ring-emerald-500 focus:border-emerald-500 outline-none">
                     {LEVELS.map(l => <option key={l} value={l}>{l}</option>)}
                   </select>
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1 uppercase tracking-wide">Statut</label>
+                  <label className="block text-xs font-semibold text-gray-700 mb-1 uppercase tracking-wide">Statut</label>
                   <select value={status} onChange={e => setStatus(e.target.value as any)} className="w-full px-3 py-2 border border-slate-300 rounded text-sm focus:ring-emerald-500 focus:border-emerald-500 outline-none">
                     <option value="PASSING">Passant</option>
                     <option value="REPEATING">Redoublant</option>
@@ -553,20 +553,20 @@ Le Parent ou Tuteur légal (Signature précédée de la mention « Lu et approuv
                   </select>
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1 uppercase tracking-wide">N° EducMaster</label>
+                  <label className="block text-xs font-semibold text-gray-700 mb-1 uppercase tracking-wide">N° EducMaster</label>
                   <input value={educmasterNumber} onChange={e => setEducmasterNumber(e.target.value)} type="text" placeholder="Optionnel" className="w-full px-3 py-2 border border-slate-300 rounded text-sm focus:ring-emerald-500 focus:border-emerald-500 outline-none placeholder-slate-300" />
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1 uppercase tracking-wide">Dernière année fréquentée</label>
+                  <label className="block text-xs font-semibold text-gray-700 mb-1 uppercase tracking-wide">Dernière année fréquentée</label>
                   <input required placeholder="Ex: 2023 ou 2023-2024" value={lastYearAttended} onChange={e => setLastYearAttended(e.target.value)} type="text" className="w-full px-3 py-2 border border-slate-300 rounded text-sm focus:ring-emerald-500 focus:border-emerald-500 outline-none" />
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1 uppercase tracking-wide">Etablissement antérieur</label>
+                  <label className="block text-xs font-semibold text-gray-700 mb-1 uppercase tracking-wide">Etablissement antérieur</label>
                   <input required={studentType === 'NEW'} value={previousSchool} onChange={e => setPreviousSchool(e.target.value)} type="text" placeholder="Obligatoire si nouvel élève" className="w-full px-3 py-2 border border-slate-300 rounded text-sm focus:ring-emerald-500 focus:border-emerald-500 outline-none placeholder-slate-300" />
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1 uppercase tracking-wide">Classe antérieure</label>
-                  <select value={previousClass} onChange={e => setPreviousClass(e.target.value)} className="w-full px-3 py-2 border border-slate-300 rounded text-sm focus:ring-emerald-500 focus:border-emerald-500 outline-none text-slate-700">
+                  <label className="block text-xs font-semibold text-gray-700 mb-1 uppercase tracking-wide">Classe antérieure</label>
+                  <select value={previousClass} onChange={e => setPreviousClass(e.target.value)} className="w-full px-3 py-2 border border-slate-300 rounded text-sm focus:ring-emerald-500 focus:border-emerald-500 outline-none text-gray-700">
                     <option value="">Sélectionner ou Aucun</option>
                     {LEVELS.map(l => <option key={l} value={l}>{l}</option>)}
                   </select>
@@ -576,21 +576,21 @@ Le Parent ou Tuteur légal (Signature précédée de la mention « Lu et approuv
 
             {/* Section 3: Parents & Tuteurs */}
             <div>
-              <h4 className="text-sm font-bold text-slate-700 mb-4 uppercase tracking-widest border-l-4 border-emerald-500 pl-2">Parents / Tuteur</h4>
+              <h4 className="text-sm font-bold text-gray-700 mb-4 uppercase tracking-widest border-l-4 border-emerald-500 pl-2">Parents / Tuteur</h4>
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
                 {/* Père */}
                 <div className="space-y-3 bg-slate-50 p-4 rounded-xl border border-slate-100">
                   <h5 className="font-bold text-xs text-slate-500 uppercase">Informations du Père</h5>
                   <div>
-                    <label className="block text-[10px] font-bold text-slate-700 mb-1 uppercase tracking-wide">Nom & Prénoms</label>
+                    <label className="block text-[10px] font-bold text-gray-700 mb-1 uppercase tracking-wide">Nom & Prénoms</label>
                     <input required value={fatherName} onChange={e => setFatherName(e.target.value)} type="text" className="w-full px-3 py-1.5 border border-slate-300 rounded text-xs focus:ring-emerald-500 focus:border-emerald-500 outline-none" />
                   </div>
                   <div>
-                    <label className="block text-[10px] font-bold text-slate-700 mb-1 uppercase tracking-wide">Profession</label>
+                    <label className="block text-[10px] font-bold text-gray-700 mb-1 uppercase tracking-wide">Profession</label>
                     <input required value={fatherProfession} onChange={e => setFatherProfession(e.target.value)} type="text" className="w-full px-3 py-1.5 border border-slate-300 rounded text-xs focus:ring-emerald-500 focus:border-emerald-500 outline-none" />
                   </div>
                   <div>
-                    <label className="block text-[10px] font-bold text-slate-700 mb-1 uppercase tracking-wide">WhatsApp / Contact</label>
+                    <label className="block text-[10px] font-bold text-gray-700 mb-1 uppercase tracking-wide">WhatsApp / Contact</label>
                     <input required value={fatherContact} onChange={e => setFatherContact(e.target.value)} type="tel" className="w-full px-3 py-1.5 border border-slate-300 rounded text-xs focus:ring-emerald-500 focus:border-emerald-500 outline-none" />
                   </div>
                 </div>
@@ -599,15 +599,15 @@ Le Parent ou Tuteur légal (Signature précédée de la mention « Lu et approuv
                 <div className="space-y-3 bg-slate-50 p-4 rounded-xl border border-slate-100">
                   <h5 className="font-bold text-xs text-slate-500 uppercase">Informations de la Mère</h5>
                   <div>
-                    <label className="block text-[10px] font-bold text-slate-700 mb-1 uppercase tracking-wide">Nom & Prénoms</label>
+                    <label className="block text-[10px] font-bold text-gray-700 mb-1 uppercase tracking-wide">Nom & Prénoms</label>
                     <input required value={motherName} onChange={e => setMotherName(e.target.value)} type="text" className="w-full px-3 py-1.5 border border-slate-300 rounded text-xs focus:ring-emerald-500 focus:border-emerald-500 outline-none" />
                   </div>
                   <div>
-                    <label className="block text-[10px] font-bold text-slate-700 mb-1 uppercase tracking-wide">Profession</label>
+                    <label className="block text-[10px] font-bold text-gray-700 mb-1 uppercase tracking-wide">Profession</label>
                     <input required value={motherProfession} onChange={e => setMotherProfession(e.target.value)} type="text" className="w-full px-3 py-1.5 border border-slate-300 rounded text-xs focus:ring-emerald-500 focus:border-emerald-500 outline-none" />
                   </div>
                   <div>
-                    <label className="block text-[10px] font-bold text-slate-700 mb-1 uppercase tracking-wide">WhatsApp / Contact</label>
+                    <label className="block text-[10px] font-bold text-gray-700 mb-1 uppercase tracking-wide">WhatsApp / Contact</label>
                     <input required value={motherContact} onChange={e => setMotherContact(e.target.value)} type="tel" className="w-full px-3 py-1.5 border border-slate-300 rounded text-xs focus:ring-emerald-500 focus:border-emerald-500 outline-none" />
                   </div>
                 </div>
@@ -616,11 +616,11 @@ Le Parent ou Tuteur légal (Signature précédée de la mention « Lu et approuv
                 <div className="space-y-3 bg-slate-50 p-4 rounded-xl border border-slate-100">
                   <h5 className="font-bold text-xs text-slate-500 uppercase">Tuteur (Optionnel)</h5>
                   <div>
-                    <label className="block text-[10px] font-bold text-slate-700 mb-1 uppercase tracking-wide">Nom & Prénom du tuteur</label>
+                    <label className="block text-[10px] font-bold text-gray-700 mb-1 uppercase tracking-wide">Nom & Prénom du tuteur</label>
                     <input value={guardianName} onChange={e => setGuardianName(e.target.value)} type="text" placeholder="Si différent des parents" className="w-full px-3 py-1.5 border border-slate-300 rounded text-xs focus:ring-emerald-500 focus:border-emerald-500 outline-none placeholder-slate-300" />
                   </div>
                   <div>
-                    <label className="block text-[10px] font-bold text-slate-700 mb-1 uppercase tracking-wide">WhatsApp / Contact du tuteur</label>
+                    <label className="block text-[10px] font-bold text-gray-700 mb-1 uppercase tracking-wide">WhatsApp / Contact du tuteur</label>
                     <input value={guardianContact} onChange={e => setGuardianContact(e.target.value)} type="tel" placeholder="Si différent des parents" className="w-full px-3 py-1.5 border border-slate-300 rounded text-xs focus:ring-emerald-500 focus:border-emerald-500 outline-none placeholder-slate-300" />
                   </div>
                 </div>
@@ -630,7 +630,7 @@ Le Parent ou Tuteur légal (Signature précédée de la mention « Lu et approuv
             {/* Options */}
             {isPrimarySchool(level) && (
               <div className="bg-emerald-50 p-5 rounded-xl border border-emerald-100">
-                <h4 className="text-sm font-bold text-emerald-800 mb-3 uppercase tracking-widest border-l-4 border-emerald-500 pl-2">Services optionnels (Cantine)</h4>
+                <h4 className="text-sm font-bold text-gray-700 mb-3 uppercase tracking-widest border-l-4 border-emerald-500 pl-2">Services optionnels (Cantine)</h4>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   {[
                     "Garde surveillée (200F / jour)",
@@ -648,7 +648,7 @@ Le Parent ou Tuteur légal (Signature précédée de la mention « Lu et approuv
                         }} 
                         className="w-4 h-4 text-emerald-600 border-slate-300 rounded focus:ring-emerald-500"
                       />
-                      <span className="text-sm font-bold text-slate-700">{opt}</span>
+                      <span className="text-sm font-bold text-gray-700">{opt}</span>
                     </label>
                   ))}
                 </div>
@@ -657,7 +657,7 @@ Le Parent ou Tuteur légal (Signature précédée de la mention « Lu et approuv
             
             {/* Section 4: Engagement Disciplinaire */}
             <div>
-              <h4 className="text-sm font-bold text-slate-700 mb-4 uppercase tracking-widest border-l-4 border-emerald-500 pl-2">Engagement Disciplinaire</h4>
+              <h4 className="text-sm font-bold text-gray-700 mb-4 uppercase tracking-widest border-l-4 border-emerald-500 pl-2">Engagement Disciplinaire</h4>
               <div className="bg-slate-50 p-5 rounded-xl border border-slate-200">
                 <p className="text-sm text-slate-600 mb-4">
                   En inscrivant votre enfant, vous vous engagez à ce qu'il/elle respecte le règlement intérieur de l'établissement.
@@ -666,7 +666,7 @@ Le Parent ou Tuteur légal (Signature précédée de la mention « Lu et approuv
                   <button 
                     type="button" 
                     onClick={() => setShowCommitmentModal(true)}
-                    className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-300 rounded text-xs font-bold text-slate-700 hover:bg-slate-50 transition-colors"
+                    className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-300 rounded text-xs font-bold text-gray-700 hover:bg-slate-50 transition-colors"
                   >
                     <FileText size={16} />
                     Lire & Télécharger la Fiche d'Engagement
@@ -681,14 +681,14 @@ Le Parent ou Tuteur légal (Signature précédée de la mention « Lu et approuv
                       onChange={e => setDisciplinaryCommitment(e.target.checked)}
                       className="w-4 h-4 text-emerald-600 border-slate-300 rounded focus:ring-emerald-500"
                     />
-                    <span className="text-sm font-bold text-slate-800">
+                    <span className="text-sm font-bold text-gray-700">
                       Je reconnais avoir lu et j'accepte sans réserve les termes de l'engagement disciplinaire.
                     </span>
                   </label>
                   
                   {disciplinaryCommitment && (
                     <div className="mt-4">
-                      <label className="block text-[10px] font-bold text-slate-700 mb-1 uppercase tracking-wide">Signature (Écrivez votre nom complet précédé de "Lu et approuvé")</label>
+                      <label className="block text-[10px] font-bold text-gray-700 mb-1 uppercase tracking-wide">Signature (Écrivez votre nom complet précédé de "Lu et approuvé")</label>
                       <input 
                         required 
                         value={disciplinarySignature} 
@@ -727,7 +727,7 @@ Le Parent ou Tuteur légal (Signature précédée de la mention « Lu et approuv
           <div className="w-12 h-12 bg-slate-100 text-slate-400 rounded flex items-center justify-center mx-auto mb-3">
             <UserIcon className="w-6 h-6" />
           </div>
-          <h3 className="font-bold text-slate-800">Aucun enfant inscrit</h3>
+          <h3 className="font-bold text-gray-700">Aucun enfant inscrit</h3>
           <p className="mt-1 text-xs text-slate-500">Commencez par inscrire votre enfant à la plateforme.</p>
         </div>
       ) : (
@@ -740,7 +740,7 @@ Le Parent ou Tuteur légal (Signature précédée de la mention « Lu et approuv
              return (
               <div key={child.id} className="bg-white rounded-xl border border-slate-200 shadow-sm flex flex-col">
                 <div className="p-5 flex items-start gap-4">
-                  <div className="w-12 h-12 bg-emerald-100 text-emerald-700 rounded-full flex items-center justify-center font-bold shrink-0 overflow-hidden">
+                  <div className="w-12 h-12 bg-emerald-100 text-gray-700 rounded-full flex items-center justify-center font-bold shrink-0 overflow-hidden">
                     {child.photo ? (
                        <img src={child.photo} alt={child.firstName} className="w-full h-full object-cover" />
                     ) : (
@@ -748,7 +748,7 @@ Le Parent ou Tuteur légal (Signature précédée de la mention « Lu et approuv
                     )}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <h3 className="font-bold text-slate-900 truncate">{child.firstName} {child.lastName}</h3>
+                    <h3 className="font-bold text-gray-700 truncate">{child.firstName} {child.lastName}</h3>
                     <div className="text-xs font-medium text-slate-500 mt-0.5 flex gap-2">
                        <span>{child.level}</span>
                        {child.dateOfBirth && <span className="text-slate-300">•</span>}
@@ -771,7 +771,7 @@ Le Parent ou Tuteur légal (Signature précédée de la mention « Lu et approuv
                    <div className="bg-slate-50 rounded border border-slate-100 p-3">
                      <div className="flex justify-between items-center mb-3">
                        <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Total Payé</span>
-                       <span className="font-bold text-slate-900">{totalPaid.toLocaleString()} FCFA</span>
+                       <span className="font-bold text-gray-700">{totalPaid.toLocaleString()} FCFA</span>
                      </div>
                      
                      <div className="space-y-2">
@@ -779,7 +779,7 @@ Le Parent ou Tuteur légal (Signature précédée de la mention « Lu et approuv
                          recentPayments.map(p => (
                             <div key={p.id} className="flex justify-between text-xs items-center">
                               <span className="text-slate-500 flex items-center gap-1.5"><History size={12}/> {new Date(p.date).toLocaleDateString()}</span>
-                              <span className="font-semibold text-slate-700">{p.amount.toLocaleString()} F</span>
+                              <span className="font-semibold text-gray-700">{p.amount.toLocaleString()} F</span>
                             </div>
                          ))
                        ) : (
@@ -802,10 +802,10 @@ Le Parent ou Tuteur légal (Signature précédée de la mention « Lu et approuv
                     </button>
                   </div>
                   <div className="flex items-center gap-4">
-                    <Link to={`/parent/payments`} className="text-xs font-bold text-slate-500 hover:text-slate-800 uppercase tracking-wider">
+                    <Link to={`/parent/payments`} className="text-xs font-bold text-slate-500 hover:text-gray-700 uppercase tracking-wider">
                        Historique
                     </Link>
-                    <Link to="/parent/payments" className="text-xs font-bold text-emerald-600 hover:text-emerald-700 inline-flex items-center gap-1 uppercase tracking-wider">
+                    <Link to="/parent/payments" className="text-xs font-bold text-emerald-600 hover:text-gray-700 inline-flex items-center gap-1 uppercase tracking-wider">
                       Payer <CreditCard size={14} />
                     </Link>
                   </div>
@@ -821,7 +821,7 @@ Le Parent ou Tuteur légal (Signature précédée de la mention « Lu et approuv
           <div className="bg-white rounded-xl shadow-xl border border-slate-200 w-full max-w-2xl max-h-[90vh] flex flex-col animate-in zoom-in-95 fade-in">
             <div className="p-4 border-b border-slate-100 flex items-center justify-between bg-slate-50 rounded-t-xl shrink-0">
                <div>
-                 <h3 className="text-lg font-bold text-slate-900">Emploi du temps</h3>
+                 <h3 className="text-lg font-bold text-gray-700">Emploi du temps</h3>
                  <p className="text-xs text-slate-500 uppercase tracking-widest mt-0.5">{selectedChildForTimetable.firstName} {selectedChildForTimetable.lastName} • {selectedChildForTimetable.level}</p>
                </div>
                <button onClick={() => setSelectedChildForTimetable(null)} className="p-2 text-slate-400 hover:text-slate-600 rounded hover:bg-slate-200 transition-colors">
@@ -832,7 +832,7 @@ Le Parent ou Tuteur légal (Signature précédée de la mention « Lu et approuv
                <div className="space-y-4">
                   {Object.entries(MOCK_TIMETABLE).map(([day, slots]) => (
                     <div key={day} className="border border-slate-200 rounded-lg overflow-hidden">
-                       <div className="bg-slate-100 px-4 py-2 font-bold text-slate-700 text-xs uppercase tracking-widest border-b border-slate-200">
+                       <div className="bg-slate-100 px-4 py-2 font-bold text-gray-700 text-xs uppercase tracking-widest border-b border-slate-200">
                          {day}
                        </div>
                        <div className="divide-y divide-slate-100">
@@ -842,7 +842,7 @@ Le Parent ou Tuteur légal (Signature précédée de la mention « Lu et approuv
                                 {slot.time}
                               </div>
                               <div className="flex-1">
-                                <div className="font-bold text-slate-800 text-sm">{slot.subject}</div>
+                                <div className="font-bold text-gray-700 text-sm">{slot.subject}</div>
                                 <div className="text-xs text-slate-500">{slot.teacher}</div>
                               </div>
                            </div>
@@ -878,14 +878,14 @@ Le Parent ou Tuteur légal (Signature précédée de la mention « Lu et approuv
                      <img src={settings.logo} alt="Logo" className="w-20 h-20 object-contain rounded" />
                    )}
                    <div>
-                     <h2 className="text-xl font-bold text-slate-900 uppercase tracking-wide">{settings.name}</h2>
+                     <h2 className="text-xl font-bold text-gray-700 uppercase tracking-wide">{settings.name}</h2>
                      <p className="text-sm text-slate-600 mt-1">{settings.address}</p>
                      <p className="text-sm text-slate-600">{settings.contact}</p>
                    </div>
                  </div>
                </div>
 
-               <div className="whitespace-pre-wrap text-sm text-slate-800 leading-relaxed">
+               <div className="whitespace-pre-wrap text-sm text-gray-700 leading-relaxed">
                  {renderContract()}
                </div>
             </div>
@@ -915,15 +915,15 @@ Le Parent ou Tuteur légal (Signature précédée de la mention « Lu et approuv
                      <img src={settings.logo} alt="Logo" className="w-20 h-20 object-contain rounded" />
                    )}
                    <div>
-                     <h2 className="text-xl font-bold text-slate-900 uppercase tracking-wide">{settings.name}</h2>
+                     <h2 className="text-xl font-bold text-gray-700 uppercase tracking-wide">{settings.name}</h2>
                      <p className="text-sm text-slate-600 mt-1">{settings.address}</p>
                      <p className="text-sm text-slate-600">{settings.contact}</p>
                      <p className="text-xs font-semibold text-slate-500 italic mt-1">{settings.motto}</p>
                    </div>
                  </div>
                  <div className="text-right">
-                   <h1 className="text-2xl font-black text-slate-900 uppercase tracking-widest mb-1">Bulletin</h1>
-                   <p className="text-sm font-bold text-slate-700 uppercase">1er Trimestre</p>
+                   <h1 className="text-2xl font-black text-gray-700 uppercase tracking-widest mb-1">Bulletin</h1>
+                   <p className="text-sm font-bold text-gray-700 uppercase">1er Trimestre</p>
                    <p className="text-xs text-slate-500">Année : {settings.academicYear}</p>
                  </div>
                </div>
@@ -932,15 +932,15 @@ Le Parent ou Tuteur légal (Signature précédée de la mention « Lu et approuv
                <div className="bg-slate-50 border border-slate-200 p-4 rounded-lg mb-8 flex flex-wrap gap-x-12 gap-y-4">
                  <div>
                    <span className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider">Nom & Prénoms</span>
-                   <span className="font-bold text-sm text-slate-900">{selectedChildForBulletin.lastName} {selectedChildForBulletin.firstName}</span>
+                   <span className="font-bold text-sm text-gray-700">{selectedChildForBulletin.lastName} {selectedChildForBulletin.firstName}</span>
                  </div>
                  <div>
                    <span className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider">Classe</span>
-                   <span className="font-bold text-sm text-slate-900">{selectedChildForBulletin.level}</span>
+                   <span className="font-bold text-sm text-gray-700">{selectedChildForBulletin.level}</span>
                  </div>
                  <div>
                    <span className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider">Sexe</span>
-                   <span className="font-bold text-sm text-slate-900">{selectedChildForBulletin.gender === 'MALE' ? 'M' : 'F'}</span>
+                   <span className="font-bold text-sm text-gray-700">{selectedChildForBulletin.gender === 'MALE' ? 'M' : 'F'}</span>
                  </div>
                </div>
 
@@ -958,12 +958,12 @@ Le Parent ou Tuteur légal (Signature précédée de la mention « Lu et approuv
                  <tbody>
                    {MOCK_GRADES.map((grade, idx) => (
                      <tr key={idx} className="text-sm">
-                       <td className="p-3 border border-slate-300 font-bold text-slate-800">{grade.subject}</td>
+                       <td className="p-3 border border-slate-300 font-bold text-gray-700">{grade.subject}</td>
                        <td className="p-3 border border-slate-300 text-center font-mono">{grade.coefficient}</td>
-                       <td className={`p-3 border border-slate-300 text-center font-mono font-bold ${grade.score < 10 ? 'text-red-600' : 'text-emerald-700'}`}>
+                       <td className={`p-3 border border-slate-300 text-center font-mono font-bold ${grade.score < 10 ? 'text-red-600' : 'text-gray-700'}`}>
                          {grade.score.toFixed(2)}
                        </td>
-                       <td className="p-3 border border-slate-300 text-slate-700">{grade.appreciation}</td>
+                       <td className="p-3 border border-slate-300 text-gray-700">{grade.appreciation}</td>
                        <td className="p-3 border border-slate-300 text-slate-600 text-xs">{grade.teacher}</td>
                      </tr>
                    ))}
@@ -972,10 +972,10 @@ Le Parent ou Tuteur légal (Signature précédée de la mention « Lu et approuv
                      <td className="p-3 text-center border-t-2 border-slate-800 font-mono">
                        {MOCK_GRADES.reduce((sum, g) => sum + g.coefficient, 0)}
                      </td>
-                     <td className="p-3 text-center border-t-2 border-slate-800 font-mono text-lg text-slate-900">
+                     <td className="p-3 text-center border-t-2 border-slate-800 font-mono text-lg text-gray-700">
                        {(MOCK_GRADES.reduce((sum, g) => sum + (g.score * g.coefficient), 0) / MOCK_GRADES.reduce((sum, g) => sum + g.coefficient, 0)).toFixed(2)}
                      </td>
-                     <td colSpan={2} className="p-3 border-t-2 border-slate-800 text-emerald-700 text-sm italic">
+                     <td colSpan={2} className="p-3 border-t-2 border-slate-800 text-gray-700 text-sm italic">
                        Félicitations, bon trimestre dans l'ensemble.
                      </td>
                    </tr>
@@ -1002,7 +1002,7 @@ Le Parent ou Tuteur légal (Signature précédée de la mention « Lu et approuv
           <div className="bg-white rounded-xl shadow-xl border border-slate-200 w-full max-w-2xl max-h-[90vh] flex flex-col animate-in zoom-in-95 fade-in overflow-hidden">
             <div className="p-4 border-b border-slate-100 flex items-center justify-between bg-slate-50 shrink-0">
                <div>
-                 <h3 className="text-lg font-bold text-slate-900">Absences & Retards</h3>
+                 <h3 className="text-lg font-bold text-gray-700">Absences & Retards</h3>
                  <p className="text-xs text-slate-500 uppercase tracking-widest mt-0.5">{selectedChildForAttendance.firstName} {selectedChildForAttendance.lastName} • {selectedChildForAttendance.level}</p>
                </div>
                <button onClick={() => setSelectedChildForAttendance(null)} className="p-2 text-slate-400 hover:text-slate-600 rounded hover:bg-slate-200 transition-colors">
@@ -1012,7 +1012,7 @@ Le Parent ou Tuteur légal (Signature précédée de la mention « Lu et approuv
             
             <div className="p-6 overflow-y-auto flex-1 bg-white">
                {/* Absences et Retards */}
-               <h4 className="text-sm font-bold text-slate-800 mb-3 uppercase tracking-widest">Dossier de Présence</h4>
+               <h4 className="text-sm font-bold text-gray-700 mb-3 uppercase tracking-widest">Dossier de Présence</h4>
                <div className="space-y-3 mb-8">
                  {db.getAttendance({ studentId: selectedChildForAttendance.id }).length === 0 ? (
                     <div className="text-xs text-slate-500 bg-slate-50 p-4 rounded text-center border border-slate-100 italic">
@@ -1026,7 +1026,7 @@ Le Parent ou Tuteur légal (Signature précédée de la mention « Lu et approuv
                                <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded uppercase tracking-wider ${record.type === 'ABSENCE' ? 'bg-red-50 text-red-600 border border-red-100' : 'bg-orange-50 text-orange-600 border border-orange-100'}`}>
                                  {record.type === 'ABSENCE' ? 'Absence' : 'Retard'}
                                </span>
-                               <span className="text-sm font-medium text-slate-900">{new Date(record.date).toLocaleDateString()}</span>
+                               <span className="text-sm font-medium text-gray-700">{new Date(record.date).toLocaleDateString()}</span>
                             </div>
                             {record.reason && <p className="text-xs text-slate-500 mt-1">{record.reason}</p>}
                           </div>
@@ -1041,7 +1041,7 @@ Le Parent ou Tuteur légal (Signature précédée de la mention « Lu et approuv
                </div>
 
                {/* Formulaire de demande spéciale */}
-               <h4 className="text-sm font-bold text-slate-800 mb-3 uppercase tracking-widest">Signaler / Demande Spéciale</h4>
+               <h4 className="text-sm font-bold text-gray-700 mb-3 uppercase tracking-widest">Signaler / Demande Spéciale</h4>
                <form 
                   onSubmit={async (e) => {
                      e.preventDefault();
@@ -1083,10 +1083,10 @@ Le Parent ou Tuteur légal (Signature précédée de la mention « Lu et approuv
                   }}
                   className="bg-emerald-50 border border-emerald-100 p-4 rounded-xl space-y-4"
                >
-                  <p className="text-xs text-emerald-800 mb-2">Utilisez ce formulaire pour signaler une absence prévue, un retard, ou déposer une justification médicale.</p>
+                  <p className="text-xs text-gray-700 mb-2">Utilisez ce formulaire pour signaler une absence prévue, un retard, ou déposer une justification médicale.</p>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                      <div>
-                       <label className="block text-[10px] font-bold text-slate-700 mb-1 uppercase tracking-wide">Type</label>
+                       <label className="block text-[10px] font-bold text-gray-700 mb-1 uppercase tracking-wide">Type</label>
                        <select value={requestType} onChange={e => setRequestType(e.target.value as any)} className="w-full px-3 py-2 border border-slate-300 rounded text-sm focus:ring-emerald-500 focus:border-emerald-500 outline-none">
                          <option value="ABSENCE">Absence</option>
                          <option value="DELAY">Retard</option>
@@ -1094,12 +1094,12 @@ Le Parent ou Tuteur légal (Signature précédée de la mention « Lu et approuv
                        </select>
                      </div>
                      <div>
-                       <label className="block text-[10px] font-bold text-slate-700 mb-1 uppercase tracking-wide">Date concernée</label>
+                       <label className="block text-[10px] font-bold text-gray-700 mb-1 uppercase tracking-wide">Date concernée</label>
                        <input required type="date" value={requestDate} onChange={e => setRequestDate(e.target.value)} className="w-full px-3 py-2 border border-slate-300 rounded text-sm focus:ring-emerald-500 focus:border-emerald-500 outline-none" />
                      </div>
                   </div>
                   <div>
-                    <label className="block text-[10px] font-bold text-slate-700 mb-1 uppercase tracking-wide">Motif / Justification</label>
+                    <label className="block text-[10px] font-bold text-gray-700 mb-1 uppercase tracking-wide">Motif / Justification</label>
                     <textarea required rows={3} value={requestReason} onChange={e => setRequestReason(e.target.value)} placeholder="Ex: Rendez-vous médical..." className="w-full px-3 py-2 border border-slate-300 rounded text-sm focus:ring-emerald-500 focus:border-emerald-500 outline-none resize-none"></textarea>
                   </div>
                   <button type="submit" className="w-full px-4 py-2 bg-emerald-600 text-white rounded text-sm font-bold uppercase tracking-wider hover:bg-emerald-700 transition-colors">
@@ -1115,7 +1115,7 @@ Le Parent ou Tuteur légal (Signature précédée de la mention « Lu et approuv
                        {db.getSpecialRequests({ studentId: selectedChildForAttendance.id }).map(req => (
                          <div key={req.id} className="text-xs flex justify-between items-center border border-slate-200 bg-white p-2 rounded">
                            <div>
-                              <span className="font-bold text-slate-700">{req.type === 'ABSENCE' ? 'Absence' : req.type === 'DELAY' ? 'Retard' : 'Autre'}</span>
+                              <span className="font-bold text-gray-700">{req.type === 'ABSENCE' ? 'Absence' : req.type === 'DELAY' ? 'Retard' : 'Autre'}</span>
                               <span className="text-slate-500 ml-2">Pour le {new Date(req.date).toLocaleDateString()}</span>
                               <span className={`ml-3 font-bold uppercase tracking-widest text-[10px] ${req.status === 'APPROVED' ? 'text-emerald-600' : req.status === 'REJECTED' ? 'text-red-500' : 'text-orange-500'}`}>
                                  {req.status === 'PENDING' ? 'En cours' : req.status === 'APPROVED' ? 'Approuvé' : 'Refusé'}

@@ -2,12 +2,13 @@ import React, { useState } from "react";
 import { useAuth } from "../lib/auth";
 import { useNavigate } from "react-router-dom";
 import { EduBeninLogo } from "../components/Logo";
-import { Facebook, Globe, Smartphone } from "lucide-react";
+import { Facebook, Globe, Smartphone, X } from "lucide-react";
 
 export function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [fullName, setFullName] = useState("");
+  const [showRoleModal, setShowRoleModal] = useState(false);
   const { user, login, loginWithGoogle } = useAuth();
   const navigate = useNavigate();
   const [error, setError] = useState("");
@@ -22,7 +23,12 @@ export function LoginPage() {
     e.preventDefault();
     if (!email) return;
     
-    login(email, fullName, password);
+    // Instead of logging in directly, show the role selection modal
+    setShowRoleModal(true);
+  };
+
+  const handleRoleSelection = (role: string) => {
+    login(email, fullName, password, role);
     navigate("/dashboard");
   };
 
@@ -65,13 +71,13 @@ export function LoginPage() {
                 <span className="text-sm font-bold tracking-wide">EDU-BENIN</span>
               </a>
               <a href="#" className="flex items-center gap-3 px-4 py-2.5 bg-slate-50 hover:bg-emerald-50 border border-slate-200 hover:border-emerald-200 rounded-xl text-gray-700 hover:text-gray-700 transition-all shadow-sm group">
-                <div className="flex items-center justify-center w-8 h-8 rounded-full bg-emerald-100 group-hover:bg-emerald-200 transition-colors">
+                <div className="flex items-center justify-center w-8 h-8 rounded-full bg-emerald-100 group-hover:bg-emerald-200 transition-colors border border-[#05843a]">
                   <Facebook className="w-4 h-4 text-gray-700 group-hover:text-gray-700" />
                 </div>
                 <span className="text-sm font-bold tracking-wide">EDU-BENIN</span>
               </a>
               <a href="https://edubenin.coursmooc.com" target="_blank" rel="noopener noreferrer" className="flex items-center gap-3 px-4 py-2.5 bg-slate-50 hover:bg-emerald-50 border border-slate-200 hover:border-emerald-200 rounded-xl text-gray-700 hover:text-gray-700 transition-all shadow-sm group">
-                <div className="flex items-center justify-center w-8 h-8 rounded-full bg-emerald-100 group-hover:bg-emerald-200 transition-colors">
+                <div className="flex items-center justify-center w-8 h-8 rounded-full bg-emerald-100 group-hover:bg-emerald-200 transition-colors border border-[#05843a]">
                   <Globe className="w-4 h-4 text-gray-700 group-hover:text-gray-700" />
                 </div>
                 <span className="text-sm font-bold tracking-wide">edubenin.coursmooc.com</span>
@@ -233,7 +239,7 @@ export function LoginPage() {
                         <p className="text-sm font-bold text-gray-700 group-hover:text-gray-700 transition-colors">{u.title}</p>
                         <p className="text-xs text-slate-500 mt-0.5">{u.desc}</p>
                       </div>
-                      <span className="text-[10px] text-gray-700 bg-emerald-100 px-2 py-1 rounded-full font-bold uppercase tracking-wider">Auto</span>
+                      <span className="text-[10px] text-gray-700 bg-emerald-100 px-2 py-1 rounded-full font-bold uppercase tracking-wider border border-[#05843a]">TEST</span>
                     </button>
                   ))}
                 </div>
@@ -243,6 +249,51 @@ export function LoginPage() {
           </div>
         </div>
       </div>
+
+      {/* Role Selection Modal */}
+      {showRoleModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden relative animate-in fade-in zoom-in duration-200">
+            <button 
+              onClick={() => setShowRoleModal(false)}
+              className="absolute top-4 right-4 text-slate-400 hover:text-slate-600 transition-colors"
+            >
+              <X className="w-5 h-5" />
+            </button>
+            
+            <div className="p-6 sm:p-8">
+              <div className="text-center mb-8">
+                <h3 className="text-2xl font-bold text-gray-700 tracking-tight">Choisissez votre profil</h3>
+                <p className="text-sm text-slate-500 mt-2">Sélectionnez le type de compte pour accéder à votre espace.</p>
+              </div>
+
+              <div className="space-y-3">
+                {[
+                  { id: "SUPER_ADMIN", title: "Super Admin", desc: "Configuration des établissements" },
+                  { id: "SCHOOL_ADMIN", title: "Administration", desc: "Gestion des élèves et paiements" },
+                  { id: "SECRETARY", title: "Secrétaire", desc: "Saisie et encaissements" },
+                  { id: "PARENT", title: "Parent d'élève", desc: "Inscriptions et suivi" },
+                  { id: "TEACHER", title: "Professeur", desc: "Notes et classes" },
+                ].map((role) => (
+                  <button
+                    key={role.id}
+                    onClick={() => handleRoleSelection(role.id)}
+                    className="w-full flex items-center justify-between p-4 border border-slate-200 rounded-xl hover:bg-slate-50 hover:border-emerald-300 transition-all text-left group"
+                  >
+                    <div>
+                      <h4 className="text-sm font-bold text-gray-700 group-hover:text-emerald-700">{role.title}</h4>
+                      <p className="text-xs text-slate-500 mt-1">{role.desc}</p>
+                    </div>
+                    <div className="w-8 h-8 rounded-full bg-slate-100 group-hover:bg-emerald-100 flex items-center justify-center transition-colors">
+                      <span className="text-emerald-600 font-bold">→</span>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

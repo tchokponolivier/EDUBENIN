@@ -5,7 +5,7 @@ import { supabase } from "./supabase";
 interface AuthContextType {
   user: User | null;
   isLoading: boolean;
-  login: (email: string, fullName?: string, password?: string) => void; // Keeps mock support
+  login: (email: string, fullName?: string, password?: string, role?: string) => void; // Keeps mock support
   loginWithGoogle: () => Promise<void>;
   logout: () => Promise<void>;
 }
@@ -112,18 +112,20 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     }
   };
 
-  const login = (email: string, fullName?: string, password?: string) => {
+  const login = (email: string, fullName?: string, password?: string, role?: string) => {
     const foundUser = MOCK_USERS[email];
     if (foundUser) {
-      setUser(foundUser);
-      localStorage.setItem("edubenin_auth", JSON.stringify(foundUser));
+      // If a role is explicitly requested, we can update the mock user's role
+      const userToSet = role ? { ...foundUser, role: role as any } : foundUser;
+      setUser(userToSet);
+      localStorage.setItem("edubenin_auth", JSON.stringify(userToSet));
     } else {
       // Auto-create a mock user if not found just to not block testing
       const newUser: User = {
         id: `user_${Date.now()}`,
         email,
         name: fullName || email.split("@")[0],
-        role: "PARENT"
+        role: (role as any) || "PARENT"
       };
       setUser(newUser);
       localStorage.setItem("edubenin_auth", JSON.stringify(newUser));

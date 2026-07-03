@@ -83,7 +83,7 @@ export function SchoolAdminDashboard() {
           <h1 className="text-xl font-bold text-gray-700">Administration Ecole</h1>
           <p className="text-xs text-slate-500 mt-1">Supervisez l'évolution des inscriptions et paramètres</p>
         </div>
-        <div className="flex p-1 bg-slate-100 rounded-lg shrink-0">
+        <div className="flex p-1 bg-slate-100 rounded-lg shrink-0 overflow-x-auto max-w-full">
           <button 
             onClick={() => setActiveTab("DASHBOARD")} 
             className={`px-4 py-2 rounded text-xs font-bold uppercase tracking-wider transition-colors ${activeTab === "DASHBOARD" ? "bg-white shadow-sm text-gray-700" : "text-slate-500 hover:text-gray-700"}`}
@@ -108,7 +108,7 @@ export function SchoolAdminDashboard() {
       {activeTab === "DASHBOARD" && (
         <>
           {/* Stat Cards - Dense Grid */}
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-6 shrink-0">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 shrink-0">
             <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
               <div className="text-slate-500 text-xs font-medium uppercase mb-2">Élèves Inscrits</div>
               <div className="text-3xl font-bold text-gray-700">{students.length}</div>
@@ -133,7 +133,7 @@ export function SchoolAdminDashboard() {
 
           {/* Recents Students Table */}
           <div className="bg-white rounded-xl border border-slate-200 shadow-sm">
-            <div className="p-4 border-b border-slate-100 flex items-center justify-between">
+            <div className="p-4 border-b border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-4">
               <h3 className="font-bold text-gray-700">Inscriptions Récentes</h3>
               <div className="relative">
                  <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
@@ -144,7 +144,7 @@ export function SchoolAdminDashboard() {
                  />
               </div>
             </div>
-            <div className="overflow-x-auto overflow-hidden">
+            <div className="overflow-x-auto">
               <table className="w-full text-left border-collapse">
                 <thead className="bg-slate-50 text-[10px] uppercase text-slate-500 font-bold">
                   <tr className="border-b border-slate-100">

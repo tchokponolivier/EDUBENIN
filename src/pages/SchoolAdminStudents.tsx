@@ -149,7 +149,7 @@ export function SchoolAdminStudents() {
       </div>
 
       {!selectedClass ? (
-         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
             {getClassesToDisplay().map((c) => (
               <div 
                  key={c.level} 
@@ -171,7 +171,7 @@ export function SchoolAdminStudents() {
          </div>
       ) : (
         <div className="bg-white rounded-xl border border-slate-200 shadow-sm">
-           <div className="p-4 border-b border-slate-100 flex items-center justify-between gap-4 flex-wrap">
+           <div className="p-4 border-b border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-4 gap-4 flex-wrap">
              <div className="flex items-center gap-3">
                <button onClick={() => setSelectedClass(null)} className="p-2 hover:bg-slate-100 rounded-lg text-slate-500 hover:text-gray-700 transition-colors" title="Retour aux classes">
                  <ArrowLeft size={18} />
@@ -192,7 +192,7 @@ export function SchoolAdminStudents() {
                />
              </div>
            </div>
-           <div className="overflow-x-auto overflow-hidden text-sm">
+           <div className="overflow-x-auto text-sm">
            <table className="w-full text-left border-collapse">
              <thead className="bg-slate-50 text-[10px] uppercase text-slate-500 font-bold">
                <tr className="border-b border-slate-100">
@@ -314,7 +314,7 @@ export function SchoolAdminStudents() {
       {showExportModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
           <div className="bg-white rounded-xl shadow-xl w-full max-w-md animate-in zoom-in-95">
-            <div className="p-4 border-b border-slate-100 flex items-center justify-between">
+            <div className="p-4 border-b border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-4">
                 <div>
                    <h3 className="font-bold text-lg text-gray-700">Exporter les Données</h3>
                    <p className="text-xs text-slate-500">Configurez l'export CSV</p>

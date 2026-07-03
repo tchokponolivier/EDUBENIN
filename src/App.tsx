@@ -41,6 +41,7 @@ function RoleRouter() {
     case 'SUPER_ADMIN': return <Navigate to="/super-admin" replace />;
     case 'SCHOOL_ADMIN': return <Navigate to="/school-admin" replace />;
     case 'SECRETARY': return <Navigate to="/school-admin/students" replace />;
+    case 'CASHIER': return <Navigate to="/school-admin/payments" replace />;
     case 'PARENT': return <Navigate to="/parent" replace />;
     case 'TEACHER': return <Navigate to="/teacher" replace />;
     default: return <Navigate to="/" replace />;
@@ -64,7 +65,7 @@ export default function App() {
           
           <Route path="/super-admin/*" element={<ProtectedRoute allowedRoles={['SUPER_ADMIN']}><SuperAdminDashboard /></ProtectedRoute>} />
           <Route path="/school-admin" element={<ProtectedRoute allowedRoles={['SCHOOL_ADMIN']}><SchoolAdminDashboard /></ProtectedRoute>} />
-          <Route path="/school-admin/payments" element={<ProtectedRoute allowedRoles={['SCHOOL_ADMIN', 'SECRETARY']}><SchoolAdminPayments /></ProtectedRoute>} />
+          <Route path="/school-admin/payments" element={<ProtectedRoute allowedRoles={['SCHOOL_ADMIN', 'CASHIER']}><SchoolAdminPayments /></ProtectedRoute>} />
           <Route path="/school-admin/students" element={<ProtectedRoute allowedRoles={['SCHOOL_ADMIN', 'SECRETARY']}><SchoolAdminStudents /></ProtectedRoute>} />
           <Route path="/school-admin/stats" element={<ProtectedRoute allowedRoles={['SCHOOL_ADMIN']}><SchoolAdminStats /></ProtectedRoute>} />
           

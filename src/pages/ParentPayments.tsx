@@ -704,7 +704,7 @@ export function ParentPayments() {
       {showReceiptModal && settings && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
           <div className="bg-white rounded-xl shadow-xl border border-slate-200 w-full max-w-2xl max-h-[90vh] flex flex-col animate-in zoom-in-95 fade-in overflow-hidden">
-            <div className="p-4 border-b border-slate-100 flex items-center justify-between bg-slate-50 shrink-0">
+            <div className="p-4 border-b border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-4 bg-slate-50 shrink-0">
                <div className="flex items-center gap-3">
                  <button onClick={() => handleDownloadPDF(showReceiptModal)} className="flex items-center gap-2 px-3 py-1.5 bg-slate-800 text-white text-xs font-bold uppercase tracking-wider rounded hover:bg-slate-700 transition-colors">
                    <Download size={14} /> Imprimer / Télécharger
@@ -769,7 +769,7 @@ export function ParentPayments() {
 
                {/* Détails du paiement */}
                <h4 className="text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-2">Détails du règlement</h4>
-               <table className="w-full border-collapse mb-4">
+               <div className="overflow-x-auto"><table className="w-full border-collapse mb-4">
                  <thead>
                    <tr className="bg-slate-800 text-white text-[9px] uppercase tracking-wider">
                      <th className="p-2 text-left border border-slate-700">Désignation</th>
@@ -805,7 +805,7 @@ export function ParentPayments() {
                      </td>
                    </tr>
                  </tbody>
-               </table>
+               </table></div>
 
                <h4 className="text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-2 mt-4">Situation globale (Restants à payer)</h4>
                <div className="bg-slate-50 border border-slate-200 rounded-lg p-3 mb-4">
@@ -823,6 +823,7 @@ export function ParentPayments() {
                    }
 
                    return (
+                     <div className="overflow-x-auto">
                      <table className="w-full text-xs">
                        <tbody>
                          {remainings.map((req, idx) => (
@@ -833,6 +834,7 @@ export function ParentPayments() {
                          ))}
                        </tbody>
                      </table>
+                     </div>
                    );
                  })()}
                </div>

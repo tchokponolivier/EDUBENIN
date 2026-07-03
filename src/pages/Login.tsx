@@ -52,8 +52,8 @@ export function LoginPage() {
   };
 
   const sampleUsers = [
-    { email: "admin@school.com", title: "Directeur", desc: "Gestion des élèves et paiements" },
-    { email: "secretary@school.com", title: "Secrétaire", desc: "Saisie et encaissements" },
+    { email: "admin@school.com", title: "Directeur", desc: "Gestion globale" },
+    { email: "secretary@school.com", title: "Secrétaire", desc: "Saisie d'élèves" },
     { email: "caisse@school.com", title: "Caisse", desc: "Encaissements" },
     { email: "parent@mail.com", title: "Parent d'élève", desc: "Inscriptions et suivi" },
     { email: "prof@school.com", title: "Professeur", desc: "Notes et classes" },
@@ -62,7 +62,7 @@ export function LoginPage() {
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col lg:flex-row font-sans">
       {/* Visual Side (Hidden on mobile/tablet, visible on desktop) */}
-      <div className="hidden lg:flex lg:w-[45%] xl:w-1/2 bg-white flex-col items-center justify-start pt-24 lg:pt-32 p-12 relative overflow-hidden border-r border-slate-200">
+      <div className="hidden lg:flex lg:w-[45%] xl:w-1/2 bg-white flex-col items-center justify-center p-12 relative overflow-hidden border-r border-slate-200">
          <div className="relative z-10 flex flex-col items-center max-w-lg">
             <EduBeninLogo className="w-64 h-64 mb-10" />
             <h1 className="text-4xl lg:text-5xl font-black tracking-tighter text-gray-700 mb-3 text-center">EDU-BENIN</h1>
@@ -97,7 +97,7 @@ export function LoginPage() {
       </div>
 
       {/* Form Side */}
-      <div className="flex-1 flex flex-col justify-start pt-12 md:pt-16 lg:pt-32 pb-12 px-6 sm:px-12 lg:px-16 xl:px-20 bg-slate-50/50">
+      <div className="flex-1 flex flex-col justify-center py-12 px-6 sm:px-12 lg:px-16 xl:px-20 bg-slate-50/50">
         <div className="mx-auto w-full max-w-sm md:max-w-3xl flex flex-col items-center">
           
           {/* Logo on mobile and tablet (logo left of text) */}
@@ -278,9 +278,9 @@ export function LoginPage() {
 
               <div className="space-y-3">
                 {[
-                  { id: "SCHOOL_ADMIN", title: "Directeur", desc: "Gestion des élèves et paiements" },
-                  { id: "SECRETARY", title: "Secrétaire", desc: "Saisie et encaissements" },
-                  { id: "SECRETARY", title: "Caisse", desc: "Encaissements" },
+                  { id: "SCHOOL_ADMIN", title: "Directeur", desc: "Gestion globale" },
+                  { id: "SECRETARY", title: "Secrétaire", desc: "Saisie d'élèves" },
+                  { id: "CASHIER", title: "Caisse", desc: "Encaissements" },
                   { id: "PARENT", title: "Parent d'élève", desc: "Inscriptions et suivi" },
                   { id: "TEACHER", title: "Professeur", desc: "Notes et classes" },
                 ].map((role, idx) => (

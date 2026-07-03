@@ -109,7 +109,7 @@ export function TeacherDashboard() {
       </div>
 
       {!selectedClass ? (
-         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
             {getClassesToDisplay().map((c) => (
               <div 
                  key={c.level} 

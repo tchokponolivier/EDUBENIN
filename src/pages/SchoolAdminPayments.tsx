@@ -385,7 +385,7 @@ export function SchoolAdminPayments() {
       </div>
 
       <div className="bg-white rounded-xl border border-slate-200 shadow-sm">
-         <div className="p-4 border-b border-slate-100 flex items-center justify-between">
+         <div className="p-4 border-b border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-4">
            <h3 className="font-bold text-gray-700 flex items-center gap-2"><History size={18}/> Historique Global</h3>
            <div className="relative">
              <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
@@ -398,7 +398,7 @@ export function SchoolAdminPayments() {
              />
            </div>
          </div>
-         <div className="overflow-x-auto overflow-hidden">
+         <div className="overflow-x-auto">
            <table className="w-full text-left border-collapse">
              <thead className="bg-slate-50 text-[10px] uppercase text-slate-500 font-bold">
                <tr className="border-b border-slate-100">
@@ -590,7 +590,7 @@ export function SchoolAdminPayments() {
       {whatsappPromptInfo && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
           <div className="bg-white rounded-xl shadow-xl w-full max-w-sm animate-in zoom-in-95 overflow-hidden">
-            <div className="p-4 border-b border-slate-100 flex items-center justify-between">
+            <div className="p-4 border-b border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-4">
                <h3 className="font-bold text-gray-700 flex items-center gap-2"><MessageCircle size={18} className="text-emerald-500"/> Envoi par WhatsApp</h3>
                <button onClick={() => setWhatsappPromptInfo(null)} className="text-slate-400 hover:text-slate-600">
                   <X size={20} />

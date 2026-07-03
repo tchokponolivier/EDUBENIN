@@ -819,7 +819,7 @@ Le Parent ou Tuteur légal (Signature précédée de la mention « Lu et approuv
       {selectedChildForTimetable && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
           <div className="bg-white rounded-xl shadow-xl border border-slate-200 w-full max-w-2xl max-h-[90vh] flex flex-col animate-in zoom-in-95 fade-in">
-            <div className="p-4 border-b border-slate-100 flex items-center justify-between bg-slate-50 rounded-t-xl shrink-0">
+            <div className="p-4 border-b border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-4 bg-slate-50 rounded-t-xl shrink-0">
                <div>
                  <h3 className="text-lg font-bold text-gray-700">Emploi du temps</h3>
                  <p className="text-xs text-slate-500 uppercase tracking-widest mt-0.5">{selectedChildForTimetable.firstName} {selectedChildForTimetable.lastName} • {selectedChildForTimetable.level}</p>
@@ -859,7 +859,7 @@ Le Parent ou Tuteur légal (Signature précédée de la mention « Lu et approuv
       {showCommitmentModal && settings && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
           <div className="bg-white rounded-xl shadow-xl border border-slate-200 w-full max-w-3xl max-h-[90vh] flex flex-col animate-in zoom-in-95 fade-in overflow-hidden">
-            <div className="p-4 border-b border-slate-100 flex items-center justify-between bg-slate-50 shrink-0">
+            <div className="p-4 border-b border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-4 bg-slate-50 shrink-0">
                <div className="flex items-center gap-3">
                  <button onClick={() => window.print()} className="px-3 py-1.5 bg-slate-800 text-white text-xs font-bold uppercase tracking-wider rounded hover:bg-slate-700 transition-colors">
                    Imprimer / Télécharger (PDF)
@@ -896,7 +896,7 @@ Le Parent ou Tuteur légal (Signature précédée de la mention « Lu et approuv
       {selectedChildForBulletin && settings && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
           <div className="bg-white rounded-xl shadow-xl border border-slate-200 w-full max-w-4xl max-h-[90vh] flex flex-col animate-in zoom-in-95 fade-in overflow-hidden">
-            <div className="p-4 border-b border-slate-100 flex items-center justify-between bg-slate-50 shrink-0">
+            <div className="p-4 border-b border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-4 bg-slate-50 shrink-0">
                <div className="flex items-center gap-3">
                  <button onClick={() => window.print()} className="px-3 py-1.5 bg-slate-800 text-white text-xs font-bold uppercase tracking-wider rounded hover:bg-slate-700 transition-colors">
                    Imprimer
@@ -945,6 +945,7 @@ Le Parent ou Tuteur légal (Signature précédée de la mention « Lu et approuv
                </div>
 
                {/* Notes */}
+               <div className="overflow-x-auto">
                <table className="w-full border-collapse mb-6">
                  <thead>
                    <tr className="bg-slate-800 text-white text-[10px] uppercase tracking-wider">
@@ -981,8 +982,9 @@ Le Parent ou Tuteur légal (Signature précédée de la mention « Lu et approuv
                    </tr>
                  </tbody>
                </table>
+               </div>
                
-               <div className="grid grid-cols-2 gap-8 mt-12">
+               <div className="grid grid-cols-1 sm:grid-cols-2 gap-8 mt-12">
                  <div className="text-center pt-8 border-t border-slate-200">
                    <p className="font-bold text-xs uppercase tracking-widest text-slate-500 mb-8">Le Titulaire</p>
                    <p className="text-slate-300 italic text-sm">Signature</p>
@@ -1000,7 +1002,7 @@ Le Parent ou Tuteur légal (Signature précédée de la mention « Lu et approuv
       {selectedChildForAttendance && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
           <div className="bg-white rounded-xl shadow-xl border border-slate-200 w-full max-w-2xl max-h-[90vh] flex flex-col animate-in zoom-in-95 fade-in overflow-hidden">
-            <div className="p-4 border-b border-slate-100 flex items-center justify-between bg-slate-50 shrink-0">
+            <div className="p-4 border-b border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-4 bg-slate-50 shrink-0">
                <div>
                  <h3 className="text-lg font-bold text-gray-700">Absences & Retards</h3>
                  <p className="text-xs text-slate-500 uppercase tracking-widest mt-0.5">{selectedChildForAttendance.firstName} {selectedChildForAttendance.lastName} • {selectedChildForAttendance.level}</p>

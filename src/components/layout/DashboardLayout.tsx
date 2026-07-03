@@ -25,7 +25,10 @@ export function DashboardLayout({ children }: { children: ReactNode }) {
         ];
       case "SECRETARY":
         return [
-          { name: "Élèves (Inscriptions)", href: "/school-admin/students", icon: Users },
+          { name: "Élèves (Saisie)", href: "/school-admin/students", icon: Users },
+        ];
+      case "CASHIER":
+        return [
           { name: "Paiements (Caisse)", href: "/school-admin/payments", icon: CreditCard },
         ];
       case "PARENT":
@@ -125,9 +128,6 @@ export function DashboardLayout({ children }: { children: ReactNode }) {
             <button onClick={() => setIsMobileMenuOpen(true)} className="md:hidden text-slate-500 hover:text-emerald-600 p-2">
               <Menu className="w-6 h-6" />
             </button>
-            <button onClick={logout} className="md:hidden text-slate-500 hover:text-red-600 p-2 ml-1">
-              <LogOut className="w-5 h-5" />
-            </button>
           </div>
         </header>
 
@@ -136,7 +136,7 @@ export function DashboardLayout({ children }: { children: ReactNode }) {
         )}
 
         <div className="flex-1 overflow-y-auto bg-slate-50">
-          <div className="p-8">
+          <div className="p-4 md:p-8">
             {children}
           </div>
         </div>

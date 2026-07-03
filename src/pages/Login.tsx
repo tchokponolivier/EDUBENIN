@@ -13,6 +13,8 @@ export function LoginPage() {
   const navigate = useNavigate();
   const [error, setError] = useState("");
 
+  const [loginMethod, setLoginMethod] = useState<'email' | 'google' | null>(null);
+
   React.useEffect(() => {
     if (user) {
       navigate("/dashboard");
@@ -24,28 +26,35 @@ export function LoginPage() {
     if (!email) return;
     
     // Instead of logging in directly, show the role selection modal
+    setLoginMethod('email');
     setShowRoleModal(true);
   };
 
-  const handleRoleSelection = (role: string) => {
-    login(email, fullName, password, role);
-    navigate("/dashboard");
+  const handleGoogleClick = () => {
+    setLoginMethod('google');
+    setShowRoleModal(true);
   };
 
-  const handleGoogleLogin = async () => {
-    try {
-      setError("");
-      await loginWithGoogle();
-      // the redirect is handled by supabase
-    } catch (err: any) {
-      setError("Erreur de connexion via Google. Avez-vous configuré Supabase ?");
+  const handleRoleSelection = async (role: string) => {
+    setShowRoleModal(false);
+    if (loginMethod === 'email') {
+      login(email, fullName, password, role);
+      navigate("/dashboard");
+    } else if (loginMethod === 'google') {
+      localStorage.setItem('pending_google_role', role);
+      try {
+        setError("");
+        await loginWithGoogle();
+      } catch (err: any) {
+        setError("Erreur de connexion via Google. Avez-vous configuré Supabase ?");
+      }
     }
   };
 
   const sampleUsers = [
-    { email: "super@edubenin.com", title: "Super Admin", desc: "Configuration des établissements" },
-    { email: "admin@school.com", title: "Administration", desc: "Gestion des élèves et paiements" },
+    { email: "admin@school.com", title: "Directeur", desc: "Gestion des élèves et paiements" },
     { email: "secretary@school.com", title: "Secrétaire", desc: "Saisie et encaissements" },
+    { email: "caisse@school.com", title: "Caisse", desc: "Encaissements" },
     { email: "parent@mail.com", title: "Parent d'élève", desc: "Inscriptions et suivi" },
     { email: "prof@school.com", title: "Professeur", desc: "Notes et classes" },
   ];
@@ -115,7 +124,7 @@ export function LoginPage() {
               {/* Primary Login Section */}
               <div className="flex-1">
                 <button
-                  onClick={handleGoogleLogin}
+                  onClick={handleGoogleClick}
                   className="w-full flex items-center justify-center gap-3 py-3 px-4 mb-6 rounded-lg text-sm font-bold text-gray-700 bg-white border border-slate-300 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-emerald-500 transition-colors shadow-sm"
                 >
                   <svg viewBox="0 0 24 24" className="h-5 w-5" aria-hidden="true">
@@ -269,14 +278,14 @@ export function LoginPage() {
 
               <div className="space-y-3">
                 {[
-                  { id: "SUPER_ADMIN", title: "Super Admin", desc: "Configuration des établissements" },
-                  { id: "SCHOOL_ADMIN", title: "Administration", desc: "Gestion des élèves et paiements" },
+                  { id: "SCHOOL_ADMIN", title: "Directeur", desc: "Gestion des élèves et paiements" },
                   { id: "SECRETARY", title: "Secrétaire", desc: "Saisie et encaissements" },
+                  { id: "SECRETARY", title: "Caisse", desc: "Encaissements" },
                   { id: "PARENT", title: "Parent d'élève", desc: "Inscriptions et suivi" },
                   { id: "TEACHER", title: "Professeur", desc: "Notes et classes" },
-                ].map((role) => (
+                ].map((role, idx) => (
                   <button
-                    key={role.id}
+                    key={idx}
                     onClick={() => handleRoleSelection(role.id)}
                     className="w-full flex items-center justify-between p-4 border border-slate-200 rounded-xl hover:bg-slate-50 hover:border-emerald-300 transition-all text-left group"
                   >

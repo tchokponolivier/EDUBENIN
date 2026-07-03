@@ -14,17 +14,18 @@ const AuthContext = createContext<AuthContextType | null>(null);
 
 // Mock Users for testing
 const MOCK_USERS: Record<string, User> = {
-  "super@edubenin.com": {
-    id: "super_1",
-    email: "super@edubenin.com",
-    name: "Tola (Super Admin)",
-    role: "SUPER_ADMIN",
-  },
   "admin@school.com": {
     id: "admin_1",
     email: "admin@school.com",
     name: "Directeur Ecole A",
     role: "SCHOOL_ADMIN",
+    schoolId: "school_1",
+  },
+  "caisse@school.com": {
+    id: "caisse_1",
+    email: "caisse@school.com",
+    name: "Caisse Ecole",
+    role: "SECRETARY",
     schoolId: "school_1",
   },
   "secretary@school.com": {
@@ -54,6 +55,16 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
+    // Helper to get role
+    const getRoleForSupabaseUser = (email: string) => {
+      const pendingRole = localStorage.getItem("pending_google_role");
+      if (pendingRole) {
+        localStorage.removeItem("pending_google_role");
+        return pendingRole as any;
+      }
+      return "PARENT";
+    };
+
     // 1. Check Supabase auth state first
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (session?.user) {
@@ -62,7 +73,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           id: session.user.id,
           email: session.user.email || "",
           name: session.user.user_metadata?.full_name || session.user.email?.split("@")[0] || "User",
-          role: "PARENT", // By default for Google logins, you can implement role mapping later
+          role: getRoleForSupabaseUser(session.user.email || ""),
         });
       } else {
         // 2. Fallback to local storage (mock user)
@@ -81,7 +92,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           id: session.user.id,
           email: session.user.email || "",
           name: session.user.user_metadata?.full_name || session.user.email?.split("@")[0] || "User",
-          role: "PARENT", // Default role
+          role: getRoleForSupabaseUser(session.user.email || ""),
         });
         localStorage.removeItem("edubenin_auth"); // Clear mock user if logged in with Supabase
       } else {

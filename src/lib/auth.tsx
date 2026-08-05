@@ -68,6 +68,15 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     // Fetch real profile from Supabase
     const fetchSupabaseProfile = async (sessionUser: any) => {
       try {
+        const pendingRole = localStorage.getItem("pending_google_role");
+        
+        if (pendingRole) {
+          localStorage.removeItem("pending_google_role");
+          // If they chose a role during Google Sign-In, update their profile
+          // This overrides the default 'PARENT' role created by the database trigger
+          await supabase.from('profiles').update({ role: pendingRole }).eq('id', sessionUser.id);
+        }
+
         const { data: profile, error } = await supabase
           .from('profiles')
           .select('role, full_name, school_id')

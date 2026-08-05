@@ -24,7 +24,7 @@ import { LoadingSkeleton } from './components/layout/LoadingSkeleton';
 // Role-based Dashboards (Placeholders for SuperAdmin and Teacher for now)
 const SuperAdminDashboard = () => <div className="p-4 bg-white rounded-xl shadow-sm border border-gray-100"><h2 className="text-2xl font-bold text-gray-700 mb-4">Espace Super Admin</h2><p>Gestion des établissements...</p></div>;
 
-function ProtectedRoute({ children, allowedRoles }: { children: React.ReactNode, allowedRoles?: string[] }) {
+function ProtectedRoute({ children, allowedRoles, withLayout = true }: { children: React.ReactNode, allowedRoles?: string[], withLayout?: boolean }) {
   const { user, isLoading } = useAuth();
   if (isLoading) return <LoadingSkeleton />;
   if (!user) return <Navigate to="/" replace />;
@@ -35,7 +35,7 @@ function ProtectedRoute({ children, allowedRoles }: { children: React.ReactNode,
     return <Navigate to="/school-admin/onboarding" replace />;
   }
 
-  return <DashboardLayout>{children}</DashboardLayout>;
+  return withLayout ? <DashboardLayout>{children}</DashboardLayout> : <>{children}</>;
 }
 
 function RoleRouter() {
@@ -74,7 +74,7 @@ export default function App() {
           <Route path="/dashboard" element={<RoleRouter />} />
           
           <Route path="/super-admin/*" element={<ProtectedRoute allowedRoles={['SUPER_ADMIN']}><SuperAdminDashboard /></ProtectedRoute>} />
-          <Route path="/school-admin/onboarding" element={<ProtectedRoute allowedRoles={['SCHOOL_ADMIN']}><SchoolOnboarding /></ProtectedRoute>} />
+          <Route path="/school-admin/onboarding" element={<ProtectedRoute allowedRoles={['SCHOOL_ADMIN']} withLayout={false}><SchoolOnboarding /></ProtectedRoute>} />
           <Route path="/school-admin" element={<ProtectedRoute allowedRoles={['SCHOOL_ADMIN']}><SchoolAdminDashboard /></ProtectedRoute>} />
           <Route path="/school-admin/payments" element={<ProtectedRoute allowedRoles={['SCHOOL_ADMIN', 'CASHIER']}><SchoolAdminPayments /></ProtectedRoute>} />
           <Route path="/school-admin/students" element={<ProtectedRoute allowedRoles={['SCHOOL_ADMIN', 'SECRETARY']}><SchoolAdminStudents /></ProtectedRoute>} />

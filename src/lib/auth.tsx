@@ -74,7 +74,11 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           localStorage.removeItem("pending_google_role");
           // If they chose a role during Google Sign-In, update their profile
           // This overrides the default 'PARENT' role created by the database trigger
-          await supabase.from('profiles').update({ role: pendingRole }).eq('id', sessionUser.id);
+          const { error: updateError } = await supabase.from('profiles').update({ role: pendingRole }).eq('id', sessionUser.id);
+          if (updateError) {
+            console.error("Erreur lors de la mise à jour du rôle (Vérifiez les politiques RLS):", updateError);
+            alert("Erreur: Le rôle n'a pas pu être mis à jour. Veuillez ajouter la politique UPDATE (RLS) sur la table profiles dans Supabase.");
+          }
         }
 
         const { data: profile, error } = await supabase

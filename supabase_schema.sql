@@ -123,3 +123,43 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 CREATE TRIGGER on_auth_user_created
   AFTER INSERT ON auth.users
   FOR EACH ROW EXECUTE PROCEDURE public.handle_new_user();
+
+-- Un utilisateur peut modifier son propre profil
+CREATE POLICY "Users can update own profile" ON public.profiles
+    FOR UPDATE USING (auth.uid() = id);
+
+-- INSERT pour les écoles : Un utilisateur authentifié peut créer une école
+CREATE POLICY "Users can create schools" ON public.schools
+    FOR INSERT WITH CHECK (auth.uid() IS NOT NULL);
+
+-- INSERT pour les élèves : Les admins et secrétaires peuvent insérer
+CREATE POLICY "Staff can insert students" ON public.students
+    FOR INSERT WITH CHECK (
+        school_id IN (SELECT school_id FROM public.profiles WHERE id = auth.uid() AND role IN ('SCHOOL_ADMIN', 'SECRETARY'))
+    );
+
+-- UPDATE/DELETE pour les élèves : Les admins et secrétaires peuvent modifier/supprimer
+CREATE POLICY "Staff can update students" ON public.students
+    FOR UPDATE USING (
+        school_id IN (SELECT school_id FROM public.profiles WHERE id = auth.uid() AND role IN ('SCHOOL_ADMIN', 'SECRETARY'))
+    );
+
+CREATE POLICY "Staff can delete students" ON public.students
+    FOR DELETE USING (
+        school_id IN (SELECT school_id FROM public.profiles WHERE id = auth.uid() AND role IN ('SCHOOL_ADMIN', 'SECRETARY'))
+    );
+
+-- INSERT/UPDATE pour les paiements
+CREATE POLICY "Staff can insert payments" ON public.payments
+    FOR INSERT WITH CHECK (
+        school_id IN (SELECT school_id FROM public.profiles WHERE id = auth.uid() AND role IN ('SCHOOL_ADMIN', 'CASHIER'))
+    );
+
+CREATE POLICY "Staff can update payments" ON public.payments
+    FOR UPDATE USING (
+        school_id IN (SELECT school_id FROM public.profiles WHERE id = auth.uid() AND role IN ('SCHOOL_ADMIN', 'CASHIER'))
+    );
+
+-- Les parents peuvent insérer des paiements pour leurs propres enfants
+CREATE POLICY "Parents can insert payments" ON public.payments
+    FOR INSERT WITH CHECK (parent_id = auth.uid());

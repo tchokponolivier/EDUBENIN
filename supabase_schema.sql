@@ -63,15 +63,13 @@ ALTER TABLE public.payments ENABLE ROW LEVEL SECURITY;
 
 -- POLITIQUES POUR LES ÉCOLES
 -- Un administrateur d'école peut voir/modifier uniquement son école
-CREATE POLICY "Admins can view their own school" ON public.schools
-    FOR SELECT USING (id IN (SELECT school_id FROM public.profiles WHERE id = auth.uid() AND role = 'SCHOOL_ADMIN'));
+
     
 CREATE POLICY "Admins can update their own school" ON public.schools
     FOR UPDATE USING (id IN (SELECT school_id FROM public.profiles WHERE id = auth.uid() AND role = 'SCHOOL_ADMIN'));
 
 -- Tous les utilisateurs d'une école peuvent voir les infos de l'école
-CREATE POLICY "Users can view their school details" ON public.schools
-    FOR SELECT USING (id IN (SELECT school_id FROM public.profiles WHERE id = auth.uid()));
+
 
 -- POLITIQUES POUR LES PROFILS
 -- Un utilisateur peut voir son propre profil
@@ -171,3 +169,6 @@ CREATE POLICY "Staff can update payments" ON public.payments
 -- Les parents peuvent insérer des paiements pour leurs propres enfants
 CREATE POLICY "Parents can insert payments" ON public.payments
     FOR INSERT WITH CHECK (parent_id = auth.uid());
+
+
+CREATE POLICY "Anyone can view schools" ON public.schools FOR SELECT USING (true);

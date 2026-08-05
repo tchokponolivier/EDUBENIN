@@ -79,10 +79,18 @@ CREATE POLICY "Users can view own profile" ON public.profiles
     FOR SELECT USING (auth.uid() = id);
 
 -- Un admin d'école peut voir tous les profils de son école
+CREATE OR REPLACE FUNCTION public.is_school_admin(check_school_id UUID)
+RETURNS BOOLEAN AS $$
+BEGIN
+  RETURN EXISTS (
+    SELECT 1 FROM public.profiles
+    WHERE id = auth.uid() AND role = 'SCHOOL_ADMIN' AND school_id = check_school_id
+  );
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
+
 CREATE POLICY "School admins view all profiles in school" ON public.profiles
-    FOR SELECT USING (
-        school_id IN (SELECT school_id FROM public.profiles WHERE id = auth.uid() AND role = 'SCHOOL_ADMIN')
-    );
+    FOR SELECT USING ( public.is_school_admin(school_id) );
 
 -- POLITIQUES POUR LES ÉLÈVES
 -- Un admin/secrétaire/caisse peut voir tous les élèves de son école

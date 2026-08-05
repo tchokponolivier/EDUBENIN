@@ -8,7 +8,6 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './lib/auth';
 import { LoginPage } from './pages/Login';
 import { DashboardLayout } from './components/layout/DashboardLayout';
-
 import { SchoolAdminDashboard } from './pages/SchoolAdmin';
 import { SchoolAdminPayments } from './pages/SchoolAdminPayments';
 import { SchoolAdminStudents } from './pages/SchoolAdminStudents';
@@ -19,7 +18,7 @@ import { ParentSupport } from './pages/ParentSupport';
 import { ParentProspectus } from './pages/ParentProspectus';
 import { TeacherDashboard } from './pages/TeacherDashboard';
 import { TeacherProfile } from './pages/TeacherProfile';
-
+import { SchoolOnboarding } from './pages/SchoolOnboarding';
 import { LoadingSkeleton } from './components/layout/LoadingSkeleton';
 
 // Role-based Dashboards (Placeholders for SuperAdmin and Teacher for now)
@@ -30,6 +29,12 @@ function ProtectedRoute({ children, allowedRoles }: { children: React.ReactNode,
   if (isLoading) return <LoadingSkeleton />;
   if (!user) return <Navigate to="/" replace />;
   if (allowedRoles && !allowedRoles.includes(user.role)) return <Navigate to="/dashboard" replace />;
+  
+  // If user is a school admin but has no school attached, force onboarding unless they are already on the onboarding page
+  if (user.role === 'SCHOOL_ADMIN' && !user.schoolId && window.location.pathname !== '/school-admin/onboarding') {
+    return <Navigate to="/school-admin/onboarding" replace />;
+  }
+
   return <DashboardLayout>{children}</DashboardLayout>;
 }
 
@@ -37,6 +42,11 @@ function RoleRouter() {
   const { user, isLoading } = useAuth();
   if (isLoading) return <LoadingSkeleton />;
   if (!user) return <Navigate to="/" replace />;
+
+  if (user.role === 'SCHOOL_ADMIN' && !user.schoolId) {
+    return <Navigate to="/school-admin/onboarding" replace />;
+  }
+
   switch (user.role) {
     case 'SUPER_ADMIN': return <Navigate to="/super-admin" replace />;
     case 'SCHOOL_ADMIN': return <Navigate to="/school-admin" replace />;
@@ -64,6 +74,7 @@ export default function App() {
           <Route path="/dashboard" element={<RoleRouter />} />
           
           <Route path="/super-admin/*" element={<ProtectedRoute allowedRoles={['SUPER_ADMIN']}><SuperAdminDashboard /></ProtectedRoute>} />
+          <Route path="/school-admin/onboarding" element={<ProtectedRoute allowedRoles={['SCHOOL_ADMIN']}><SchoolOnboarding /></ProtectedRoute>} />
           <Route path="/school-admin" element={<ProtectedRoute allowedRoles={['SCHOOL_ADMIN']}><SchoolAdminDashboard /></ProtectedRoute>} />
           <Route path="/school-admin/payments" element={<ProtectedRoute allowedRoles={['SCHOOL_ADMIN', 'CASHIER']}><SchoolAdminPayments /></ProtectedRoute>} />
           <Route path="/school-admin/students" element={<ProtectedRoute allowedRoles={['SCHOOL_ADMIN', 'SECRETARY']}><SchoolAdminStudents /></ProtectedRoute>} />

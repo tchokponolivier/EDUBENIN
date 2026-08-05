@@ -79,8 +79,43 @@ export function SchoolAdminStudents() {
   const [showEditModal, setShowEditModal] = useState<Student | null>(null);
   
   useEffect(() => {
-    setStudents(db.getStudents());
-  }, []);
+    const fetchStudents = async () => {
+      try {
+        if (user?.schoolId) {
+          // Try fetching from Supabase if user has a schoolId
+          const { supabase } = await import('../lib/supabase');
+          const { data, error } = await supabase
+            .from('students')
+            .select('*')
+            .eq('school_id', user.schoolId);
+          
+          if (error) throw error;
+          
+          if (data && data.length > 0) {
+            // Map DB fields to Student interface
+            const mappedStudents = data.map(d => ({
+              id: d.id,
+              firstName: d.first_name,
+              lastName: d.last_name,
+              level: d.level,
+              status: d.status,
+              schoolId: d.school_id,
+              parentId: d.parent_id,
+              createdAt: new Date(d.created_at).getTime()
+            })) as Student[];
+            setStudents(mappedStudents);
+            return;
+          }
+        }
+      } catch (err) {
+        console.error("Supabase fetch failed, falling back to local DB", err);
+      }
+      // Fallback to local DB
+      setStudents(db.getStudents());
+    };
+    
+    fetchStudents();
+  }, [user?.schoolId]);
 
   const handleSaveStudent = (e: React.FormEvent) => {
     e.preventDefault();

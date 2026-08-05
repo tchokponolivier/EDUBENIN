@@ -65,35 +65,57 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       return "PARENT";
     };
 
+    // Fetch real profile from Supabase
+    const fetchSupabaseProfile = async (sessionUser: any) => {
+      try {
+        const { data: profile, error } = await supabase
+          .from('profiles')
+          .select('role, full_name, school_id')
+          .eq('id', sessionUser.id)
+          .single();
+
+        if (profile) {
+          setUser({
+            id: sessionUser.id,
+            email: sessionUser.email || "",
+            name: profile.full_name || sessionUser.user_metadata?.full_name || sessionUser.email?.split("@")[0] || "User",
+            role: profile.role as any,
+            schoolId: profile.school_id,
+          });
+        } else {
+          // Fallback if profile not created yet
+          setUser({
+            id: sessionUser.id,
+            email: sessionUser.email || "",
+            name: sessionUser.user_metadata?.full_name || sessionUser.email?.split("@")[0] || "User",
+            role: getRoleForSupabaseUser(sessionUser.email || ""),
+          });
+        }
+      } catch (err) {
+        console.error("Error fetching profile", err);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
     // 1. Check Supabase auth state first
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (session?.user) {
-        // Build user from supabase
-        setUser({
-          id: session.user.id,
-          email: session.user.email || "",
-          name: session.user.user_metadata?.full_name || session.user.email?.split("@")[0] || "User",
-          role: getRoleForSupabaseUser(session.user.email || ""),
-        });
+        fetchSupabaseProfile(session.user);
       } else {
         // 2. Fallback to local storage (mock user)
         const savedUser = localStorage.getItem("edubenin_auth");
         if (savedUser) {
           setUser(JSON.parse(savedUser));
         }
+        setIsLoading(false);
       }
-      setIsLoading(false);
     });
 
     // Listen to Supabase auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       if (session?.user) {
-        setUser({
-          id: session.user.id,
-          email: session.user.email || "",
-          name: session.user.user_metadata?.full_name || session.user.email?.split("@")[0] || "User",
-          role: getRoleForSupabaseUser(session.user.email || ""),
-        });
+        fetchSupabaseProfile(session.user);
         localStorage.removeItem("edubenin_auth"); // Clear mock user if logged in with Supabase
       } else {
         // If logged out from Supabase, check if there's a local mock user, otherwise null
@@ -103,8 +125,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         } else {
           setUser(null);
         }
+        setIsLoading(false);
       }
-      setIsLoading(false);
     });
 
     return () => subscription.unsubscribe();

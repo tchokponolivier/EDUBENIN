@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { db } from "../lib/db";
+import { supabase } from "../lib/supabase";
 import { School, Building, Users, AlertCircle } from "lucide-react";
 
 export function SuperAdminDashboard() {
@@ -13,7 +13,17 @@ export function SuperAdminDashboard() {
   const fetchData = async () => {
     setLoading(true);
     try {
-      setSchools(db.getSchools());
+      const { data: schoolsData, error: schoolsError } = await supabase
+        .from('schools')
+        .select(`
+          *,
+          profiles(id, email, role, full_name)
+        `)
+        .order('created_at', { ascending: false });
+        
+      if (schoolsError) throw schoolsError;
+      
+      setSchools(schoolsData || []);
     } catch (err) {
       console.error(err);
     } finally {

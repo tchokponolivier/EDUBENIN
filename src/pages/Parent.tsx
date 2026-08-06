@@ -3,7 +3,7 @@ import { db } from "../lib/db";
 import { Student, Payment, LEVELS, SchoolSettings, Announcement } from "../types";
 import { useAuth } from "../lib/auth";
 import { Plus, User as UserIcon, CreditCard, Edit2, Camera, Calendar, History, CalendarDays, X, FileText, Megaphone } from "lucide-react";
-
+import { supabase } from "../lib/supabase";
 import { Link } from "react-router-dom";
 
 // Mock timetable data
@@ -197,11 +197,11 @@ Le Parent ou Tuteur légal (Signature précédée de la mention « Lu et approuv
     const loadData = async () => {
     if (!user) return;
     try {
-      const kidsData = db.getStudents({ parentId: user.id });
+      const { data: kidsData } = await supabase.from('students').select('*').eq('parent_id', user.id);
       const kids = (kidsData || []).map((d: any) => ({...d, createdAt: d.created_at, firstName: d.first_name, lastName: d.last_name, parentId: d.parent_id, schoolId: d.school_id, studentType: d.studentType, educmasterNumber: d.educmasterNumber, gender: d.gender}));
       setChildren(kids);
       
-      const paysData = db.getPayments({ parentId: user.id });
+      const { data: paysData } = await supabase.from('payments').select('*').eq('parent_id', user.id);
       const allPays = (paysData || []).map((d: any) => ({...d, studentId: d.student_id, schoolId: d.school_id, parentId: d.parent_id, createdAt: d.created_at}));
       
       const pays: Record<string, any[]> = {};
@@ -752,7 +752,7 @@ Le Parent ou Tuteur légal (Signature précédée de la mention « Lu et approuv
                     {child.photo ? (
                        <img src={child.photo} alt={child.firstName} className="w-full h-full object-cover" />
                     ) : (
-                       <span>{child.firstName?.charAt(0) || ''}{child.lastName?.charAt(0) || ''}</span>
+                       <span>{child.firstName.charAt(0)}{child.lastName.charAt(0)}</span>
                     )}
                   </div>
                   <div className="flex-1 min-w-0">

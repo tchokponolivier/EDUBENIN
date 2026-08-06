@@ -3,7 +3,7 @@ import { db } from "../lib/db";
 import { Student, LEVELS } from "../types";
 import { useAuth } from "../lib/auth";
 import { BookOpen, Users, Save, Download, LayoutGrid, ArrowLeft, Plus, Trash2, CheckSquare } from "lucide-react";
-
+import { supabase } from "../lib/supabase";
 
 interface Subject {
   id: string;
@@ -26,16 +26,15 @@ export function TeacherDashboard() {
   const [includedStudents, setIncludedStudents] = useState<string[]>([]);
   const [period, setPeriod] = useState("1er Trimestre");
 
-  const [activeTab, setActiveTab] = useState<"NOTES" | "APPEL" | "PLANNING">("NOTES");
-
-
   const isMaternelle = selectedClass?.includes("Maternelle");
 
   useEffect(() => {
     const fetchData = async () => {
       if (!user?.schoolId) return;
-      const loadedStudents = db.getStudents({ schoolId: user.schoolId });
-      setStudents(loadedStudents as any);
+      const { data } = await supabase.from('students').select('*').eq('school_id', user.schoolId);
+      if (data) {
+        setStudents(data.map(d => ({...d, createdAt: d.created_at, firstName: d.first_name, lastName: d.last_name, parentId: d.parent_id, schoolId: d.school_id, studentType: d.studentType, educmasterNumber: d.educmasterNumber, gender: d.gender})) as any);
+      }
     };
     fetchData();
   }, []);
@@ -109,16 +108,7 @@ export function TeacherDashboard() {
 
   return (
     <div className="flex flex-col gap-6 p-6 animate-in fade-in">
-            <div className="flex p-1 bg-slate-100 rounded-lg shrink-0 overflow-x-auto mb-2">
-        <button onClick={() => setActiveTab("NOTES")} className={`px-4 py-2 rounded text-xs font-bold uppercase tracking-wider transition-colors ${activeTab === "NOTES" ? "bg-white shadow-sm text-gray-700" : "text-slate-500 hover:text-gray-700"}`}>Notes & Bulletins</button>
-        <button onClick={() => setActiveTab("APPEL")} className={`px-4 py-2 rounded text-xs font-bold uppercase tracking-wider transition-colors ${activeTab === "APPEL" ? "bg-white shadow-sm text-gray-700" : "text-slate-500 hover:text-gray-700"}`}>Faire l'Appel</button>
-        <button onClick={() => setActiveTab("PLANNING")} className={`px-4 py-2 rounded text-xs font-bold uppercase tracking-wider transition-colors ${activeTab === "PLANNING" ? "bg-white shadow-sm text-gray-700" : "text-slate-500 hover:text-gray-700"}`}>Mon Planning</button>
-      </div>
-
-      {activeTab === "NOTES" && (
-        <>
-
-<div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-xl font-bold text-gray-700">Espace Professeur</h1>
           <p className="text-xs text-slate-500 mt-1">Gérez vos matières, saisissez les notes et constituez les relevés par classe.</p>
@@ -297,69 +287,6 @@ export function TeacherDashboard() {
             </div>
          </div>
       </div>
-      )}
-
-      {activeTab === "APPEL" && (
-        <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-          <div className="p-4 border-b border-slate-100 flex justify-between items-center">
-            <h3 className="font-bold text-gray-700 text-lg">Appel du {new Date().toLocaleDateString('fr-FR')}</h3>
-            <button className="px-4 py-2 bg-emerald-600 text-white rounded font-bold text-sm">Enregistrer l'appel</button>
-          </div>
-          <table className="w-full text-left">
-            <thead className="bg-slate-50 text-[10px] uppercase text-slate-500 font-bold">
-              <tr>
-                <th className="px-4 py-3">Élève</th>
-                <th className="px-4 py-3 text-center">Présent</th>
-                <th className="px-4 py-3 text-center">Absent</th>
-                <th className="px-4 py-3 text-center">Retard</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-100">
-              {classStudents.map(student => (
-                <tr key={student.id} className="hover:bg-slate-50">
-                  <td className="px-4 py-3 font-medium uppercase text-xs">{student.lastName} {student.firstName}</td>
-                  <td className="px-4 py-3 text-center"><input type="radio" name={`att-${student.id}`} defaultChecked className="text-emerald-600" /></td>
-                  <td className="px-4 py-3 text-center"><input type="radio" name={`att-${student.id}`} className="text-red-600" /></td>
-                  <td className="px-4 py-3 text-center"><input type="radio" name={`att-${student.id}`} className="text-orange-500" /></td>
-                </tr>
-              ))}
-              {classStudents.length === 0 && <tr><td colSpan={4} className="p-8 text-center text-slate-500">Aucun élève</td></tr>}
-            </tbody>
-          </table>
-        </div>
-      )}
-
-      
-        </>
-      )}
-
-      {activeTab === "APPEL" && (
-        <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-6">
-          <h2 className="text-lg font-bold text-gray-700 mb-6">Faire l'appel</h2>
-          <div className="text-center p-8 bg-slate-50 rounded border border-slate-100 text-slate-500">
-            Sélectionnez une classe pour commencer l'appel.
-          </div>
-        </div>
-      )}
-
-{activeTab === "PLANNING" && (
-        <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-6">
-          <h2 className="text-lg font-bold text-gray-700 mb-6">Emploi du temps - Semaine en cours</h2>
-          <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
-            {['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi'].map(day => (
-              <div key={day} className="border border-slate-200 rounded-lg overflow-hidden">
-                <div className="bg-slate-100 px-3 py-2 text-center font-bold text-gray-700 border-b border-slate-200">{day}</div>
-                <div className="p-2 space-y-2">
-                  <div className="p-2 bg-emerald-50 border border-emerald-100 rounded text-xs">
-                    <div className="font-bold text-emerald-800">08:00 - 10:00</div>
-                    <div className="text-emerald-600 font-medium">{selectedClass}</div>
-                    <div className="text-slate-500 mt-1">Salle B12</div>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
       )}
     </div>
   );

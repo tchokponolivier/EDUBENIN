@@ -8,9 +8,6 @@ export function SchoolAdminStudents() {
   const { user } = useAuth();
   const [students, setStudents] = useState<Student[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
-
-  const [activeTab, setActiveTab] = useState<"ELEVES" | "ABSENCES" | "EMPLOIS_TEMPS" | "ARCHIVES">("ELEVES");
-
   const [selectedStudentIds, setSelectedStudentIds] = useState<string[]>([]);
   const [selectedClass, setSelectedClass] = useState<string | null>(null);
   
@@ -85,12 +82,36 @@ export function SchoolAdminStudents() {
     const fetchStudents = async () => {
       try {
         if (user?.schoolId) {
-          const loadedStudents = db.getStudents({ schoolId: user.schoolId });
-          setStudents(loadedStudents);
+          // Try fetching from Supabase if user has a schoolId
+          const { supabase } = await import('../lib/supabase');
+          const { data, error } = await supabase
+            .from('students')
+            .select('*')
+            .eq('school_id', user.schoolId);
+          
+          if (error) throw error;
+          
+          if (data && data.length > 0) {
+            // Map DB fields to Student interface
+            const mappedStudents = data.map(d => ({
+              id: d.id,
+              firstName: d.first_name,
+              lastName: d.last_name,
+              level: d.level,
+              status: d.status,
+              schoolId: d.school_id,
+              parentId: d.parent_id,
+              createdAt: new Date(d.created_at).getTime()
+            })) as Student[];
+            setStudents(mappedStudents);
+            return;
+          }
         }
       } catch (err) {
-        console.error("Local DB fetch failed", err);
+        console.error("Supabase fetch failed, falling back to local DB", err);
       }
+      // Fallback to local DB
+      setStudents(db.getStudents());
     };
     
     fetchStudents();
@@ -100,11 +121,13 @@ export function SchoolAdminStudents() {
     e.preventDefault();
     if (!showEditModal) return;
     try {
-      db.updateStudent(showEditModal.id, {
-        firstName: showEditModal.firstName,
-        lastName: showEditModal.lastName,
+      const { supabase } = await import('../lib/supabase');
+      const { error } = await supabase.from('students').update({
+        first_name: showEditModal.firstName,
+        last_name: showEditModal.lastName,
         level: showEditModal.level
-      });
+      }).eq('id', showEditModal.id);
+      if (error) throw error;
       setStudents(students.map(s => s.id === showEditModal.id ? showEditModal : s));
       setShowEditModal(null);
       alert("Informations de l'élève mises à jour avec succès.");
@@ -117,7 +140,9 @@ export function SchoolAdminStudents() {
   const handleDeleteStudent = async (id: string) => {
     if (confirm("Êtes-vous sûr de vouloir supprimer cet élève ? Cette action est irréversible.")) {
       try {
-        db.deleteStudent(id);
+        const { supabase } = await import('../lib/supabase');
+        const { error } = await supabase.from('students').delete().eq('id', id);
+        if (error) throw error;
         setStudents(students.filter(s => s.id !== id));
         alert("Élève supprimé avec succès.");
       } catch (err) {
@@ -152,21 +177,7 @@ export function SchoolAdminStudents() {
 
   return (
     <div className="flex flex-col gap-6 animate-in fade-in">
-                  <div className="flex p-1 bg-slate-100 rounded-lg shrink-0 overflow-x-auto mb-2">
-        <button onClick={() => setActiveTab("ELEVES")} className={`px-4 py-2 rounded text-xs font-bold uppercase tracking-wider transition-colors ${activeTab === "ELEVES" ? "bg-white shadow-sm text-gray-700" : "text-slate-500 hover:text-gray-700"}`}>Élèves & Inscriptions</button>
-        {user?.role === 'SCHOOL_ADMIN' && (
-          <>
-            <button onClick={() => setActiveTab("ABSENCES")} className={`px-4 py-2 rounded text-xs font-bold uppercase tracking-wider transition-colors ${activeTab === "ABSENCES" ? "bg-white shadow-sm text-gray-700" : "text-slate-500 hover:text-gray-700"}`}>Absences & Retards</button>
-            <button onClick={() => setActiveTab("EMPLOIS_TEMPS")} className={`px-4 py-2 rounded text-xs font-bold uppercase tracking-wider transition-colors ${activeTab === "EMPLOIS_TEMPS" ? "bg-white shadow-sm text-gray-700" : "text-slate-500 hover:text-gray-700"}`}>Emplois du temps</button>
-            <button onClick={() => setActiveTab("ARCHIVES")} className={`px-4 py-2 rounded text-xs font-bold uppercase tracking-wider transition-colors ${activeTab === "ARCHIVES" ? "bg-white shadow-sm text-gray-700" : "text-slate-500 hover:text-gray-700"}`}>Archivage</button>
-          </>
-        )}
-      </div>
-
-      {activeTab === "ELEVES" && (
-        <>
-
-<div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-xl font-bold text-gray-700">Gestion des Élèves</h1>
           <p className="text-xs text-slate-500 mt-1">Gérez le statut (abandon, exclus), les remises et les infos</p>
@@ -342,69 +353,7 @@ export function SchoolAdminStudents() {
         </div>
       )}
 
-      
-        </>
-      )}
-
-      {activeTab === "ABSENCES" && (
-        <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-6">
-          <h2 className="text-lg font-bold text-gray-700 mb-6">Gestion Centralisée des Absences</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-            <div>
-              <h3 className="font-bold text-gray-700 mb-4 text-sm uppercase tracking-wider border-b pb-2">Déclarer une absence</h3>
-              <form className="space-y-4" onSubmit={(e) => { e.preventDefault(); alert("Absence enregistrée."); }}>
-                <div>
-                  <label className="block text-xs font-medium text-slate-600 mb-1">Élève</label>
-                  <select className="w-full px-3 py-2 border border-slate-200 rounded">
-                    {students.map(s => <option key={s.id}>{s.firstName} {s.lastName} ({s.level})</option>)}
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-xs font-medium text-slate-600 mb-1">Motif</label>
-                  <select className="w-full px-3 py-2 border border-slate-200 rounded">
-                    <option>Justifiée (Maladie)</option>
-                    <option>Non justifiée</option>
-                    <option>Retard</option>
-                  </select>
-                </div>
-                <button type="submit" className="w-full py-2 bg-emerald-600 text-white rounded font-bold">Enregistrer</button>
-              </form>
-            </div>
-            <div>
-              <h3 className="font-bold text-gray-700 mb-4 text-sm uppercase tracking-wider border-b pb-2">Absences Récentes</h3>
-              <ul className="space-y-3">
-                <li className="p-3 bg-red-50 border border-red-100 rounded">
-                  <div className="flex justify-between font-bold text-gray-800 text-sm">
-                    <span>HOUENOU Dylan (6ème)</span>
-                    <span className="text-red-600">Non Justifiée</span>
-                  </div>
-                </li>
-              </ul>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {activeTab === "EMPLOIS_TEMPS" && (
-        <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-6">
-          <h2 className="text-lg font-bold text-gray-700 mb-6">Emplois du Temps</h2>
-          <div className="p-4 bg-orange-50 border border-orange-200 rounded-lg mb-6">
-            <h3 className="font-bold text-orange-800 mb-2">⚠️ Conflits Détectés (1)</h3>
-            <p className="text-sm text-orange-700">Le Professeur M. DUPONT est affecté en 6ème et en 5ème le Mardi à 10h00.</p>
-          </div>
-        </div>
-      )}
-
-      {activeTab === "ARCHIVES" && (
-        <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-6">
-          <h2 className="text-lg font-bold text-gray-700 mb-6">Archives des Élèves</h2>
-          <div className="text-center p-8 bg-slate-50 rounded border border-slate-100 text-slate-500">
-            Aucun élève archivé pour le moment.
-          </div>
-        </div>
-      )}
-
-{showExportModal && (
+      {showExportModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
           <div className="bg-white rounded-xl shadow-xl w-full max-w-md animate-in zoom-in-95">
             <div className="p-4 border-b border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-4">

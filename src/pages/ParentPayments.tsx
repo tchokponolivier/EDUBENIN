@@ -3,7 +3,7 @@ import { db } from "../lib/db";
 import { Student, Payment, SchoolSettings } from "../types";
 import { useAuth } from "../lib/auth";
 import { CreditCard, CheckCircle2, History, AlertTriangle, MessageCircle, Download, FileText, X, Calendar } from "lucide-react";
-
+import { supabase } from "../lib/supabase";
 import html2pdf from "html2pdf.js";
 
 type DateFilter = 'ALL' | 'DAY' | 'WEEK' | 'MONTH' | 'YEAR';
@@ -113,11 +113,11 @@ export function ParentPayments() {
     const loadData = async () => {
       if (!user) return;
       try {
-        const kidsData = db.getStudents({ parentId: user.id });
+        const { data: kidsData } = await supabase.from('students').select('*').eq('parent_id', user.id);
         const kids = (kidsData || []).map((d: any) => ({...d, createdAt: d.created_at, firstName: d.first_name, lastName: d.last_name, parentId: d.parent_id, schoolId: d.school_id, studentType: d.studentType, educmasterNumber: d.educmasterNumber, gender: d.gender}));
         setChildren(kids);
         
-        const paysData = db.getPayments({ parentId: user.id });
+        const { data: paysData } = await supabase.from('payments').select('*').eq('parent_id', user.id);
         const pays = (paysData || []).map((d: any) => ({...d, studentId: d.student_id, schoolId: d.school_id, parentId: d.parent_id, createdAt: d.created_at, date: new Date(d.created_at).getTime()}));
         
         pays.sort((a: any, b: any) => b.date - a.date);

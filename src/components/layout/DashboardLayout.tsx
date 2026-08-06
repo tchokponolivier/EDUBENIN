@@ -95,11 +95,11 @@ export function DashboardLayout({ children }: { children: ReactNode }) {
         <div className="p-4 mt-auto border-t border-slate-700 bg-slate-950/50">
           <div className="flex items-center gap-3 mb-4">
             <div className="w-10 h-10 rounded-full bg-slate-700 border border-slate-600 flex items-center justify-center font-bold text-white shrink-0">
-              {user?.name?.charAt(0) || user?.email?.charAt(0) || '?'}
+              {user.name.charAt(0)}
             </div>
             <div className="overflow-hidden">
-              <p className="text-xs font-medium truncate text-white">{user?.name || user?.email || 'Utilisateur'}</p>
-              <p className="text-[10px] text-slate-400 truncate capitalize">{user?.role?.replace('_', ' ')?.toLowerCase() || 'Utilisateur'}</p>
+              <p className="text-xs font-medium truncate text-white">{user.name}</p>
+              <p className="text-[10px] text-slate-400 truncate capitalize">{user.role.replace('_', ' ').toLowerCase()}</p>
             </div>
           </div>
           <button

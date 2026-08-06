@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useEffect, useState } from "react";
 import { User } from "../types";
-import { supabase } from "./supabase";
+
 
 interface AuthContextType {
   user: User | null;
@@ -66,96 +66,23 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     };
 
     // Fetch real profile from Supabase
-    const fetchSupabaseProfile = async (sessionUser: any) => {
-      try {
-        const pendingRole = localStorage.getItem("pending_google_role");
-        
-        if (pendingRole) {
-          localStorage.removeItem("pending_google_role");
-          // If they chose a role during Google Sign-In, update their profile
-          // This overrides the default 'PARENT' role created by the database trigger
-          const { error: updateError } = await supabase.from('profiles').update({ role: pendingRole }).eq('id', sessionUser.id);
-          if (updateError) {
-            console.error("Erreur lors de la mise à jour du rôle :", updateError);
-            alert(`Erreur: Le rôle n'a pas pu être mis à jour. Détail: ${updateError.message}`);
-          }
-        }
-
-        const { data: profile, error } = await supabase
-          .from('profiles')
-          .select('role, full_name, school_id')
-          .eq('id', sessionUser.id)
-          .single();
-
-        if (profile) {
-          setUser({
-            id: sessionUser.id,
-            email: sessionUser.email || "",
-            name: profile.full_name || sessionUser.user_metadata?.full_name || sessionUser.email?.split("@")[0] || "User",
-            role: profile.role as any,
-            schoolId: profile.school_id,
-          });
-        } else {
-          // Fallback if profile not created yet
-          setUser({
-            id: sessionUser.id,
-            email: sessionUser.email || "",
-            name: sessionUser.user_metadata?.full_name || sessionUser.email?.split("@")[0] || "User",
-            role: getRoleForSupabaseUser(sessionUser.email || ""),
-          });
-        }
-      } catch (err) {
-        console.error("Error fetching profile", err);
-      } finally {
-        setIsLoading(false);
-      }
-    };
+    const fetchSupabaseProfile = async (sessionUser: any) => {};
 
     // 1. Check Supabase auth state first
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session?.user) {
-        fetchSupabaseProfile(session.user);
-      } else {
-        // 2. Fallback to local storage (mock user)
-        const savedUser = localStorage.getItem("edubenin_auth");
-        if (savedUser) {
-          setUser(JSON.parse(savedUser));
-        }
-        setIsLoading(false);
-      }
-    });
+    // Mock init
+const stored = localStorage.getItem("edubenin_auth");
+if (stored) setUser(JSON.parse(stored));
+setIsLoading(false);
+
 
     // Listen to Supabase auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (session?.user) {
-        fetchSupabaseProfile(session.user);
-        localStorage.removeItem("edubenin_auth"); // Clear mock user if logged in with Supabase
-      } else {
-        // If logged out from Supabase, check if there's a local mock user, otherwise null
-        const savedUser = localStorage.getItem("edubenin_auth");
-        if (savedUser) {
-          setUser(JSON.parse(savedUser));
-        } else {
-          setUser(null);
-        }
-        setIsLoading(false);
-      }
-    });
+    // Mock listener
 
-    return () => subscription.unsubscribe();
+    return () => {};
   }, []);
 
   const loginWithGoogle = async () => {
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider: 'google',
-      options: {
-        redirectTo: window.location.origin,
-      }
-    });
-    if (error) {
-      console.error("Google Auth Error:", error.message);
-      throw error;
-    }
+    alert("Google Sign-In Mocké");
   };
 
   const login = (email: string, fullName?: string, password?: string, role?: string) => {
@@ -179,7 +106,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   };
 
   const logout = async () => {
-    await supabase.auth.signOut();
     setUser(null);
     localStorage.removeItem("edubenin_auth");
   };

@@ -3,6 +3,7 @@ import { db } from "../lib/db";
 import { Student, Payment, LEVELS, SchoolSettings, Announcement } from "../types";
 import { useAuth } from "../lib/auth";
 import { Plus, User as UserIcon, CreditCard, Edit2, Camera, Calendar, History, CalendarDays, X, FileText, Megaphone } from "lucide-react";
+
 import { Link } from "react-router-dom";
 
 // Mock timetable data
@@ -193,19 +194,26 @@ Le Parent ou Tuteur légal (Signature précédée de la mention « Lu et approuv
     }
   };
 
-  const loadData = () => {
+    const loadData = async () => {
     if (!user) return;
-    const kids = db.getStudents({ parentId: user.id });
-    setChildren(kids);
-    
-    const pays: Record<string, Payment[]> = {};
-    kids.forEach(k => {
-      // Assuming db can filter by studentId, need to ensure db.getPayments supports it or filter locally
-      pays[k.id] = db.getPayments({ parentId: user.id }).filter(p => p.studentId === k.id);
-    });
-    setPayments(pays);
-    setSettings(db.getSchoolSettings());
-    setAnnouncements(db.getAnnouncements());
+    try {
+      const kidsData = db.getStudents({ parentId: user.id });
+      const kids = (kidsData || []).map((d: any) => ({...d, createdAt: d.created_at, firstName: d.first_name, lastName: d.last_name, parentId: d.parent_id, schoolId: d.school_id, studentType: d.studentType, educmasterNumber: d.educmasterNumber, gender: d.gender}));
+      setChildren(kids);
+      
+      const paysData = db.getPayments({ parentId: user.id });
+      const allPays = (paysData || []).map((d: any) => ({...d, studentId: d.student_id, schoolId: d.school_id, parentId: d.parent_id, createdAt: d.created_at}));
+      
+      const pays: Record<string, any[]> = {};
+      kids.forEach((k: any) => {
+        pays[k.id] = allPays.filter((p: any) => p.studentId === k.id);
+      });
+      setPayments(pays);
+      setSettings(db.getSchoolSettings());
+      setAnnouncements(db.getAnnouncements());
+    } catch (err) {
+      console.error(err);
+    }
   };
 
   useEffect(() => {
@@ -744,7 +752,7 @@ Le Parent ou Tuteur légal (Signature précédée de la mention « Lu et approuv
                     {child.photo ? (
                        <img src={child.photo} alt={child.firstName} className="w-full h-full object-cover" />
                     ) : (
-                       <span>{child.firstName.charAt(0)}{child.lastName.charAt(0)}</span>
+                       <span>{child.firstName?.charAt(0) || ''}{child.lastName?.charAt(0) || ''}</span>
                     )}
                   </div>
                   <div className="flex-1 min-w-0">

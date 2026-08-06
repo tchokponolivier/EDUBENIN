@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from "react";
 import { db } from "../lib/db";
 import { Student, Payment, SchoolSettings, Announcement } from "../types";
-import { Users, GraduationCap, ArrowUpRight, Search, Settings, Megaphone, Trash2, Edit, Mail, Plus } from "lucide-react";
-import { supabase } from "../lib/supabase";
+import { Users, GraduationCap, ArrowUpRight, Search, Settings, Megaphone, Trash2, Edit, Mail, Plus, Calendar, DollarSign, FileText, Download } from "lucide-react";
+
 import { useAuth } from "../lib/auth";
 
 export function SchoolAdminDashboard() {
@@ -12,7 +12,10 @@ export function SchoolAdminDashboard() {
   const [settings, setSettings] = useState<SchoolSettings | null>(null);
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
 
-  const [activeTab, setActiveTab] = useState<"DASHBOARD" | "MEMBERS" | "ANNOUNCEMENTS" | "SETTINGS">("DASHBOARD");
+  const [activeTab, setActiveTab] = useState<"DASHBOARD" | "ACADEMIC_YEARS" | "FEES" | "MEMBERS" | "ANNOUNCEMENTS" | "SETTINGS">("DASHBOARD");
+  const [members, setMembers] = useState<any[]>([]);
+  const [academicYears, setAcademicYears] = useState<any[]>([]);
+  const [fees, setFees] = useState<any[]>([]);
 
   // Invitations state
   const [invitations, setInvitations] = useState<any[]>([]);
@@ -26,41 +29,93 @@ export function SchoolAdminDashboard() {
   const [logoBase64, setLogoBase64] = useState("");
 
   useEffect(() => {
-    setStudents(db.getStudents());
-    setPayments(db.getPayments());
+    fetchDashboardData();
     setSettings(db.getSchoolSettings());
     setAnnouncements(db.getAnnouncements());
     fetchInvitations();
+    fetchMembers();
+    fetchAcademicYears();
+    fetchFees();
   }, []);
 
-  const fetchInvitations = async () => {
+  
+  const fetchDashboardData = async () => {
     if (!user?.schoolId) return;
-    const { data } = await supabase.from('invitations').select('*').eq('school_id', user.schoolId).order('created_at', { ascending: false });
-    if (data) setInvitations(data);
+    try {
+      const loadedStudents = db.getStudents({ schoolId: user.schoolId });
+      const loadedPayments = db.getPayments({ schoolId: user.schoolId });
+      setStudents(loadedStudents);
+      setPayments(loadedPayments);
+    } catch (err) {
+      console.error("Local DB fetch failed", err);
+    }
+  };
+
+  
+
+  
+  const fetchMembers = async () => {
+    setMembers([
+      { id: '1', email: 'director@school.com', name: 'Directeur', role: 'SCHOOL_ADMIN', status: 'ACTIVE' },
+      { id: '2', email: 'sec@school.com', name: 'Secrétaire', role: 'SECRETARY', status: 'ACTIVE' }
+    ]);
+  };
+  
+  const fetchAcademicYears = async () => {
+    setAcademicYears([
+      { id: '1', name: '2025-2026', start_date: '2025-09-01', end_date: '2026-06-30', is_active: true },
+      { id: '2', name: '2024-2025', start_date: '2024-09-01', end_date: '2025-06-30', is_active: false }
+    ]);
+  };
+  
+  const fetchFees = async () => {
+    setFees([
+      { id: '1', level: '6ème', fee_type: 'Scolarité', name: 'Tranche 1', amount: 35000 },
+      { id: '2', level: 'Terminale', fee_type: 'Scolarité', name: 'Tranche 1', amount: 45000 }
+    ]);
+  };
+
+  const fetchInvitations = async () => {
+    setInvitations([]);
   };
 
   const totalRevenue = payments.reduce((acc, curr) => acc + curr.amount, 0);
 
+  
+  const [newYear, setNewYear] = useState("");
+  const [newYearStart, setNewYearStart] = useState("");
+  const [newYearEnd, setNewYearEnd] = useState("");
+  const [newFeeLevel, setNewFeeLevel] = useState("6ème");
+  const [newFeeType, setNewFeeType] = useState("Scolarité");
+  const [newFeeAmount, setNewFeeAmount] = useState("");
+  const [newFeeName, setNewFeeName] = useState("");
+  
+  const handleAddYear = async (e: React.FormEvent) => {
+    e.preventDefault();
+    alert("Année ajoutée (Mock)");
+    setNewYear(""); setNewYearStart(""); setNewYearEnd("");
+  };
+  
+
+  const handleToggleYear = async (id: string, currentStatus: boolean) => {
+    alert("Basculée (Mock)");
+  };
+
+  
+  const handleAddFee = async (e: React.FormEvent) => {
+    e.preventDefault();
+    alert("Frais ajoutés (Mock)");
+    setNewFeeName(""); setNewFeeAmount("");
+  };
+  
+  const handleMemberStatus = async (id: string, currentStatus: string) => {
+    alert("Statut changé (Mock)");
+  };
+
   const handleInvite = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!user?.schoolId) return;
-    setIsInviting(true);
-    try {
-      const { error } = await supabase.from('invitations').insert([{
-        school_id: user.schoolId,
-        email: inviteEmail.trim().toLowerCase(),
-        role: inviteRole
-      }]);
-      if (error) throw error;
-      alert("Invitation créée avec succès ! L'utilisateur sera automatiquement associé lors de sa connexion avec Google.");
-      setInviteEmail("");
-      fetchInvitations();
-    } catch (err: any) {
-      console.error(err);
-      alert(`Erreur: ${err.message}`);
-    } finally {
-      setIsInviting(false);
-    }
+    alert("Invitation envoyée (Mock)");
+    setInviteEmail("");
   };
 
   const handleSettingsSave = (e: React.FormEvent<HTMLFormElement>) => {
@@ -120,6 +175,7 @@ export function SchoolAdminDashboard() {
           <p className="text-xs text-slate-500 mt-1">Supervisez l'évolution des inscriptions et paramètres</p>
         </div>
         <div className="flex p-1 bg-slate-100 rounded-lg shrink-0 overflow-x-auto max-w-full">
+          
           <button 
             onClick={() => setActiveTab("DASHBOARD")} 
             className={`px-4 py-2 rounded text-xs font-bold uppercase tracking-wider transition-colors ${activeTab === "DASHBOARD" ? "bg-white shadow-sm text-gray-700" : "text-slate-500 hover:text-gray-700"}`}
@@ -127,10 +183,22 @@ export function SchoolAdminDashboard() {
             Vue d'ensemble
           </button>
           <button 
+            onClick={() => setActiveTab("ACADEMIC_YEARS")} 
+            className={`px-4 py-2 rounded text-xs font-bold uppercase tracking-wider transition-colors ${activeTab === "ACADEMIC_YEARS" ? "bg-white shadow-sm text-gray-700" : "text-slate-500 hover:text-gray-700"}`}
+          >
+            Années Scolaires
+          </button>
+          <button 
+            onClick={() => setActiveTab("FEES")} 
+            className={`px-4 py-2 rounded text-xs font-bold uppercase tracking-wider transition-colors ${activeTab === "FEES" ? "bg-white shadow-sm text-gray-700" : "text-slate-500 hover:text-gray-700"}`}
+          >
+            Frais & Scolarité
+          </button>
+          <button 
             onClick={() => setActiveTab("MEMBERS")} 
             className={`px-4 py-2 rounded text-xs font-bold uppercase tracking-wider transition-colors ${activeTab === "MEMBERS" ? "bg-white shadow-sm text-gray-700" : "text-slate-500 hover:text-gray-700"}`}
           >
-            Membres & Invitations
+            Membres & Personnel
           </button>
           <button 
             onClick={() => setActiveTab("ANNOUNCEMENTS")} 
@@ -158,7 +226,7 @@ export function SchoolAdminDashboard() {
             </div>
             <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
               <div className="text-slate-500 text-xs font-medium uppercase mb-2">Recettes (FCFA)</div>
-              <div className="text-3xl font-bold text-gray-700">{totalRevenue.toLocaleString()}M</div>
+              <div className="text-3xl font-bold text-gray-700">{totalRevenue.toLocaleString()} FCFA</div>
               <div className="mt-2 text-slate-400 text-xs">Total cumulé</div>
             </div>
             <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
@@ -222,72 +290,171 @@ export function SchoolAdminDashboard() {
         </>
       )}
 
+      
+      {activeTab === "ACADEMIC_YEARS" && (
+        <div className="space-y-6">
+          <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+            <h2 className="text-lg font-bold text-gray-700 mb-4 flex items-center gap-2">
+              <Calendar className="text-emerald-600" size={20} />
+              Nouvelle Année Scolaire
+            </h2>
+            <form onSubmit={handleAddYear} className="flex flex-col sm:flex-row gap-4 items-end">
+              <div className="flex-1">
+                <label className="block text-sm font-medium text-gray-700 mb-1">Nom (ex: 2025-2026)</label>
+                <input required type="text" value={newYear} onChange={e => setNewYear(e.target.value)} className="w-full px-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none" />
+              </div>
+              <div className="flex-1">
+                <label className="block text-sm font-medium text-gray-700 mb-1">Début</label>
+                <input required type="date" value={newYearStart} onChange={e => setNewYearStart(e.target.value)} className="w-full px-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none" />
+              </div>
+              <div className="flex-1">
+                <label className="block text-sm font-medium text-gray-700 mb-1">Fin</label>
+                <input required type="date" value={newYearEnd} onChange={e => setNewYearEnd(e.target.value)} className="w-full px-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none" />
+              </div>
+              <button type="submit" className="px-6 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 flex items-center gap-2 font-medium">
+                <Plus size={18} /> Créer
+              </button>
+            </form>
+          </div>
+          <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+            <h3 className="px-6 py-4 border-b border-gray-100 font-bold text-gray-700 bg-slate-50">Années Scolaires</h3>
+            <ul className="divide-y divide-gray-100">
+              {academicYears.map(year => (
+                <li key={year.id} className="p-4 px-6 flex items-center justify-between hover:bg-slate-50 transition-colors">
+                  <div>
+                    <p className="font-bold text-gray-800">{year.name}</p>
+                    <p className="text-xs text-slate-500 mt-1">Du {year.start_date} au {year.end_date}</p>
+                  </div>
+                  <div>
+                    
+                    <button onClick={() => handleToggleYear(year.id, year.is_active)} className={`px-4 py-1.5 rounded-full text-xs font-bold ${year.is_active ? 'bg-red-100 text-red-700 hover:bg-red-200' : 'bg-slate-200 text-slate-600 hover:bg-slate-300'}`}>
+                      {year.is_active ? 'Clôturer & Basculer Effectifs' : 'Activer'}
+                    </button>
+                  </div>
+                </li>
+              ))}
+              {academicYears.length === 0 && <li className="p-6 text-center text-slate-500">Aucune année configurée</li>}
+            </ul>
+          </div>
+        </div>
+      )}
+      {activeTab === "FEES" && (
+        <div className="space-y-6">
+          <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+            <h2 className="text-lg font-bold text-gray-700 mb-4 flex items-center gap-2">
+              <DollarSign className="text-emerald-600" size={20} />
+              Configurer un Tarif
+            </h2>
+            <form onSubmit={handleAddFee} className="flex flex-col sm:flex-row gap-4 items-end flex-wrap">
+              <div className="flex-1 min-w-[150px]">
+                <label className="block text-sm font-medium text-gray-700 mb-1">Classe / Niveau</label>
+                <select value={newFeeLevel} onChange={e => setNewFeeLevel(e.target.value)} className="w-full px-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none bg-white">
+                  <option value="Toutes">Toutes</option>
+                  <option value="6ème">6ème</option>
+                  <option value="5ème">5ème</option>
+                  <option value="4ème">4ème</option>
+                  <option value="3ème">3ème</option>
+                </select>
+              </div>
+              <div className="flex-1 min-w-[150px]">
+                <label className="block text-sm font-medium text-gray-700 mb-1">Type de frais</label>
+                <select value={newFeeType} onChange={e => setNewFeeType(e.target.value)} className="w-full px-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none bg-white">
+                  <option value="Inscription">Inscription</option>
+                  <option value="Scolarité">Mensualité / Tranche</option>
+                  <option value="Cantine">Cantine</option>
+                  <option value="Transport">Transport</option>
+                </select>
+              </div>
+              <div className="flex-1 min-w-[150px]">
+                <label className="block text-sm font-medium text-gray-700 mb-1">Libellé</label>
+                <input required type="text" value={newFeeName} onChange={e => setNewFeeName(e.target.value)} placeholder="Ex: Tranche 1" className="w-full px-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none" />
+              </div>
+              <div className="flex-1 min-w-[150px]">
+                <label className="block text-sm font-medium text-gray-700 mb-1">Montant (FCFA)</label>
+                <input required type="number" value={newFeeAmount} onChange={e => setNewFeeAmount(e.target.value)} placeholder="0" className="w-full px-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none" />
+              </div>
+              <button type="submit" className="px-6 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 flex items-center gap-2 font-medium">
+                <Plus size={18} /> Ajouter
+              </button>
+            </form>
+          </div>
+          <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+            <h3 className="px-6 py-4 border-b border-gray-100 font-bold text-gray-700 bg-slate-50">Grille Tarifaire</h3>
+            <div className="overflow-x-auto">
+              <table className="w-full text-left">
+                <thead className="bg-slate-50 text-[10px] uppercase text-slate-500 font-bold tracking-wider">
+                  <tr>
+                    <th className="px-6 py-3">Niveau</th>
+                    <th className="px-6 py-3">Type</th>
+                    <th className="px-6 py-3">Libellé</th>
+                    <th className="px-6 py-3">Montant (FCFA)</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  {fees.map(fee => (
+                    <tr key={fee.id} className="hover:bg-slate-50">
+                      <td className="px-6 py-3 font-medium">{fee.level}</td>
+                      <td className="px-6 py-3">{fee.fee_type}</td>
+                      <td className="px-6 py-3 text-slate-600">{fee.name}</td>
+                      <td className="px-6 py-3 font-bold text-gray-800">{fee.amount.toLocaleString()}</td>
+                    </tr>
+                  ))}
+                  {fees.length === 0 && <tr><td colSpan={4} className="p-6 text-center text-slate-500">Aucun tarif défini</td></tr>}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
       {activeTab === "MEMBERS" && (
         <div className="space-y-6">
           <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
             <h2 className="text-lg font-bold text-gray-700 mb-4 flex items-center gap-2">
               <Mail className="text-emerald-600" size={20} />
-              Inviter un membre ou un parent
+              Inviter un membre du personnel
             </h2>
             <form onSubmit={handleInvite} className="flex flex-col sm:flex-row gap-4 items-end">
               <div className="flex-1 w-full">
                 <label className="block text-sm font-medium text-gray-700 mb-1">Email Google</label>
-                <input 
-                  type="email" 
-                  required 
-                  value={inviteEmail}
-                  onChange={e => setInviteEmail(e.target.value)}
-                  className="w-full px-4 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                  placeholder="email@gmail.com"
-                />
+                <input type="email" required value={inviteEmail} onChange={e => setInviteEmail(e.target.value)} className="w-full px-4 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500" placeholder="email@gmail.com" />
               </div>
               <div className="flex-1 w-full">
                 <label className="block text-sm font-medium text-gray-700 mb-1">Rôle</label>
-                <select 
-                  value={inviteRole}
-                  onChange={e => setInviteRole(e.target.value)}
-                  className="w-full px-4 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 bg-white"
-                >
-                  <option value="TEACHER">Professeur (Teacher)</option>
-                  <option value="SECRETARY">Secrétaire (Secretary)</option>
-                  <option value="CASHIER">Caissier(e) (Cashier)</option>
-                  <option value="PARENT">Parent (Parent)</option>
+                <select value={inviteRole} onChange={e => setInviteRole(e.target.value)} className="w-full px-4 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 bg-white">
+                  <option value="TEACHER">Professeur</option>
+                  <option value="SECRETARY">Secrétaire</option>
+                  <option value="CASHIER">Caissier(e)</option>
                 </select>
               </div>
-              <button 
-                type="submit" 
-                disabled={isInviting}
-                className="w-full sm:w-auto px-6 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 flex items-center justify-center gap-2 font-medium disabled:opacity-50"
-              >
+              <button type="submit" disabled={isInviting} className="w-full sm:w-auto px-6 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 flex items-center justify-center gap-2 font-medium disabled:opacity-50">
                 {isInviting ? "En cours..." : <><Plus size={18} /> Inviter</>}
               </button>
             </form>
-            <p className="text-sm text-slate-500 mt-4">
-              L'utilisateur doit se connecter avec ce compte Google pour être automatiquement associé à votre établissement.
-            </p>
           </div>
-
+          
           <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-            <h3 className="px-6 py-4 border-b border-gray-100 font-bold text-gray-700 bg-slate-50">Invitations en attente</h3>
-            {invitations.length === 0 ? (
-              <div className="p-8 text-center text-slate-500">Aucune invitation en attente.</div>
-            ) : (
-              <ul className="divide-y divide-gray-100">
-                {invitations.map(inv => (
-                  <li key={inv.id} className="p-4 px-6 flex items-center justify-between hover:bg-slate-50 transition-colors">
-                    <div>
-                      <p className="font-medium text-gray-800">{inv.email}</p>
-                      <p className="text-xs text-slate-500 mt-1">Rôle: <span className="font-semibold text-emerald-600">{inv.role}</span> | Créé le: {new Date(inv.created_at).toLocaleDateString()}</p>
-                    </div>
-                  </li>
-                ))}
-              </ul>
-            )}
+            <h3 className="px-6 py-4 border-b border-gray-100 font-bold text-gray-700 bg-slate-50 flex justify-between items-center">
+              Personnel Actif
+            </h3>
+            <ul className="divide-y divide-gray-100">
+              {members.map(member => (
+                <li key={member.id} className="p-4 px-6 flex items-center justify-between hover:bg-slate-50 transition-colors">
+                  <div>
+                    <p className="font-bold text-gray-800">{member.full_name || member.email}</p>
+                    <p className="text-xs text-slate-500 mt-1">Rôle: <span className="font-semibold text-blue-600">{member.role}</span> | Statut: <span className={member.status === 'SUSPENDED' ? 'text-red-500' : 'text-emerald-500'}>{member.status || 'ACTIVE'}</span></p>
+                  </div>
+                  <div>
+                    <button onClick={() => handleMemberStatus(member.id, member.status)} className={`px-4 py-1.5 rounded-full text-xs font-bold ${member.status === 'SUSPENDED' ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'}`}>
+                      {member.status === 'SUSPENDED' ? 'Réactiver' : 'Suspendre'}
+                    </button>
+                  </div>
+                </li>
+              ))}
+              {members.length === 0 && <li className="p-6 text-center text-slate-500">Aucun membre trouvé</li>}
+            </ul>
           </div>
         </div>
-      )}
-
-      {activeTab === "SETTINGS" && settings && (
+      )}{activeTab === "SETTINGS" && settings && (
         <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm max-w-2xl">
            <h3 className="font-bold text-gray-700 mb-6 pb-2 border-b border-slate-100">En-tête des Bulletins & Documents</h3>
            <form onSubmit={handleSettingsSave} className="space-y-4">

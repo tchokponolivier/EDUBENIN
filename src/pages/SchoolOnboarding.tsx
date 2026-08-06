@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { supabase } from '../lib/supabase';
+import { db } from '../lib/db';
 import { useAuth } from '../lib/auth';
 import { School, Building, MapPin, Phone, CheckCircle } from 'lucide-react';
 
@@ -22,26 +22,19 @@ export function SchoolOnboarding() {
 
     try {
       // 1. Create the school
-      const { data: school, error: schoolError } = await supabase
-        .from('schools')
-        .insert([{
+      const school = db.addSchool({
           name: formData.name,
           locality: formData.locality,
           contacts: formData.contacts,
-          mobile_money_numbers: {}
-        }])
-        .select()
-        .single();
-
-      if (schoolError) throw schoolError;
+          mobileMoneyNumbers: {}
+        });
 
       // 2. Update the profile with the new school_id
-      const { error: profileError } = await supabase
-        .from('profiles')
-        .update({ school_id: school.id, role: 'SCHOOL_ADMIN' })
-        .eq('id', user?.id);
-
-      if (profileError) throw profileError;
+      // Mock profile update
+if (user) {
+  const updatedUser = { ...user, schoolId: school.id, role: 'SCHOOL_ADMIN' };
+  localStorage.setItem("edubenin_auth", JSON.stringify(updatedUser));
+}
 
       // 3. Update local auth context
       // We can force a page reload or call a refresh function. 

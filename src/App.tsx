@@ -20,9 +20,10 @@ import { TeacherDashboard } from './pages/TeacherDashboard';
 import { TeacherProfile } from './pages/TeacherProfile';
 import { SchoolOnboarding } from './pages/SchoolOnboarding';
 import { LoadingSkeleton } from './components/layout/LoadingSkeleton';
+import { SuperAdminDashboard } from './pages/SuperAdmin';
 
 // Role-based Dashboards (Placeholders for SuperAdmin and Teacher for now)
-const SuperAdminDashboard = () => <div className="p-4 bg-white rounded-xl shadow-sm border border-gray-100"><h2 className="text-2xl font-bold text-gray-700 mb-4">Espace Super Admin</h2><p>Gestion des établissements...</p></div>;
+
 
 function ProtectedRoute({ children, allowedRoles, withLayout = true }: { children: React.ReactNode, allowedRoles?: string[], withLayout?: boolean }) {
   const { user, isLoading } = useAuth();

@@ -1,9 +1,57 @@
 import React, { useState } from "react";
 import { Download, Search, BookOpen, Printer } from "lucide-react";
 import { PieChart, Pie, Cell, Tooltip, Legend, ResponsiveContainer } from "recharts";
+import html2pdf from "html2pdf.js";
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid } from "recharts";
 
 export function SchoolAdminStats() {
-  const [activeTab, setActiveTab] = useState<"BILAN_CLASSE" | "SYNTHESE_ELEVE">("BILAN_CLASSE");
+
+  
+  const exportExcel = () => {
+    // Generate CSV content
+    const headers = ["Classe", "Garçons", "Filles", "Total", "Moyenne Classe", "Nbre Moyenne", "% Moyenne", "Major (Moyenne)", "Major (Nom)"];
+    
+    const rows = bilanData.map(row => [
+      row.classe,
+      row.g.toString(),
+      row.f.toString(),
+      row.t.toString(),
+      row.moyClasse.toString(),
+      row.nbreMoy.toString(),
+      row.pMoy.toString(),
+      row.majorMoy.toString(),
+      `"${row.majorNom}"`
+    ]);
+    
+    const csvContent = "data:text/csv;charset=utf-8," 
+      + headers.join(",") + "\n" 
+      + rows.map(e => e.join(",")).join("\n");
+      
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute("download", `Rapport_Statistique_${new Date().toISOString().split('T')[0]}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  const exportPDF = () => {
+    const element = document.getElementById("stats-report");
+    if (!element) return;
+    
+    const opt = {
+      margin: 10,
+      filename: `Rapport_Statistique_${new Date().toISOString().split('T')[0]}.pdf`,
+      image: { type: 'jpeg' as const, quality: 0.98 },
+      html2canvas: { scale: 2 },
+      jsPDF: { unit: 'mm', format: 'a4', orientation: 'landscape' as const }
+    };
+    
+    html2pdf().set(opt).from(element).save();
+  };
+
+  const [activeTab, setActiveTab] = useState<"BILAN_CLASSE" | "SYNTHESE_ELEVE" | "RENTABILITE">("BILAN_CLASSE");
 
   // Mock data as requested
   const bilanData = [
@@ -22,7 +70,7 @@ export function SchoolAdminStats() {
   const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8', '#82ca9d', '#ffc658'];
 
   return (
-    <div className="flex flex-col gap-6 p-2">
+    <div className="flex flex-col gap-6 p-2" id="stats-report">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-xl font-bold text-gray-700">Synthèse & Bilans</h1>
@@ -35,14 +83,54 @@ export function SchoolAdminStats() {
           >
             Bilan par Classes
           </button>
+
           <button 
             onClick={() => setActiveTab("SYNTHESE_ELEVE")} 
             className={`px-4 py-2 rounded text-xs font-bold uppercase tracking-wider transition-colors ${activeTab === "SYNTHESE_ELEVE" ? "bg-white shadow-sm text-gray-700" : "text-slate-500 hover:text-gray-700"}`}
           >
              Synthèse Élève
           </button>
+          <button 
+            onClick={() => setActiveTab("RENTABILITE")} 
+            className={`px-4 py-2 rounded text-xs font-bold uppercase tracking-wider transition-colors ${activeTab === "RENTABILITE" ? "bg-white shadow-sm text-gray-700" : "text-slate-500 hover:text-gray-700"}`}
+          >
+             Rentabilité
+          </button>
+          
+          <button onClick={exportExcel} className="px-4 py-2 rounded text-xs font-bold uppercase tracking-wider bg-blue-600 text-white hover:bg-blue-700 flex items-center gap-2">
+            <Download size={14} /> Exporter Excel
+          </button>
+          <button onClick={exportPDF} className="px-4 py-2 rounded text-xs font-bold uppercase tracking-wider bg-emerald-600 text-white hover:bg-emerald-700 flex items-center gap-2">
+            <Download size={14} /> Exporter PDF
+          </button>
+
         </div>
       </div>
+
+
+      {activeTab === "RENTABILITE" && (
+        <div className="flex flex-col gap-6" id="stats-report">
+          <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+            <div className="p-4 border-b border-slate-100">
+              <h3 className="font-bold text-gray-700 text-lg uppercase tracking-wider">État de Rentabilité par Niveau</h3>
+            </div>
+            <div className="p-6">
+               <div className="h-[400px] w-full">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={bilanData.map(d => ({ name: d.classe, rentabilite: d.nbreMoy * 50000 + d.majorMoy * 1000 }))} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis dataKey="name" />
+                      <YAxis />
+                      <Tooltip formatter={(value) => `${value.toLocaleString()} FCFA`} />
+                      <Legend />
+                      <Bar dataKey="rentabilite" fill="#10b981" name="Chiffre d'Affaires Estimé" />
+                    </BarChart>
+                  </ResponsiveContainer>
+               </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {activeTab === "BILAN_CLASSE" && (
         <div className="flex flex-col gap-6">

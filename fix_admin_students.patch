@@ -1,0 +1,55 @@
+--- src/pages/SchoolAdminStudents.tsx
++++ src/pages/SchoolAdminStudents.tsx
+@@ -107,37 +107,41 @@
+             })) as Student[];
+             setStudents(mappedStudents);
+-            return;
+           }
+         }
+       } catch (err) {
+-        console.error("Supabase fetch failed, falling back to local DB", err);
++        console.error("Supabase fetch failed", err);
+       }
+-      
+-      // Fallback to local DB
+-      setStudents(db.getStudents());
+     };
+     
+     fetchStudents();
+   }, [user?.schoolId]);
+ 
+-  const handleSaveStudent = (e: React.FormEvent) => {
++  const handleSaveStudent = async (e: React.FormEvent) => {
+     e.preventDefault();
+     if (!showEditModal) return;
+     try {
+-      db.updateStudent(showEditModal.id, showEditModal);
+-      setStudents(db.getStudents());
++      const { supabase } = await import('../lib/supabase');
++      const { error } = await supabase.from('students').update({
++        first_name: showEditModal.firstName,
++        last_name: showEditModal.lastName,
++        level: showEditModal.level
++      }).eq('id', showEditModal.id);
++      if (error) throw error;
++      setStudents(students.map(s => s.id === showEditModal.id ? showEditModal : s));
+       setShowEditModal(null);
+       alert("Informations de l'élève mises à jour avec succès.");
+     } catch (err) {
+       console.error(err);
+       alert("Erreur lors de la mise à jour");
+     }
+   };
+ 
+-  const handleDeleteStudent = (id: string) => {
++  const handleDeleteStudent = async (id: string) => {
+     if (confirm("Êtes-vous sûr de vouloir supprimer cet élève ? Cette action est irréversible.")) {
+       try {
+-        db.deleteStudent(id);
+-        setStudents(db.getStudents());
++        const { supabase } = await import('../lib/supabase');
++        const { error } = await supabase.from('students').delete().eq('id', id);
++        if (error) throw error;
++        setStudents(students.filter(s => s.id !== id));
+         alert("Élève supprimé avec succès.");
+       } catch (err) {

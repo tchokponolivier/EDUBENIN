@@ -10,10 +10,12 @@ export function CashierDashboard() {
   
   const [payments, setPayments] = useState<Payment[]>([]);
   const [expenses, setExpenses] = useState<Expense[]>([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const fetchData = async () => {
       if (!user?.schoolId) return;
+      setLoading(true);
       
       const [paymentsRes, expensesRes] = await Promise.all([
         supabase.from('payments').select('*').eq('school_id', user.schoolId),
@@ -26,8 +28,8 @@ export function CashierDashboard() {
            schoolId: d.school_id,
            studentId: d.student_id,
            amount: d.amount,
-           paymentDate: d.payment_date,
-           paymentMethod: d.payment_method,
+           paymentDate: d.payment_date || d.created_at,
+           paymentMethod: d.payment_method || d.network || 'CASH',
            reference: d.reference,
            status: d.status,
            createdAt: new Date(d.created_at).getTime()
@@ -46,6 +48,7 @@ export function CashierDashboard() {
            createdAt: new Date(d.created_at).getTime()
          })));
       }
+      setLoading(false);
     };
     
     fetchData();
@@ -53,6 +56,10 @@ export function CashierDashboard() {
 
   const totalRevenue = useMemo(() => payments.reduce((acc, p) => acc + p.amount, 0), [payments]);
   const totalExpenses = useMemo(() => expenses.reduce((acc, e) => acc + e.amount, 0), [expenses]);
+  
+  if (loading) {
+    return <div className="p-8 text-center text-slate-500">Chargement du tableau de bord...</div>;
+  }
   const netProfit = totalRevenue - totalExpenses;
 
   // Chart data

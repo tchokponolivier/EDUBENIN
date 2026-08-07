@@ -1,14 +1,28 @@
 import { ReactNode, useState } from "react";
 import { useAuth } from "../../lib/auth";
-import { LogOut, LayoutDashboard, Users, CreditCard, BookOpen, Building, HelpCircle, User, Menu, X } from "lucide-react";
+import { LogOut, LayoutDashboard, Users, CreditCard, BookOpen, Building, HelpCircle, User, Menu, X, Settings } from "lucide-react";
 import { Link, useLocation } from "react-router-dom";
 import { clsx } from "clsx";
 import { EduBeninLogo } from "../Logo";
+import { UserSettingsModal } from "../UserSettingsModal";
+import { supabase } from "../../lib/supabase";
+import { useEffect } from "react";
 
 export function DashboardLayout({ children }: { children: ReactNode }) {
   const { user, logout } = useAuth();
   const location = useLocation();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [schoolName, setSchoolName] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (user?.schoolId) {
+      supabase.from('schools').select('name').eq('id', user.schoolId).single()
+        .then(({ data }) => {
+          if (data) setSchoolName(data.name);
+        });
+    }
+  }, [user]);
 
   if (!user) return null;
 
@@ -97,10 +111,13 @@ export function DashboardLayout({ children }: { children: ReactNode }) {
             <div className="w-10 h-10 rounded-full bg-slate-700 border border-slate-600 flex items-center justify-center font-bold text-white shrink-0">
               {user.name.charAt(0)}
             </div>
-            <div className="overflow-hidden">
+            <div className="overflow-hidden flex-1">
               <p className="text-xs font-medium truncate text-white">{user.name}</p>
               <p className="text-[10px] text-slate-400 truncate capitalize">{user.role.replace('_', ' ').toLowerCase()}</p>
             </div>
+            <button onClick={() => setIsSettingsOpen(true)} className="text-slate-400 hover:text-white p-1 ml-auto">
+              <Settings className="w-4 h-4" />
+            </button>
           </div>
           <button
             onClick={logout}
@@ -116,8 +133,8 @@ export function DashboardLayout({ children }: { children: ReactNode }) {
       <main className="flex-1 flex flex-col min-w-0">
         <header className="h-16 bg-white border-b border-slate-200 px-4 md:px-8 flex items-center justify-between shrink-0">
           <div className="flex items-center gap-4">
-            <h2 className="text-xl font-bold text-gray-700 hidden md:block">Vue d'ensemble du Système</h2>
-            <h2 className="text-xl font-bold text-gray-700 md:hidden">EduBénin</h2>
+            <h2 className="text-xl font-bold text-gray-700 hidden md:block">{schoolName || "Vue d'ensemble du Système"}</h2>
+            <h2 className="text-xl font-bold text-gray-700 md:hidden">{schoolName ? schoolName.substring(0, 15) + (schoolName.length > 15 ? '...' : '') : "EduBénin"}</h2>
             <span className="hidden md:inline-block px-2 py-0.5 bg-emerald-100 text-gray-700 rounded-full text-[10px] font-bold uppercase tracking-wider">Bénin • 2026</span>
           </div>
           <div className="flex items-center gap-2 md:gap-4">
@@ -140,6 +157,7 @@ export function DashboardLayout({ children }: { children: ReactNode }) {
             {children}
           </div>
         </div>
+        <UserSettingsModal isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} />
       </main>
     </div>
   );

@@ -1,5 +1,4 @@
 import React, { useState, useEffect, useMemo } from "react";
-import { db } from "../lib/db";
 import { Student, Payment, SchoolSettings } from "../types";
 import { useAuth } from "../lib/auth";
 import { CreditCard, CheckCircle2, History, AlertTriangle, MessageCircle, Download, FileText, X, Calendar } from "lucide-react";
@@ -122,7 +121,9 @@ export function ParentPayments() {
         
         pays.sort((a: any, b: any) => b.date - a.date);
         setAllPayments(pays);
-        setSettings(db.getSchoolSettings());
+        supabase.from('schools').select('*').eq('id', user.schoolId).single().then(({data}) => {
+           if (data) setSettings(data as any);
+        });
         
         if (kids.length > 0) setSelectedChildId(kids[0].id);
       } catch (err) {
@@ -332,18 +333,7 @@ export function ParentPayments() {
   const confirmPayment = () => {
     if (!user) return;
 
-    const newPayment = db.addPayment({
-      studentId: selectedChildId,
-      parentId: user.id,
-      schoolId: "school_1",
-      network,
-      amount: totalAmountWithFee,
-      items: [
-        ...currentPaymentItemsTemplate,
-        { name: "Frais de transaction (1%)", amount: transactionFee }
-      ],
-      ...(hasPartialPayment && nextPaymentDate ? { nextPaymentDate } : {})
-    });
+    /* db.addPayment removed */
 
     const updatedPays = [newPayment, ...allPayments];
     updatedPays.sort((a,b) => b.date - a.date);

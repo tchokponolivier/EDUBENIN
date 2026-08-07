@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from "react";
-import { db } from "../lib/db";
 import { Student, LEVELS } from "../types";
 import { useAuth } from "../lib/auth";
 import { Users, Search, Edit2, AlertCircle, Download, CheckSquare, Trash2, ArrowLeft, LayoutGrid, Clock, FileText } from "lucide-react";
@@ -115,7 +114,7 @@ export function SchoolAdminStudents() {
         console.error("Supabase fetch failed, falling back to local DB", err);
       }
       // Fallback to local DB
-      setStudents(db.getStudents());
+      // removed fallback
     };
     
     fetchStudents();

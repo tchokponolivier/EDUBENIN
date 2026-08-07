@@ -14,20 +14,7 @@ class MockDB {
   // School Settings
   getSchoolSettings(): SchoolSettings {
     const settings = this.get<SchoolSettings>("schoolSettings");
-    if (settings.length === 0) {
-      const defaultSettings: SchoolSettings = {
-        id: "school_1",
-        name: "Lycée Béhanzin",
-        address: "Zounmè, Porto-Novo, Bénin",
-        contact: "+229 22 22 22 22 | lyceebehanzin@edu.bj",
-        motto: "Travail - Rigueur - Succès",
-        logo: "https://images.unsplash.com/photo-1541339907198-e08756dedf3f?w=128&h=128&fit=crop",
-        academicYear: "2025 - 2026"
-      };
-      this.set("schoolSettings", [defaultSettings]);
-      return defaultSettings;
-    }
-    return settings[0];
+    return settings[0] || {} as SchoolSettings;
   }
 
   updateSchoolSettings(updates: Partial<SchoolSettings>): SchoolSettings {
@@ -39,21 +26,7 @@ class MockDB {
 
   // Schools
   getSchools(): School[] {
-    const schools = this.get<School>("schools");
-    if (schools.length === 0) {
-      // Seed data
-      const defaultSchool: School = {
-        id: "school_1",
-        name: "Lycée Béhanzin",
-        locality: "Porto-Novo",
-        contacts: "22 22 22 22",
-        createdAt: Date.now(),
-        mobileMoneyNumbers: { moov: "94 00 00 00", mtn: "97 00 00 00" }
-      };
-      this.set("schools", [defaultSchool]);
-      return [defaultSchool];
-    }
-    return schools;
+    return this.get<School>("schools");
   }
 
   addSchool(school: Omit<School, "id" | "createdAt">): School {

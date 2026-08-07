@@ -6,7 +6,7 @@
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
 -- 2. Création de la table des établissements (Écoles)
-CREATE TABLE public.schools (
+CREATE TABLE IF NOT EXISTS public.schools (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     name TEXT NOT NULL,
     locality TEXT,
@@ -20,7 +20,7 @@ ALTER TABLE public.schools ENABLE ROW LEVEL SECURITY;
 
 -- 3. Création de la table des Profils Utilisateurs (liée à auth.users)
 -- Types de rôles : SUPER_ADMIN, SCHOOL_ADMIN, SECRETARY, CASHIER, PARENT, TEACHER
-CREATE TABLE public.profiles (
+CREATE TABLE IF NOT EXISTS public.profiles (
     id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
     school_id UUID REFERENCES public.schools(id) ON DELETE CASCADE,
     email TEXT UNIQUE NOT NULL,
@@ -31,7 +31,7 @@ CREATE TABLE public.profiles (
 ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
 
 -- 4. Création de la table des Élèves
-CREATE TABLE public.students (
+CREATE TABLE IF NOT EXISTS public.students (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     school_id UUID NOT NULL REFERENCES public.schools(id) ON DELETE CASCADE,
     parent_id UUID REFERENCES public.profiles(id) ON DELETE SET NULL,
@@ -44,7 +44,7 @@ CREATE TABLE public.students (
 ALTER TABLE public.students ENABLE ROW LEVEL SECURITY;
 
 -- 5. Création de la table des Paiements
-CREATE TABLE public.payments (
+CREATE TABLE IF NOT EXISTS public.payments (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     school_id UUID NOT NULL REFERENCES public.schools(id) ON DELETE CASCADE,
     student_id UUID NOT NULL REFERENCES public.students(id) ON DELETE CASCADE,
@@ -376,3 +376,124 @@ CREATE POLICY "Teachers manage appreciations" ON public.appreciations FOR ALL US
 
 CREATE POLICY "Staff view timetables" ON public.timetables FOR SELECT USING (school_id IN (SELECT school_id FROM public.profiles WHERE id = auth.uid()));
 CREATE POLICY "Admins manage timetables" ON public.timetables FOR ALL USING (school_id IN (SELECT school_id FROM public.profiles WHERE id = auth.uid() AND role IN ('SCHOOL_ADMIN', 'SECRETARY')));
+-- Fix fees_config vs fee_config
+ALTER TABLE IF EXISTS public.fees_config RENAME TO fee_config;
+
+-- Add payment_date and payment_method to payments if they don't exist
+ALTER TABLE public.payments ADD COLUMN IF NOT EXISTS payment_date TIMESTAMP WITH TIME ZONE DEFAULT NOW();
+ALTER TABLE public.payments ADD COLUMN IF NOT EXISTS payment_method TEXT;
+
+-- Drop absences and create attendance
+DROP TABLE IF EXISTS public.absences;
+CREATE TABLE IF NOT EXISTS public.attendance (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    school_id UUID NOT NULL REFERENCES public.schools(id) ON DELETE CASCADE,
+    student_id UUID NOT NULL REFERENCES public.students(id) ON DELETE CASCADE,
+    type TEXT NOT NULL, -- ABSENCE, DELAY
+    date TIMESTAMP WITH TIME ZONE NOT NULL,
+    reason TEXT,
+    is_justified BOOLEAN DEFAULT FALSE,
+    reported_by TEXT,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- RLS for attendance
+ALTER TABLE public.attendance ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Attendance is viewable by everyone in same school."
+    ON public.attendance FOR SELECT
+    USING (
+        EXISTS (
+            SELECT 1 FROM public.profiles
+            WHERE profiles.id = auth.uid() AND profiles.school_id = attendance.school_id
+        )
+    );
+CREATE POLICY "Attendance can be created by school staff."
+    ON public.attendance FOR INSERT
+    WITH CHECK (
+        EXISTS (
+            SELECT 1 FROM public.profiles
+            WHERE profiles.id = auth.uid() AND profiles.school_id = attendance.school_id
+        )
+    );
+CREATE POLICY "Attendance can be updated by school staff."
+    ON public.attendance FOR UPDATE
+    USING (
+        EXISTS (
+            SELECT 1 FROM public.profiles
+            WHERE profiles.id = auth.uid() AND profiles.school_id = attendance.school_id
+        )
+    );
+ALTER TABLE IF EXISTS public.profiles ADD COLUMN IF NOT EXISTS avatar_url TEXT;
+CREATE TABLE IF NOT EXISTS public.announcements (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    school_id UUID NOT NULL REFERENCES public.schools(id) ON DELETE CASCADE,
+    title TEXT NOT NULL,
+    content TEXT NOT NULL,
+    author_name TEXT,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+ALTER TABLE public.announcements ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Announcements viewable by everyone in school"
+    ON public.announcements FOR SELECT
+    USING (school_id IN (SELECT school_id FROM public.profiles WHERE id = auth.uid()));
+CREATE POLICY "Announcements creatable by admins"
+    ON public.announcements FOR ALL
+    USING (school_id IN (SELECT school_id FROM public.profiles WHERE id = auth.uid() AND role = 'SCHOOL_ADMIN'));
+
+
+CREATE TABLE IF NOT EXISTS public.special_requests (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    school_id UUID NOT NULL REFERENCES public.schools(id) ON DELETE CASCADE,
+    student_id UUID REFERENCES public.students(id) ON DELETE CASCADE,
+    parent_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE,
+    subject TEXT NOT NULL,
+    message TEXT NOT NULL,
+    status TEXT DEFAULT 'PENDING',
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+ALTER TABLE public.special_requests ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Requests viewable by admins and parent"
+    ON public.special_requests FOR SELECT
+    USING (
+        parent_id = auth.uid() OR
+        school_id IN (SELECT school_id FROM public.profiles WHERE id = auth.uid() AND role = 'SCHOOL_ADMIN')
+    );
+CREATE POLICY "Requests creatable by parents"
+    ON public.special_requests FOR INSERT
+    WITH CHECK (parent_id = auth.uid());
+CREATE POLICY "Requests updatable by admins"
+    ON public.special_requests FOR UPDATE
+    USING (school_id IN (SELECT school_id FROM public.profiles WHERE id = auth.uid() AND role = 'SCHOOL_ADMIN'));
+CREATE OR REPLACE FUNCTION public.handle_new_user()
+RETURNS trigger AS $$
+DECLARE
+    inv_school_id UUID;
+    inv_role TEXT;
+BEGIN
+  -- Si l'email est contact.tchok@gmail.com, on le force SUPER_ADMIN sans école
+  IF new.email = 'contact.tchok@gmail.com' THEN
+      INSERT INTO public.profiles (id, email, full_name, role)
+      VALUES (new.id, new.email, COALESCE(new.raw_user_meta_data->>'full_name', 'Super Admin'), 'SUPER_ADMIN');
+      RETURN new;
+  END IF;
+
+  -- Vérifier s'il y a une invitation
+  SELECT school_id, role INTO inv_school_id, inv_role 
+  FROM public.invitations WHERE email = new.email;
+
+  IF inv_school_id IS NOT NULL THEN
+      INSERT INTO public.profiles (id, email, full_name, role, school_id)
+      VALUES (new.id, new.email, COALESCE(new.raw_user_meta_data->>'full_name', 'Utilisateur Invité'), inv_role, inv_school_id);
+      
+      -- Supprimer l'invitation
+      DELETE FROM public.invitations WHERE email = new.email;
+  ELSE
+      INSERT INTO public.profiles (id, email, full_name, role)
+      VALUES (new.id, new.email, COALESCE(new.raw_user_meta_data->>'full_name', 'Parent'), 'PARENT');
+  END IF;
+
+  RETURN new;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;

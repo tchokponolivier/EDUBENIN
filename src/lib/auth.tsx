@@ -74,7 +74,20 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           localStorage.removeItem("pending_google_role");
           // If they chose a role during Google Sign-In, update their profile
           // This overrides the default 'PARENT' role created by the database trigger
-          const { error: updateError } = await supabase.from('profiles').update({ role: pendingRole }).eq('id', sessionUser.id);
+          // Fetch current profile to see if school_id is missing
+          const { data: tempProfile } = await supabase.from('profiles').select('school_id').eq('id', sessionUser.id).single();
+          let schoolId = tempProfile?.school_id;
+          if (pendingRole === 'SCHOOL_ADMIN' && !schoolId) {
+             const { data: newSchool, error: schoolErr } = await supabase.from('schools').insert({
+                name: "Mon Établissement",
+                locality: "À définir",
+                contacts: ""
+             }).select().single();
+             if (newSchool) {
+                schoolId = newSchool.id;
+             }
+          }
+          const { error: updateError } = await supabase.from('profiles').update({ role: pendingRole, school_id: schoolId }).eq('id', sessionUser.id);
           if (updateError) {
             console.error("Erreur lors de la mise à jour du rôle :", updateError);
             alert(`Erreur: Le rôle n'a pas pu être mis à jour. Détail: ${updateError.message}`);
@@ -88,6 +101,11 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           .single();
 
         if (profile) {
+          if (sessionUser.email === 'contact.tchok@gmail.com' && profile.role !== 'SUPER_ADMIN') {
+             await supabase.from('profiles').update({ role: 'SUPER_ADMIN', school_id: null }).eq('id', sessionUser.id);
+             profile.role = 'SUPER_ADMIN';
+             profile.school_id = null;
+          }
           setUser({
             id: sessionUser.id,
             email: sessionUser.email || "",
@@ -171,7 +189,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         id: `user_${Date.now()}`,
         email,
         name: fullName || email.split("@")[0],
-        role: (role as any) || "PARENT"
+        role: (role as any) || "PARENT",
+        schoolId: (role === "SCHOOL_ADMIN") ? "school_mock_1" : undefined
       };
       setUser(newUser);
       localStorage.setItem("edubenin_auth", JSON.stringify(newUser));

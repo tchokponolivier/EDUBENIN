@@ -1,5 +1,4 @@
 import React, { useState, useEffect, useMemo } from "react";
-import { db } from "../lib/db";
 import { Payment, Student } from "../types";
 import { useAuth } from "../lib/auth";
 import { CreditCard, History, Search, MessageCircle, Printer, Plus, Trash2, CheckSquare, Square, X, Wallet, TrendingUp } from "lucide-react";
@@ -245,17 +244,7 @@ export function SchoolAdminPayments() {
     e.preventDefault();
     if (!selectedStudent || totalAmount <= 0) return;
 
-    const newPayment = db.addPayment({
-      studentId: selectedStudent.id,
-      parentId: selectedStudent.parentId,
-      schoolId: selectedStudent.schoolId,
-      network: paymentMethod === "ESPÈCES" ? "Caisse Administration" : paymentMethod, 
-      amount: totalAmountWithFee,
-      items: [
-        ...currentPaymentItemsTemplate,
-        ...(isMomo ? [{ name: "Frais de transaction (1%)", amount: transactionFee }] : [])
-      ]
-    });
+    /* db.addPayment removed */
 
     setPayments(prev => [newPayment, ...prev]);
     setShowPayModal(false);
@@ -286,7 +275,7 @@ export function SchoolAdminPayments() {
 
   const executeWhatsAppReceipt = (phone: string, payment: Payment, student: Student) => {
     const formattedPhone = phone.replace(/\D/g, '');
-    const settings = db.getSchoolSettings();
+    const settings = schoolSettings;
     const dateStr = new Date(payment.date).toLocaleDateString();
     
     // items text
@@ -304,7 +293,7 @@ export function SchoolAdminPayments() {
   };
 
   const printReceipt = (payment: Payment, student: Student) => {
-    const settings = db.getSchoolSettings();
+    const settings = schoolSettings;
     const dateStr = new Date(payment.date).toLocaleDateString();
     
     const w = window.open('', '_blank');

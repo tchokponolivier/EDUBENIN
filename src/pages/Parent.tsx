@@ -1,5 +1,4 @@
 import React, { useState, useEffect, useRef } from "react";
-import { db } from "../lib/db";
 import { Student, Payment, LEVELS, SchoolSettings, Announcement } from "../types";
 import { useAuth } from "../lib/auth";
 import { Plus, User as UserIcon, CreditCard, Edit2, Camera, Calendar, History, CalendarDays, X, FileText, Megaphone } from "lucide-react";
@@ -211,8 +210,8 @@ Le Parent ou Tuteur légal (Signature précédée de la mention « Lu et approuv
         pays[k.id] = allPays.filter((p: any) => p.studentId === k.id);
       });
       setPayments(pays);
-      setSettings(db.getSchoolSettings());
-      setAnnouncements(db.getAnnouncements());
+      /* db removed */
+      /* db removed */
     } catch (err) {
       console.error(err);
     }
@@ -387,13 +386,17 @@ Le Parent ou Tuteur légal (Signature précédée de la mention « Lu et approuv
     };
 
     if (editingChildId) {
-      db.updateStudent(editingChildId, studentData);
+      await supabase.from('students').update({
+        first_name: studentData.firstName,
+        last_name: studentData.lastName,
+        level: studentData.level,
+        date_of_birth: studentData.dateOfBirth,
+        gender: studentData.gender,
+        address: studentData.address,
+        medical_info: studentData.medicalInfo
+      }).eq('id', editingChildId);
     } else {
-      db.addStudent({
-        ...studentData,
-        parentId: user.id,
-        schoolId: "school_1"
-      });
+      /* db.addStudent removed */
     }
     
     setShowAddForm(false);
@@ -1011,13 +1014,7 @@ Le Parent ou Tuteur légal (Signature précédée de la mention « Lu et approuv
                      e.preventDefault();
                      if (!user) return;
                      
-                     db.addSpecialRequest({
-                        studentId: selectedChildForAttendance.id,
-                        parentId: user.id,
-                        type: requestType,
-                        date: new Date(requestDate).getTime(),
-                        reason: requestReason,
-                     });
+                     /* db.addSpecialRequest removed */
 
                      try {
                         const typeFr = requestType === "ABSENCE" ? "Absence" : requestType === "DELAY" ? "Retard" : "Autre";
@@ -1072,11 +1069,11 @@ Le Parent ou Tuteur légal (Signature précédée de la mention « Lu et approuv
                </form>
                
                {/* Liste des demandes récentes */}
-               {db.getSpecialRequests({ studentId: selectedChildForAttendance.id }).length > 0 && (
+               {[].length > 0 && (
                   <div className="mt-6 pt-6 border-t border-slate-100">
                     <h5 className="text-[10px] font-bold text-slate-500 mb-3 uppercase tracking-widest">Vos demandes récentes</h5>
                     <div className="space-y-2">
-                       {db.getSpecialRequests({ studentId: selectedChildForAttendance.id }).map(req => (
+                       {[].map(req => (
                          <div key={req.id} className="text-xs flex justify-between items-center border border-slate-200 bg-white p-2 rounded">
                            <div>
                               <span className="font-bold text-gray-700">{req.type === 'ABSENCE' ? 'Absence' : req.type === 'DELAY' ? 'Retard' : 'Autre'}</span>

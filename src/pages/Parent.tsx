@@ -5,6 +5,8 @@ import { useAuth } from "../lib/auth";
 import { Plus, User as UserIcon, CreditCard, Edit2, Camera, Calendar, History, CalendarDays, X, FileText, Megaphone } from "lucide-react";
 import { supabase } from "../lib/supabase";
 import { Link } from "react-router-dom";
+import { ParentTimetable } from "../components/ParentTimetable";
+import { ParentAttendance } from "../components/ParentAttendance";
 
 // Mock timetable data
 const MOCK_TIMETABLE: Record<string, { time: string; subject: string; teacher: string; }[]> = {
@@ -826,7 +828,7 @@ Le Parent ou Tuteur légal (Signature précédée de la mention « Lu et approuv
 
       {selectedChildForTimetable && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
-          <div className="bg-white rounded-xl shadow-xl border border-slate-200 w-full max-w-2xl max-h-[90vh] flex flex-col animate-in zoom-in-95 fade-in">
+          <div className="bg-white rounded-xl shadow-xl border border-slate-200 w-full max-w-4xl max-h-[90vh] flex flex-col animate-in zoom-in-95 fade-in">
             <div className="p-4 border-b border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-4 bg-slate-50 rounded-t-xl shrink-0">
                <div>
                  <h3 className="text-lg font-bold text-gray-700">Emploi du temps</h3>
@@ -837,28 +839,7 @@ Le Parent ou Tuteur légal (Signature précédée de la mention « Lu et approuv
                </button>
             </div>
             <div className="p-4 overflow-y-auto flex-1">
-               <div className="space-y-4">
-                  {Object.entries(MOCK_TIMETABLE).map(([day, slots]) => (
-                    <div key={day} className="border border-slate-200 rounded-lg overflow-hidden">
-                       <div className="bg-slate-100 px-4 py-2 font-bold text-gray-700 text-xs uppercase tracking-widest border-b border-slate-200">
-                         {day}
-                       </div>
-                       <div className="divide-y divide-slate-100">
-                         {slots.map((slot, idx) => (
-                           <div key={idx} className="flex flex-col sm:flex-row sm:items-center p-3 gap-2 hover:bg-slate-50">
-                              <div className="w-32 font-mono text-xs font-semibold text-emerald-600 shrink-0">
-                                {slot.time}
-                              </div>
-                              <div className="flex-1">
-                                <div className="font-bold text-gray-700 text-sm">{slot.subject}</div>
-                                <div className="text-xs text-slate-500">{slot.teacher}</div>
-                              </div>
-                           </div>
-                         ))}
-                       </div>
-                    </div>
-                  ))}
-               </div>
+               <ParentTimetable student={selectedChildForTimetable} />
             </div>
           </div>
         </div>
@@ -1021,34 +1002,7 @@ Le Parent ou Tuteur légal (Signature précédée de la mention « Lu et approuv
             </div>
             
             <div className="p-6 overflow-y-auto flex-1 bg-white">
-               {/* Absences et Retards */}
-               <h4 className="text-sm font-bold text-gray-700 mb-3 uppercase tracking-widest">Dossier de Présence</h4>
-               <div className="space-y-3 mb-8">
-                 {db.getAttendance({ studentId: selectedChildForAttendance.id }).length === 0 ? (
-                    <div className="text-xs text-slate-500 bg-slate-50 p-4 rounded text-center border border-slate-100 italic">
-                       Aucune absence ou retard enregistré.
-                    </div>
-                 ) : (
-                    db.getAttendance({ studentId: selectedChildForAttendance.id }).map(record => (
-                       <div key={record.id} className="flex justify-between items-center bg-white border border-slate-200 p-3 rounded shadow-sm">
-                          <div>
-                            <div className="flex items-center gap-2">
-                               <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded uppercase tracking-wider ${record.type === 'ABSENCE' ? 'bg-red-50 text-red-600 border border-red-100' : 'bg-orange-50 text-orange-600 border border-orange-100'}`}>
-                                 {record.type === 'ABSENCE' ? 'Absence' : 'Retard'}
-                               </span>
-                               <span className="text-sm font-medium text-gray-700">{new Date(record.date).toLocaleDateString()}</span>
-                            </div>
-                            {record.reason && <p className="text-xs text-slate-500 mt-1">{record.reason}</p>}
-                          </div>
-                          <div>
-                             <span className={`text-[10px] font-bold uppercase tracking-widest ${record.isJustified ? 'text-emerald-600' : 'text-slate-400'}`}>
-                               {record.isJustified ? 'Justifié' : 'Non justifié'}
-                             </span>
-                          </div>
-                       </div>
-                    ))
-                 )}
-               </div>
+               <ParentAttendance student={selectedChildForAttendance} />
 
                {/* Formulaire de demande spéciale */}
                <h4 className="text-sm font-bold text-gray-700 mb-3 uppercase tracking-widest">Signaler / Demande Spéciale</h4>

@@ -69,13 +69,69 @@ export interface SchoolSettings {
   enrollmentContractTemplate?: string;
 }
 
+export interface AcademicYear {
+  id: string;
+  schoolId: string;
+  name: string;
+  startDate: string;
+  endDate: string;
+  status: "ACTIVE" | "CLOSED";
+  createdAt: number;
+}
+
+export interface FeeConfig {
+  id: string;
+  schoolId: string;
+  level: string;
+  feeType: "INSCRIPTION" | "MONTHLY" | "TRANSPORT" | "CANTEEN" | "OTHER";
+  amount: number;
+  createdAt: number;
+}
+
+export interface Expense {
+  id: string;
+  schoolId: string;
+  description: string;
+  amount: number;
+  expenseDate: string;
+  category: "FOURNITURE" | "FACTURE" | "SALAIRE" | "AUTRE";
+  proofUrl?: string;
+  createdAt: number;
+}
+
+export interface Course {
+  id: string;
+  schoolId: string;
+  teacherId: string;
+  name: string;
+  level: string;
+  createdAt: number;
+}
+
 export interface Grade {
-  subject: string;
+  id?: string;
+  schoolId?: string;
+  studentId?: string;
+  courseId?: string;
+  evaluationType?: string; // DEVOIR, COMPOSITION, INTERROGATION
   score: number;
   outOf: number;
   coefficient: number;
-  teacher: string;
+  subject: string; // legacy support
+  teacher: string; // legacy support
   appreciation: string;
+  date?: number;
+}
+
+export interface Timetable {
+  id: string;
+  schoolId: string;
+  courseId: string;
+  dayOfWeek: number; // 1=Lundi
+  startTime: string;
+  endTime: string;
+  room?: string;
+  createdAt: number;
 }
 
 export interface Payment {
@@ -85,7 +141,7 @@ export interface Payment {
   schoolId: string;
   amount: number;
   date: number;
-  network: "Moov Bénin" | "MTN Bénin" | "Celtiis Bénin";
+  network: "Moov Bénin" | "MTN Bénin" | "Celtiis Bénin" | "CASH";
   status: "PENDING" | "COMPLETED" | "FAILED";
   reference: string;
   items?: { id?: string; name: string; amount: number; remaining?: number }[];
@@ -95,10 +151,12 @@ export interface Payment {
 export interface AttendanceRecord {
   id: string;
   studentId: string;
+  schoolId?: string;
   type: "ABSENCE" | "DELAY";
   date: number;
   reason?: string;
   isJustified: boolean;
+  reportedBy?: string;
 }
 
 export interface SpecialRequest {

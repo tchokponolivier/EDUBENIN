@@ -2,8 +2,10 @@ import React, { useState, useEffect, useMemo } from "react";
 import { db } from "../lib/db";
 import { Payment, Student } from "../types";
 import { useAuth } from "../lib/auth";
-import { CreditCard, History, Search, MessageCircle, Printer, Plus, Trash2, CheckSquare, Square, X } from "lucide-react";
+import { CreditCard, History, Search, MessageCircle, Printer, Plus, Trash2, CheckSquare, Square, X, Wallet, TrendingUp } from "lucide-react";
 import { supabase } from "../lib/supabase";
+import { CashierExpenses } from "../components/CashierExpenses";
+import { CashierDashboard } from "../components/CashierDashboard";
 
 const getTranchesForLevel = (level: string) => {
   if (["Maternelle 1", "Maternelle 2"].includes(level)) {
@@ -88,6 +90,7 @@ const getTranchesForLevel = (level: string) => {
 
 export function SchoolAdminPayments() {
   const { user } = useAuth();
+  const [activeTab, setActiveTab] = useState<"PAYMENTS" | "EXPENSES" | "DASHBOARD">("PAYMENTS");
   const [payments, setPayments] = useState<Payment[]>([]);
   const [students, setStudents] = useState<Student[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
@@ -394,18 +397,43 @@ export function SchoolAdminPayments() {
     <div className="flex flex-col gap-6">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-xl font-bold text-gray-700">Gestion des Paiements</h1>
-          <p className="text-xs text-slate-500 mt-1">Supervisez et enregistrez les paiements depuis la caisse</p>
+          <h1 className="text-xl font-bold text-gray-700">Trésorerie & Caisse</h1>
+          <p className="text-xs text-slate-500 mt-1">Supervisez et enregistrez les transactions depuis la caisse</p>
         </div>
-        <button
-          onClick={() => setShowPayModal(true)}
-          className="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded font-bold uppercase tracking-wider text-xs hover:bg-emerald-700 transition"
-        >
-          <CreditCard size={16} /> Encaisser
-        </button>
+        
+        <div className="flex p-1 bg-slate-100 rounded-lg shrink-0 overflow-x-auto max-w-full">
+          <button 
+            onClick={() => setActiveTab("PAYMENTS")} 
+            className={`px-4 py-2 rounded text-xs font-bold uppercase tracking-wider transition-colors ${activeTab === "PAYMENTS" ? "bg-white shadow-sm text-gray-700" : "text-slate-500 hover:text-gray-700"}`}
+          >
+            Encaissements
+          </button>
+          <button 
+            onClick={() => setActiveTab("EXPENSES")} 
+            className={`px-4 py-2 rounded text-xs font-bold uppercase tracking-wider transition-colors ${activeTab === "EXPENSES" ? "bg-white shadow-sm text-gray-700" : "text-slate-500 hover:text-gray-700"}`}
+          >
+            Dépenses
+          </button>
+          <button 
+            onClick={() => setActiveTab("DASHBOARD")} 
+            className={`px-4 py-2 rounded text-xs font-bold uppercase tracking-wider transition-colors ${activeTab === "DASHBOARD" ? "bg-white shadow-sm text-gray-700" : "text-slate-500 hover:text-gray-700"}`}
+          >
+            Tableau de Bord
+          </button>
+        </div>
+
+        {activeTab === "PAYMENTS" && (
+          <button
+            onClick={() => setShowPayModal(true)}
+            className="flex items-center justify-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded font-bold uppercase tracking-wider text-xs hover:bg-emerald-700 transition"
+          >
+            <CreditCard size={16} /> Encaisser
+          </button>
+        )}
       </div>
 
-      <div className="bg-white rounded-xl border border-slate-200 shadow-sm">
+      {activeTab === "PAYMENTS" && (
+        <div className="bg-white rounded-xl border border-slate-200 shadow-sm">
          <div className="p-4 border-b border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-4">
            <h3 className="font-bold text-gray-700 flex items-center gap-2"><History size={18}/> Historique Global</h3>
            <div className="relative">
@@ -459,6 +487,10 @@ export function SchoolAdminPayments() {
            </table>
          </div>
       </div>
+      )}
+
+      {activeTab === "EXPENSES" && <CashierExpenses />}
+      {activeTab === "DASHBOARD" && <CashierDashboard />}
 
       {showPayModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">

@@ -4,6 +4,8 @@ import { Student, LEVELS } from "../types";
 import { useAuth } from "../lib/auth";
 import { BookOpen, Users, Save, Download, LayoutGrid, ArrowLeft, Plus, Trash2, CheckSquare } from "lucide-react";
 import { supabase } from "../lib/supabase";
+import { TeacherAttendance } from "../components/TeacherAttendance";
+import { TeacherTimetable } from "../components/TeacherTimetable";
 
 interface Subject {
   id: string;
@@ -13,6 +15,7 @@ interface Subject {
 
 export function TeacherDashboard() {
   const { user } = useAuth();
+  const [activeTab, setActiveTab] = useState<"GRADES" | "ATTENDANCE" | "TIMETABLE">("GRADES");
   const [students, setStudents] = useState<Student[]>([]);
   const [selectedClass, setSelectedClass] = useState<string | null>(null);
   
@@ -111,11 +114,34 @@ export function TeacherDashboard() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-xl font-bold text-gray-700">Espace Professeur</h1>
-          <p className="text-xs text-slate-500 mt-1">Gérez vos matières, saisissez les notes et constituez les relevés par classe.</p>
+          <p className="text-xs text-slate-500 mt-1">Gérez vos matières, notes, absences et planning.</p>
+        </div>
+        
+        <div className="flex p-1 bg-slate-100 rounded-lg shrink-0 overflow-x-auto max-w-full">
+          <button 
+            onClick={() => setActiveTab("GRADES")} 
+            className={`px-4 py-2 rounded text-xs font-bold uppercase tracking-wider transition-colors ${activeTab === "GRADES" ? "bg-white shadow-sm text-gray-700" : "text-slate-500 hover:text-gray-700"}`}
+          >
+            Notes & Bulletins
+          </button>
+          <button 
+            onClick={() => setActiveTab("ATTENDANCE")} 
+            className={`px-4 py-2 rounded text-xs font-bold uppercase tracking-wider transition-colors ${activeTab === "ATTENDANCE" ? "bg-white shadow-sm text-gray-700" : "text-slate-500 hover:text-gray-700"}`}
+          >
+            Appel
+          </button>
+          <button 
+            onClick={() => setActiveTab("TIMETABLE")} 
+            className={`px-4 py-2 rounded text-xs font-bold uppercase tracking-wider transition-colors ${activeTab === "TIMETABLE" ? "bg-white shadow-sm text-gray-700" : "text-slate-500 hover:text-gray-700"}`}
+          >
+            Mon Planning
+          </button>
         </div>
       </div>
 
-      {!selectedClass ? (
+      {activeTab === "GRADES" && (
+        <>
+          {!selectedClass ? (
          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
             {getClassesToDisplay().map((c) => (
               <div 
@@ -288,6 +314,12 @@ export function TeacherDashboard() {
          </div>
       </div>
       )}
+      </>
+      )}
+
+      {activeTab === "ATTENDANCE" && <TeacherAttendance />}
+      {activeTab === "TIMETABLE" && <TeacherTimetable />}
+
     </div>
   );
 }

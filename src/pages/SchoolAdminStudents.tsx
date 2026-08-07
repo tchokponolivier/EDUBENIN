@@ -2,10 +2,14 @@ import React, { useState, useEffect } from "react";
 import { db } from "../lib/db";
 import { Student, LEVELS } from "../types";
 import { useAuth } from "../lib/auth";
-import { Users, Search, Edit2, AlertCircle, Download, CheckSquare, Trash2, ArrowLeft, LayoutGrid } from "lucide-react";
+import { Users, Search, Edit2, AlertCircle, Download, CheckSquare, Trash2, ArrowLeft, LayoutGrid, Clock, FileText } from "lucide-react";
+import { SecretaryAbsences } from "../components/SecretaryAbsences";
+import { SecretaryDocuments } from "../components/SecretaryDocuments";
+import { SecretaryTimetables } from "../components/SecretaryTimetables";
 
 export function SchoolAdminStudents() {
   const { user } = useAuth();
+  const [activeTab, setActiveTab] = useState<"STUDENTS" | "ABSENCES" | "DOCUMENTS" | "TIMETABLES">("STUDENTS");
   const [students, setStudents] = useState<Student[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedStudentIds, setSelectedStudentIds] = useState<string[]>([]);
@@ -179,18 +183,50 @@ export function SchoolAdminStudents() {
     <div className="flex flex-col gap-6 animate-in fade-in">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-xl font-bold text-gray-700">Gestion des Élèves</h1>
-          <p className="text-xs text-slate-500 mt-1">Gérez le statut (abandon, exclus), les remises et les infos</p>
+          <h1 className="text-xl font-bold text-gray-700">Secrétariat & Scolarité</h1>
+          <p className="text-xs text-slate-500 mt-1">Gérez les inscriptions, absences et emplois du temps</p>
         </div>
-        <button 
-           onClick={() => setShowExportModal(true)}
-           className="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded font-bold uppercase tracking-wider text-xs hover:bg-emerald-700 transition shadow-sm"
-        >
-           <Download size={14} /> Exporter Données
-        </button>
+        
+        <div className="flex p-1 bg-slate-100 rounded-lg shrink-0 overflow-x-auto max-w-full">
+          <button 
+            onClick={() => setActiveTab("STUDENTS")} 
+            className={`px-4 py-2 rounded text-xs font-bold uppercase tracking-wider transition-colors ${activeTab === "STUDENTS" ? "bg-white shadow-sm text-gray-700" : "text-slate-500 hover:text-gray-700"}`}
+          >
+            Inscriptions
+          </button>
+          <button 
+            onClick={() => setActiveTab("ABSENCES")} 
+            className={`px-4 py-2 rounded text-xs font-bold uppercase tracking-wider transition-colors ${activeTab === "ABSENCES" ? "bg-white shadow-sm text-gray-700" : "text-slate-500 hover:text-gray-700"}`}
+          >
+            Absences & Retards
+          </button>
+          <button 
+            onClick={() => setActiveTab("DOCUMENTS")} 
+            className={`px-4 py-2 rounded text-xs font-bold uppercase tracking-wider transition-colors ${activeTab === "DOCUMENTS" ? "bg-white shadow-sm text-gray-700" : "text-slate-500 hover:text-gray-700"}`}
+          >
+            Documents
+          </button>
+          <button 
+            onClick={() => setActiveTab("TIMETABLES")} 
+            className={`px-4 py-2 rounded text-xs font-bold uppercase tracking-wider transition-colors ${activeTab === "TIMETABLES" ? "bg-white shadow-sm text-gray-700" : "text-slate-500 hover:text-gray-700"}`}
+          >
+            Emplois du temps
+          </button>
+        </div>
+
+        {activeTab === "STUDENTS" && (
+          <button 
+             onClick={() => setShowExportModal(true)}
+             className="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded font-bold uppercase tracking-wider text-xs hover:bg-emerald-700 transition shadow-sm"
+          >
+             <Download size={14} /> Exporter Données
+          </button>
+        )}
       </div>
 
-      {!selectedClass ? (
+      {activeTab === "STUDENTS" && (
+        <>
+          {!selectedClass ? (
          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
             {getClassesToDisplay().map((c) => (
               <div 
@@ -397,6 +433,13 @@ export function SchoolAdminStudents() {
           </div>
         </div>
       )}
+      </>
+      )}
+
+      {activeTab === "ABSENCES" && <SecretaryAbsences />}
+      {activeTab === "DOCUMENTS" && <SecretaryDocuments />}
+      {activeTab === "TIMETABLES" && <SecretaryTimetables />}
+
     </div>
   );
 }

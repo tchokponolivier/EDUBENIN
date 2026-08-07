@@ -4,6 +4,8 @@ import { Student, Payment, SchoolSettings, Announcement } from "../types";
 import { Users, GraduationCap, ArrowUpRight, Search, Settings, Megaphone, Trash2, Edit, Mail, Plus } from "lucide-react";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../lib/auth";
+import { SchoolAdminAcademic } from "../components/SchoolAdminAcademic";
+import { SchoolAdminFees } from "../components/SchoolAdminFees";
 
 export function SchoolAdminDashboard() {
   const { user } = useAuth();
@@ -12,7 +14,7 @@ export function SchoolAdminDashboard() {
   const [settings, setSettings] = useState<SchoolSettings | null>(null);
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
 
-  const [activeTab, setActiveTab] = useState<"DASHBOARD" | "MEMBERS" | "ANNOUNCEMENTS" | "SETTINGS">("DASHBOARD");
+  const [activeTab, setActiveTab] = useState<"DASHBOARD" | "MEMBERS" | "ANNOUNCEMENTS" | "SETTINGS" | "ACADEMIC" | "FEES">("DASHBOARD");
 
   // Invitations state
   const [invitations, setInvitations] = useState<any[]>([]);
@@ -151,6 +153,18 @@ export function SchoolAdminDashboard() {
             className={`px-4 py-2 rounded text-xs font-bold uppercase tracking-wider transition-colors ${activeTab === "MEMBERS" ? "bg-white shadow-sm text-gray-700" : "text-slate-500 hover:text-gray-700"}`}
           >
             Membres & Invitations
+          </button>
+          <button 
+            onClick={() => setActiveTab("ACADEMIC")} 
+            className={`px-4 py-2 rounded text-xs font-bold uppercase tracking-wider transition-colors ${activeTab === "ACADEMIC" ? "bg-white shadow-sm text-gray-700" : "text-slate-500 hover:text-gray-700"}`}
+          >
+            Années & Classes
+          </button>
+          <button 
+            onClick={() => setActiveTab("FEES")} 
+            className={`px-4 py-2 rounded text-xs font-bold uppercase tracking-wider transition-colors ${activeTab === "FEES" ? "bg-white shadow-sm text-gray-700" : "text-slate-500 hover:text-gray-700"}`}
+          >
+            Frais de scolarité
           </button>
           <button 
             onClick={() => setActiveTab("ANNOUNCEMENTS")} 
@@ -419,6 +433,10 @@ export function SchoolAdminDashboard() {
           </div>
         </div>
       )}
+
+      {activeTab === "ACADEMIC" && <SchoolAdminAcademic />}
+      {activeTab === "FEES" && <SchoolAdminFees />}
+
     </div>
   );
 }

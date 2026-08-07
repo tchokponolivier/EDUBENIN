@@ -199,6 +199,87 @@ class MockDB {
     this.set("special_requests", requests);
     return updated;
   }
+  // --- NEW ERP MODULES ---
+  
+  getAcademicYears(schoolId?: string): import("../types").AcademicYear[] {
+    const all = this.get<import("../types").AcademicYear>("academic_years");
+    return schoolId ? all.filter(a => a.schoolId === schoolId) : all;
+  }
+  
+  addAcademicYear(data: Omit<import("../types").AcademicYear, "id" | "createdAt">) {
+    const all = this.getAcademicYears();
+    const newItem: import("../types").AcademicYear = { ...data, id: `ay_${Date.now()}`, createdAt: Date.now() };
+    this.set("academic_years", [...all, newItem]);
+    return newItem;
+  }
+  
+  closeAcademicYear(id: string) {
+    let all = this.getAcademicYears();
+    all = all.map(a => a.id === id ? { ...a, status: "CLOSED" } : a);
+    this.set("academic_years", all);
+  }
+
+  getFeeConfigs(schoolId?: string): import("../types").FeeConfig[] {
+    const all = this.get<import("../types").FeeConfig>("fee_configs");
+    return schoolId ? all.filter(a => a.schoolId === schoolId) : all;
+  }
+
+  addFeeConfig(data: Omit<import("../types").FeeConfig, "id" | "createdAt">) {
+    const all = this.getFeeConfigs();
+    const newItem: import("../types").FeeConfig = { ...data, id: `fee_${Date.now()}`, createdAt: Date.now() };
+    this.set("fee_configs", [...all, newItem]);
+    return newItem;
+  }
+
+  getExpenses(schoolId?: string): import("../types").Expense[] {
+    const all = this.get<import("../types").Expense>("expenses");
+    return schoolId ? all.filter(a => a.schoolId === schoolId) : all;
+  }
+
+  addExpense(data: Omit<import("../types").Expense, "id" | "createdAt">) {
+    const all = this.getExpenses();
+    const newItem: import("../types").Expense = { ...data, id: `exp_${Date.now()}`, createdAt: Date.now() };
+    this.set("expenses", [...all, newItem]);
+    return newItem;
+  }
+  
+  getCourses(schoolId?: string): import("../types").Course[] {
+    const all = this.get<import("../types").Course>("courses");
+    return schoolId ? all.filter(a => a.schoolId === schoolId) : all;
+  }
+
+  addCourse(data: Omit<import("../types").Course, "id" | "createdAt">) {
+    const all = this.getCourses();
+    const newItem: import("../types").Course = { ...data, id: `crs_${Date.now()}`, createdAt: Date.now() };
+    this.set("courses", [...all, newItem]);
+    return newItem;
+  }
+  
+  getTimetables(schoolId?: string): import("../types").Timetable[] {
+    const all = this.get<import("../types").Timetable>("timetables");
+    return schoolId ? all.filter(a => a.schoolId === schoolId) : all;
+  }
+  
+  addTimetable(data: Omit<import("../types").Timetable, "id" | "createdAt">) {
+    const all = this.getTimetables();
+    const newItem: import("../types").Timetable = { ...data, id: `tt_${Date.now()}`, createdAt: Date.now() };
+    this.set("timetables", [...all, newItem]);
+    return newItem;
+  }
+
+  getGrades(schoolId?: string, studentId?: string): import("../types").Grade[] {
+    let all = this.get<import("../types").Grade>("grades");
+    if (schoolId) all = all.filter(g => g.schoolId === schoolId);
+    if (studentId) all = all.filter(g => g.studentId === studentId);
+    return all;
+  }
+
+  addGrade(data: Omit<import("../types").Grade, "id">) {
+    const all = this.get<import("../types").Grade>("grades");
+    const newItem: import("../types").Grade = { ...data, id: `grd_${Date.now()}` };
+    this.set("grades", [...all, newItem]);
+    return newItem;
+  }
 }
 
 export const db = new MockDB();

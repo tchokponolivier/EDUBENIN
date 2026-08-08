@@ -1,6 +1,6 @@
 import { ReactNode, useState } from "react";
 import { useAuth } from "../../lib/auth";
-import { LogOut, LayoutDashboard, Users, CreditCard, BookOpen, Building, HelpCircle, User, Menu, X, Settings } from "lucide-react";
+import { LogOut, LayoutDashboard, Users, CreditCard, BookOpen, Building, HelpCircle, User, Menu, X, Settings, Clock, FileText, Calendar, ArrowDownToLine, Banknote, Shield } from "lucide-react";
 import { Link, useLocation } from "react-router-dom";
 import { clsx } from "clsx";
 import { EduBeninLogo } from "../Logo";
@@ -27,23 +27,46 @@ export function DashboardLayout({ children }: { children: ReactNode }) {
   if (!user) return null;
 
   const getNavigation = () => {
+    const commonSettings = { name: "Mon Profil", href: "#settings", icon: User, action: () => setIsSettingsOpen(true) };
     switch (user.role) {
       case "SUPER_ADMIN":
-        return [{ name: "Établissements", href: "/super-admin", icon: Building }];
+        return [
+          { name: "Administration", href: "/super-admin", icon: Shield },
+          commonSettings
+        ];
       case "SCHOOL_ADMIN":
         return [
           { name: "Tableau de bord", href: "/school-admin", icon: LayoutDashboard },
-          { name: "Élèves", href: "/school-admin/students", icon: Users },
-          { name: "Paiements", href: "/school-admin/payments", icon: CreditCard },
+          { name: "Inscriptions & Élèves", href: "/school-admin/students?tab=STUDENTS", icon: Users },
+          { name: "Liste des Élèves", href: "/school-admin/students-list", icon: Users },
+          { name: "Professeurs", href: "/school-admin/teachers", icon: Users },
+          { name: "Absences & Retards", href: "/school-admin/students?tab=ABSENCES", icon: Clock },
+          { name: "Finances & Caisse", href: "/school-admin/payments?tab=DASHBOARD", icon: Banknote },
           { name: "Synthèse & Bilans", href: "/school-admin/stats", icon: BookOpen },
+          { name: "Prospectus", href: "/school-admin/prospectus", icon: BookOpen },
+          commonSettings
         ];
       case "SECRETARY":
         return [
-          { name: "Élèves (Saisie)", href: "/school-admin/students", icon: Users },
+          { name: "Inscriptions & Élèves", href: "/school-admin/students?tab=STUDENTS", icon: Users },
+          { name: "Liste des Élèves", href: "/school-admin/students-list", icon: Users },
+          { name: "Professeurs", href: "/school-admin/teachers", icon: Users },
+          { name: "Absences & Retards", href: "/school-admin/students?tab=ABSENCES", icon: Clock },
+          { name: "Documents", href: "/school-admin/students?tab=DOCUMENTS", icon: FileText },
+          { name: "Emplois du temps", href: "/school-admin/students?tab=TIMETABLES", icon: Calendar },
+          commonSettings
         ];
       case "CASHIER":
         return [
-          { name: "Paiements (Caisse)", href: "/school-admin/payments", icon: CreditCard },
+          { name: "Tableau de Bord Caisse", href: "/school-admin/payments?tab=DASHBOARD", icon: LayoutDashboard },
+          { name: "Inscriptions Élèves", href: "/school-admin/students?tab=STUDENTS", icon: Users },
+          { name: "Liste des Élèves", href: "/school-admin/students-list", icon: Users },
+          { name: "Professeurs", href: "/school-admin/teachers", icon: Users },
+          { name: "Encaissements", href: "/school-admin/payments?tab=PAYMENTS", icon: CreditCard },
+          { name: "Dépenses", href: "/school-admin/payments?tab=EXPENSES", icon: ArrowDownToLine },
+          { name: "Salaires", href: "/school-admin/payments?tab=SALARIES", icon: Banknote },
+          { name: "Prospectus", href: "/school-admin/prospectus", icon: BookOpen },
+          commonSettings
         ];
       case "PARENT":
         return [
@@ -51,11 +74,13 @@ export function DashboardLayout({ children }: { children: ReactNode }) {
           { name: "Paiements", href: "/parent/payments", icon: CreditCard },
           { name: "Prospectus", href: "/parent/prospectus", icon: BookOpen },
           { name: "Assistance", href: "/parent/support", icon: HelpCircle },
+          commonSettings
         ];
       case "TEACHER":
         return [
           { name: "Mes Classes & Notes", href: "/teacher", icon: BookOpen },
-          { name: "Mon Profil", href: "/teacher/profile", icon: User },
+          
+          commonSettings
         ];
       default:
         return [];
@@ -85,8 +110,26 @@ export function DashboardLayout({ children }: { children: ReactNode }) {
         
         <nav className="flex-1 overflow-y-auto p-4 space-y-2">
           {navigation.map((item) => {
-            const isActive = location.pathname === item.href || (location.pathname.startsWith(item.href) && item.href !== '/super-admin' && item.href !== '/school-admin' && item.href !== '/parent' && item.href !== '/teacher');
+            const itemPath = item.href.split('?')[0];
+            const currentTab = new URLSearchParams(location.search).get('tab');
+            const itemTab = item.href.split('?tab=')[1];
+            const isActive = (location.pathname === itemPath && (!itemTab || currentTab === itemTab)) || (location.pathname.startsWith(itemPath) && itemPath !== '/super-admin' && itemPath !== '/school-admin' && itemPath !== '/parent' && itemPath !== '/teacher' && !itemTab);
             const ItemIcon = item.icon;
+            if ((item as any).action) {
+              return (
+                <button
+                  key={item.name}
+                  onClick={() => { (item as any).action(); setIsMobileMenuOpen(false); }}
+                  className={clsx(
+                    "flex items-center gap-3 px-3 py-2 rounded transition-colors font-medium w-full text-left",
+                    "text-slate-400 hover:text-white hover:bg-slate-800"
+                  )}
+                >
+                  <ItemIcon className="w-4 h-4" />
+                  {item.name}
+                </button>
+              );
+            }
             return (
               <Link
                 key={item.name}
@@ -135,7 +178,7 @@ export function DashboardLayout({ children }: { children: ReactNode }) {
           <div className="flex items-center gap-4">
             <h2 className="text-xl font-bold text-gray-700 hidden md:block">{schoolName || "Vue d'ensemble du Système"}</h2>
             <h2 className="text-xl font-bold text-gray-700 md:hidden">{schoolName ? schoolName.substring(0, 15) + (schoolName.length > 15 ? '...' : '') : "EduBénin"}</h2>
-            <span className="hidden md:inline-block px-2 py-0.5 bg-emerald-100 text-gray-700 rounded-full text-[10px] font-bold uppercase tracking-wider">Bénin • 2026</span>
+            <span className="hidden md:inline-block px-3 py-1 bg-emerald-100 text-emerald-800 rounded-full text-xs font-bold uppercase tracking-wider shadow-sm">Année Scolaire 2025-2026</span>
           </div>
           <div className="flex items-center gap-2 md:gap-4">
             <div className="hidden md:flex items-center gap-2 px-3 py-1.5 bg-slate-100 rounded text-xs font-medium">

@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { Payment, Student } from "../types";
 import { useAuth } from "../lib/auth";
+import { useLocation } from "react-router-dom";
 import { CreditCard, History, Search, MessageCircle, Printer, Plus, Trash2, CheckSquare, Square, X, Wallet, TrendingUp } from "lucide-react";
 import { supabase } from "../lib/supabase";
 import { CashierExpenses } from "../components/CashierExpenses";
@@ -90,7 +91,20 @@ const getTranchesForLevel = (level: string) => {
 
 export function SchoolAdminPayments() {
   const { user } = useAuth();
-  const [activeTab, setActiveTab] = useState<"PAYMENTS" | "EXPENSES" | "SALARIES" | "DASHBOARD">("PAYMENTS");
+  const location = useLocation();
+  const [activeTab, setActiveTab] = useState<"PAYMENTS" | "EXPENSES" | "SALARIES" | "DASHBOARD">(() => {
+    const params = new URLSearchParams(location.search);
+    const tab = params.get('tab');
+    if (tab === "PAYMENTS" || tab === "EXPENSES" || tab === "SALARIES" || tab === "DASHBOARD") return tab;
+    return "PAYMENTS";
+  });
+
+  // Sync state if URL changes
+  React.useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const tab = params.get('tab');
+    if (tab === "PAYMENTS" || tab === "EXPENSES" || tab === "SALARIES" || tab === "DASHBOARD") setActiveTab(tab);
+  }, [location.search]);
   const [payments, setPayments] = useState<Payment[]>([]);
   const [students, setStudents] = useState<Student[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
@@ -244,9 +258,7 @@ export function SchoolAdminPayments() {
   const handleManualPayment = (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedStudent || totalAmount <= 0) return;
-
-    /* db.addPayment removed */
-
+    const newPayment: any = { id: Date.now().toString(), amount: totalAmount, date: Date.now(), reference: 'PAY-' + Date.now() };
     setPayments(prev => [newPayment, ...prev]);
     setShowPayModal(false);
     setSelectedStudentId("");
@@ -276,7 +288,7 @@ export function SchoolAdminPayments() {
 
   const executeWhatsAppReceipt = (phone: string, payment: Payment, student: Student) => {
     const formattedPhone = phone.replace(/\D/g, '');
-    const settings = schoolSettings;
+    const settings: any = { name: "École" };
     const dateStr = new Date(payment.date).toLocaleDateString();
     
     // items text
@@ -294,7 +306,7 @@ export function SchoolAdminPayments() {
   };
 
   const printReceipt = (payment: Payment, student: Student) => {
-    const settings = schoolSettings;
+    const settings: any = { name: "École" };
     const dateStr = new Date(payment.date).toLocaleDateString();
     
     const w = window.open('', '_blank');

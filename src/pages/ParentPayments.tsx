@@ -334,6 +334,7 @@ export function ParentPayments() {
     if (!user) return;
 
     /* db.addPayment removed */
+    const newPayment: any = { id: Date.now().toString(), amount: totalAmountWithFee, date: Date.now(), reference: 'PAY-' + Date.now(), studentId: selectedChildId };
 
     const updatedPays = [newPayment, ...allPayments];
     updatedPays.sort((a,b) => b.date - a.date);

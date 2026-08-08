@@ -391,9 +391,7 @@ Le Parent ou Tuteur légal (Signature précédée de la mention « Lu et approuv
         last_name: studentData.lastName,
         level: studentData.level,
         date_of_birth: studentData.dateOfBirth,
-        gender: studentData.gender,
-        address: studentData.address,
-        medical_info: studentData.medicalInfo
+        gender: studentData.gender
       }).eq('id', editingChildId);
     } else {
       /* db.addStudent removed */

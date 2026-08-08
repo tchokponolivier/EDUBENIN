@@ -149,7 +149,7 @@ export function TeacherAttendance() {
         {classStudents.length > 0 && (
           <div className="p-6 border-t border-slate-100 bg-slate-50 flex justify-end">
             <button onClick={submitAttendance} className="flex items-center gap-2 px-6 py-2 bg-emerald-600 text-white font-bold rounded uppercase tracking-wider text-sm hover:bg-emerald-700 transition">
-              <Save size={16} /> Enregistrer l'appel
+              <Save size={16} /> Faire l'appel
             </button>
           </div>
         )}

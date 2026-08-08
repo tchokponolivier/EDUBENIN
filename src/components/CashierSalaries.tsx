@@ -31,6 +31,7 @@ export function CashierSalaries() {
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
+  const [tableError, setTableError] = useState(false);
 
   const [employeeName, setEmployeeName] = useState("");
   const [employeeRole, setEmployeeRole] = useState(ROLES[0]);
@@ -46,6 +47,7 @@ export function CashierSalaries() {
   const fetchSalaries = async () => {
     if (!user?.schoolId) return;
     setLoading(true);
+    setTableError(false);
     try {
       const { data, error } = await supabase
         .from('salaries')
@@ -54,8 +56,10 @@ export function CashierSalaries() {
         .order('created_at', { ascending: false });
 
       if (error) {
-        // Table might not exist yet if user hasn't run the SQL
         console.error("Error fetching salaries:", error);
+        if (error.message.includes('relation "public.salaries" does not exist')) {
+          setTableError(true);
+        }
       } else if (data) {
         setSalaries(data.map(d => ({
           id: d.id,
@@ -157,6 +161,41 @@ export function CashierSalaries() {
 
   return (
     <div className="space-y-6 animate-in fade-in">
+      {tableError && (
+        <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 text-amber-800">
+          <h4 className="font-bold mb-2 flex items-center gap-2">
+            ⚠️ Table 'salaries' manquante dans Supabase
+          </h4>
+          <p className="text-sm mb-4">
+            Il semble que la table <strong>salaries</strong> n'existe pas encore dans votre base de données Supabase ({import.meta.env.VITE_SUPABASE_URL}). Veuillez exécuter le code SQL suivant dans l'éditeur SQL de votre projet Supabase :
+          </p>
+          <pre className="bg-slate-900 text-slate-100 p-4 rounded text-xs overflow-x-auto">
+{`CREATE TABLE IF NOT EXISTS public.salaries (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    school_id UUID NOT NULL REFERENCES public.schools(id) ON DELETE CASCADE,
+    employee_name TEXT NOT NULL,
+    employee_role TEXT NOT NULL,
+    amount NUMERIC NOT NULL,
+    payment_date DATE NOT NULL,
+    month TEXT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'PAYÉ',
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+ALTER TABLE public.salaries ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Staff view salaries" ON public.salaries FOR SELECT USING (school_id IN (SELECT school_id FROM public.profiles WHERE id = auth.uid() AND role IN ('SCHOOL_ADMIN', 'CASHIER')));
+CREATE POLICY "Staff manage salaries" ON public.salaries FOR ALL USING (school_id IN (SELECT school_id FROM public.profiles WHERE id = auth.uid() AND role IN ('SCHOOL_ADMIN', 'CASHIER')));
+CREATE POLICY "Super admins can manage all salaries" ON public.salaries FOR ALL USING (EXISTS (SELECT 1 FROM public.profiles WHERE profiles.id = auth.uid() AND profiles.role = 'SUPER_ADMIN'));`}
+          </pre>
+          <div className="mt-4 flex justify-end">
+             <button onClick={() => fetchSalaries()} className="px-4 py-2 bg-amber-600 text-white font-bold rounded shadow-sm text-sm hover:bg-amber-700">
+               J'ai exécuté le code, réessayer
+             </button>
+          </div>
+        </div>
+      )}
+
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm flex items-center gap-4">

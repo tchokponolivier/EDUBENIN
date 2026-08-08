@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { Student, LEVELS } from "../types";
 import { useAuth } from "../lib/auth";
+import { useLocation } from "react-router-dom";
 import { Users, Search, Edit2, AlertCircle, Download, CheckSquare, Trash2, ArrowLeft, LayoutGrid, Clock, FileText } from "lucide-react";
 import { SecretaryAbsences } from "../components/SecretaryAbsences";
 import { SecretaryDocuments } from "../components/SecretaryDocuments";
@@ -8,7 +9,20 @@ import { SecretaryTimetables } from "../components/SecretaryTimetables";
 
 export function SchoolAdminStudents() {
   const { user } = useAuth();
-  const [activeTab, setActiveTab] = useState<"STUDENTS" | "ABSENCES" | "DOCUMENTS" | "TIMETABLES">("STUDENTS");
+  const location = useLocation();
+  const [activeTab, setActiveTab] = useState<"STUDENTS" | "ABSENCES" | "DOCUMENTS" | "TIMETABLES">(() => {
+    const params = new URLSearchParams(location.search);
+    const tab = params.get('tab');
+    if (tab === "STUDENTS" || tab === "ABSENCES" || tab === "DOCUMENTS" || tab === "TIMETABLES") return tab;
+    return "STUDENTS";
+  });
+  
+  // Sync state if URL changes
+  React.useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const tab = params.get('tab');
+    if (tab === "STUDENTS" || tab === "ABSENCES" || tab === "DOCUMENTS" || tab === "TIMETABLES") setActiveTab(tab);
+  }, [location.search]);
   const [students, setStudents] = useState<Student[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedStudentIds, setSelectedStudentIds] = useState<string[]>([]);

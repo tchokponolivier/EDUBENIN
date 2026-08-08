@@ -1,4 +1,7 @@
-import React, { useState, useEffect } from "react";
+import fs from 'fs';
+let content = fs.readFileSync('src/pages/ParentProspectus.tsx', 'utf-8');
+
+const replacement = `import React, { useState, useEffect } from "react";
 import { useAuth } from "../lib/auth";
 import { FileText, Download, Edit2, Check, Upload } from "lucide-react";
 
@@ -88,4 +91,6 @@ export function ParentProspectus() {
       </div>
     </div>
   );
-}
+}`;
+
+fs.writeFileSync('src/pages/ParentProspectus.tsx', replacement);

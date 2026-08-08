@@ -107,10 +107,10 @@ export function CashierDashboard() {
         </div>
       </div>
 
-      <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm h-80">
+      <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm h-[400px]">
          <h3 className="text-sm font-bold text-gray-700 mb-6">Vue d'ensemble financière</h3>
          <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={data}>
+            <BarChart data={data} margin={{ top: 20, right: 20, left: 20, bottom: 20 }}>
                <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fontSize: 12, fill: '#64748b'}} />
                <YAxis axisLine={false} tickLine={false} tick={{fontSize: 12, fill: '#64748b'}} tickFormatter={(v) => `${(v/1000)}k`} />
                <Tooltip formatter={(value) => `${Number(value).toLocaleString()} FCFA`} />

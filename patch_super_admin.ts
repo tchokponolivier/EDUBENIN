@@ -1,4 +1,5 @@
-
+import fs from 'fs';
+const content = `
 import React, { useState, useEffect } from "react";
 import { supabase } from "../lib/supabase";
 import { School, Building, Users, AlertCircle, Plus, Edit2, Trash2, Mail, X, CheckCircle, Search, Shield } from "lucide-react";
@@ -137,13 +138,13 @@ export function SuperAdminDashboard() {
       <div className="flex gap-2 border-b border-slate-200">
         <button 
           onClick={() => setActiveTab("SCHOOLS")}
-          className={`px-4 py-2 font-bold text-sm tracking-wider uppercase transition-colors border-b-2 ${activeTab === "SCHOOLS" ? "border-emerald-600 text-emerald-600" : "border-transparent text-slate-500 hover:text-slate-700"}`}
+          className={\`px-4 py-2 font-bold text-sm tracking-wider uppercase transition-colors border-b-2 \${activeTab === "SCHOOLS" ? "border-emerald-600 text-emerald-600" : "border-transparent text-slate-500 hover:text-slate-700"}\`}
         >
           Établissements
         </button>
         <button 
           onClick={() => setActiveTab("USERS")}
-          className={`px-4 py-2 font-bold text-sm tracking-wider uppercase transition-colors border-b-2 ${activeTab === "USERS" ? "border-emerald-600 text-emerald-600" : "border-transparent text-slate-500 hover:text-slate-700"}`}
+          className={\`px-4 py-2 font-bold text-sm tracking-wider uppercase transition-colors border-b-2 \${activeTab === "USERS" ? "border-emerald-600 text-emerald-600" : "border-transparent text-slate-500 hover:text-slate-700"}\`}
         >
           Utilisateurs
         </button>
@@ -203,11 +204,11 @@ export function SuperAdminDashboard() {
                                     <span className="text-slate-500 text-[10px]">{a.email}</span>
                                   </div>
                                   <div className="flex items-center gap-2 shrink-0 ml-2">
-                                    <span className={`text-[9px] font-bold uppercase px-1.5 py-0.5 rounded ${
+                                    <span className={\`text-[9px] font-bold uppercase px-1.5 py-0.5 rounded \${
                                       a.role === 'SCHOOL_ADMIN' ? 'bg-purple-100 text-purple-700' :
                                       a.role === 'TEACHER' ? 'bg-blue-100 text-blue-700' :
                                       'bg-slate-100 text-slate-600'
-                                    }`}>{a.role.replace('_', ' ')}</span>
+                                    }\`}>{a.role.replace('_', ' ')}</span>
                                     <button onClick={() => handleDeleteUser(a.id, school.id)} className="text-slate-400 hover:text-red-600" title="Retirer">
                                       <X size={14}/>
                                     </button>
@@ -283,14 +284,14 @@ export function SuperAdminDashboard() {
                         <div className="text-xs text-slate-500 mt-0.5">{p.email}</div>
                       </td>
                       <td className="px-6 py-4 align-top">
-                        <span className={`text-[10px] font-bold uppercase px-2 py-1 rounded ${
+                        <span className={\`text-[10px] font-bold uppercase px-2 py-1 rounded \${
                           p.role === 'SUPER_ADMIN' ? 'bg-red-100 text-red-700' :
                           p.role === 'SCHOOL_ADMIN' ? 'bg-purple-100 text-purple-700' :
                           p.role === 'TEACHER' ? 'bg-blue-100 text-blue-700' :
                           p.role === 'CASHIER' ? 'bg-emerald-100 text-emerald-700' :
                           p.role === 'SECRETARY' ? 'bg-amber-100 text-amber-700' :
                           'bg-slate-100 text-slate-600'
-                        }`}>{p.role.replace('_', ' ')}</span>
+                        }\`}>{p.role.replace('_', ' ')}</span>
                       </td>
                       <td className="px-6 py-4 align-top text-sm font-medium text-gray-700">
                         {p.schools?.name || <span className="text-slate-400 italic">Aucun</span>}
@@ -456,3 +457,5 @@ export function SuperAdminDashboard() {
     </div>
   );
 }
+`
+fs.writeFileSync('src/pages/SuperAdmin.tsx', content);

@@ -11,15 +11,17 @@ interface Props {
 export function UserSettingsModal({ isOpen, onClose }: Props) {
   const { user, login } = useAuth();
   const [name, setName] = useState(user?.name || "");
+  const [email, setEmail] = useState("");
   const [phone, setPhone] = useState(user?.phone || "");
   const [loading, setLoading] = useState(false);
   const [avatar, setAvatar] = useState<string | null>(null);
   
   React.useEffect(() => {
     if (user?.id) {
-       supabase.from('profiles').select('avatar_url').eq('id', user.id).single()
+       supabase.from('profiles').select('avatar_url, email').eq('id', user.id).single()
          .then(({data}) => {
             if (data?.avatar_url) setAvatar(data.avatar_url);
+            if (data?.email) setEmail(data.email);
          });
     }
   }, [user]);
@@ -47,6 +49,7 @@ export function UserSettingsModal({ isOpen, onClose }: Props) {
     const { error } = await supabase.from("profiles").update({
       full_name: name,
       phone: phone,
+      email: email,
       avatar_url: avatar
     }).eq("id", user.id);
 
@@ -66,7 +69,7 @@ export function UserSettingsModal({ isOpen, onClose }: Props) {
       <div className="bg-white rounded-xl shadow-xl w-full max-w-md overflow-hidden animate-in zoom-in-95 fade-in">
         <div className="p-4 border-b border-slate-100 flex justify-between items-center bg-slate-50">
           <h3 className="font-bold text-gray-700 flex items-center gap-2">
-            <UserIcon size={18} className="text-emerald-600" /> Paramètres du Profil
+            <UserIcon size={18} className="text-emerald-600" /> Mon Profil
           </h3>
           <button onClick={onClose} className="text-slate-400 hover:text-slate-600">
             <X size={20} />
@@ -81,6 +84,10 @@ export function UserSettingsModal({ isOpen, onClose }: Props) {
               </div>
               <input type="file" className="hidden" accept="image/*" onChange={handlePhotoUpload} />
             </label>
+          </div>
+          <div>
+             <label className="block text-xs font-bold text-gray-700 mb-1 uppercase tracking-wide">Adresse Email</label>
+             <input type="email" value={email} onChange={e => setEmail(e.target.value)} required className="w-full px-3 py-2 border border-slate-300 rounded focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none mb-4" />
           </div>
           <div>
              <label className="block text-xs font-bold text-gray-700 mb-1 uppercase tracking-wide">Nom Complet</label>

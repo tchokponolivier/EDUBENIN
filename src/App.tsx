@@ -11,6 +11,8 @@ import { DashboardLayout } from './components/layout/DashboardLayout';
 import { SchoolAdminDashboard } from './pages/SchoolAdmin';
 import { SchoolAdminPayments } from './pages/SchoolAdminPayments';
 import { SchoolAdminStudents } from './pages/SchoolAdminStudents';
+import { SchoolAdminStudentList } from './pages/SchoolAdminStudentList';
+import { SchoolAdminTeachers } from './pages/SchoolAdminTeachers';
 import { SchoolAdminStats } from './pages/SchoolAdminStats';
 import { ParentDashboard } from './pages/Parent';
 import { ParentPayments } from './pages/ParentPayments';
@@ -79,7 +81,10 @@ export default function App() {
           <Route path="/school-admin" element={<ProtectedRoute allowedRoles={['SCHOOL_ADMIN']}><SchoolAdminDashboard /></ProtectedRoute>} />
           <Route path="/school-admin/payments" element={<ProtectedRoute allowedRoles={['SCHOOL_ADMIN', 'CASHIER']}><SchoolAdminPayments /></ProtectedRoute>} />
           <Route path="/school-admin/students" element={<ProtectedRoute allowedRoles={['SCHOOL_ADMIN', 'SECRETARY', 'CASHIER']}><SchoolAdminStudents /></ProtectedRoute>} />
+          <Route path="/school-admin/students-list" element={<ProtectedRoute allowedRoles={['SCHOOL_ADMIN', 'SECRETARY', 'CASHIER']}><SchoolAdminStudentList /></ProtectedRoute>} />
+          <Route path="/school-admin/teachers" element={<ProtectedRoute allowedRoles={['SCHOOL_ADMIN', 'SECRETARY', 'CASHIER']}><SchoolAdminTeachers /></ProtectedRoute>} />
           <Route path="/school-admin/stats" element={<ProtectedRoute allowedRoles={['SCHOOL_ADMIN']}><SchoolAdminStats /></ProtectedRoute>} />
+          <Route path="/school-admin/prospectus" element={<ProtectedRoute allowedRoles={['SCHOOL_ADMIN', 'CASHIER']}><ParentProspectus /></ProtectedRoute>} />
           
           <Route path="/parent" element={<ProtectedRoute allowedRoles={['PARENT']}><ParentDashboard /></ProtectedRoute>} />
           <Route path="/parent/payments" element={<ProtectedRoute allowedRoles={['PARENT']}><ParentPayments /></ProtectedRoute>} />

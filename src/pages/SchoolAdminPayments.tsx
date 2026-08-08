@@ -5,6 +5,7 @@ import { CreditCard, History, Search, MessageCircle, Printer, Plus, Trash2, Chec
 import { supabase } from "../lib/supabase";
 import { CashierExpenses } from "../components/CashierExpenses";
 import { CashierDashboard } from "../components/CashierDashboard";
+import { CashierSalaries } from "../components/CashierSalaries";
 
 const getTranchesForLevel = (level: string) => {
   if (["Maternelle 1", "Maternelle 2"].includes(level)) {
@@ -89,7 +90,7 @@ const getTranchesForLevel = (level: string) => {
 
 export function SchoolAdminPayments() {
   const { user } = useAuth();
-  const [activeTab, setActiveTab] = useState<"PAYMENTS" | "EXPENSES" | "DASHBOARD">("PAYMENTS");
+  const [activeTab, setActiveTab] = useState<"PAYMENTS" | "EXPENSES" | "SALARIES" | "DASHBOARD">("PAYMENTS");
   const [payments, setPayments] = useState<Payment[]>([]);
   const [students, setStudents] = useState<Student[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
@@ -404,6 +405,12 @@ export function SchoolAdminPayments() {
             Dépenses
           </button>
           <button 
+            onClick={() => setActiveTab("SALARIES")} 
+            className={`px-4 py-2 rounded text-xs font-bold uppercase tracking-wider transition-colors ${activeTab === "SALARIES" ? "bg-white shadow-sm text-gray-700" : "text-slate-500 hover:text-gray-700"}`}
+          >
+            Salaires
+          </button>
+          <button 
             onClick={() => setActiveTab("DASHBOARD")} 
             className={`px-4 py-2 rounded text-xs font-bold uppercase tracking-wider transition-colors ${activeTab === "DASHBOARD" ? "bg-white shadow-sm text-gray-700" : "text-slate-500 hover:text-gray-700"}`}
           >
@@ -479,6 +486,7 @@ export function SchoolAdminPayments() {
       )}
 
       {activeTab === "EXPENSES" && <CashierExpenses />}
+      {activeTab === "SALARIES" && <CashierSalaries />}
       {activeTab === "DASHBOARD" && <CashierDashboard />}
 
       {showPayModal && (

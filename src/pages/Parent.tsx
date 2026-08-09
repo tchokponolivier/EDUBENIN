@@ -467,8 +467,8 @@ Le Parent ou Tuteur légal (Signature précédée de la mention « Lu et approuv
       )}
 
       {showAddForm && (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 animate-in fade-in slide-in-from-top-4">
-          <div className="lg:col-span-2 bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
+        <div className="animate-in fade-in slide-in-from-top-4 max-w-4xl mx-auto w-full">
+          <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
             <h3 className="font-bold text-gray-700 mb-6 pb-2 border-b border-slate-100">{editingChildId ? "Modifier l'inscription" : "Nouvelle Inscription"}</h3>
             <form onSubmit={handleSubmit} className="space-y-8">
             
@@ -722,15 +722,7 @@ Le Parent ou Tuteur légal (Signature précédée de la mention « Lu et approuv
             </div>
           </form>
         </div>
-        <div className="hidden lg:block relative rounded-xl border border-slate-200 overflow-hidden shadow-sm h-full max-h-[800px]">
-          <img src="https://images.unsplash.com/photo-1509062522246-3755977927d7?auto=format&fit=crop&q=80&w=800" alt="Prospectus EduBénin" className="w-full h-full object-cover" />
-          <div className="absolute inset-0 bg-gradient-to-t from-slate-900/90 via-slate-900/20 to-transparent flex flex-col justify-end p-6 text-white">
-            <span className="text-[10px] font-bold uppercase tracking-widest text-emerald-400 mb-2">Inscription 2026-2027</span>
-            <h3 className="text-xl font-bold mb-2">Rejoignez l'Excellence</h3>
-            <p className="text-sm text-slate-300">Notre équipe pédagogique s'engage à offrir le meilleur encadrement pour la réussite de vos enfants.</p>
-          </div>
-        </div>
-        </div>
+      </div>
       )}
 
       {children.length === 0 ? (

@@ -41,6 +41,13 @@ const MOCK_USERS: Record<string, User> = {
     name: "Parent E.",
     role: "PARENT",
   },
+  "director@school.com": {
+    id: "dir_1",
+    email: "director@school.com",
+    name: "Directeur des Études",
+    role: "DIRECTOR_OF_STUDIES",
+    schoolId: "school_1",
+  },
   "prof@school.com": {
     id: "prof_1",
     email: "prof@school.com",

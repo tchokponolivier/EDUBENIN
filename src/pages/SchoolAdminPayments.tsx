@@ -6,6 +6,7 @@ import { CreditCard, History, Search, MessageCircle, Printer, Plus, Trash2, Chec
 import { supabase } from "../lib/supabase";
 import { CashierExpenses } from "../components/CashierExpenses";
 import { CashierDashboard } from "../components/CashierDashboard";
+import { CashierEnrollment } from "../components/CashierEnrollment";
 import { CashierSalaries } from "../components/CashierSalaries";
 
 const getTranchesForLevel = (level: string) => {
@@ -92,7 +93,7 @@ const getTranchesForLevel = (level: string) => {
 export function SchoolAdminPayments() {
   const { user } = useAuth();
   const location = useLocation();
-  const [activeTab, setActiveTab] = useState<"PAYMENTS" | "EXPENSES" | "SALARIES" | "DASHBOARD">(() => {
+  const [activeTab, setActiveTab] = useState<"INSCRIPTIONS" | "PAYMENTS" | "EXPENSES" | "SALARIES" | "DASHBOARD">(() => {
     const params = new URLSearchParams(location.search);
     const tab = params.get('tab');
     if (tab === "PAYMENTS" || tab === "EXPENSES" || tab === "SALARIES" || tab === "DASHBOARD") return tab;
@@ -405,7 +406,14 @@ export function SchoolAdminPayments() {
         
         <div className="flex p-1 bg-slate-100 rounded-lg shrink-0 overflow-x-auto max-w-full">
           <button 
+            onClick={() => setActiveTab("INSCRIPTIONS")} 
+            className={`px-4 py-2 rounded text-xs font-bold uppercase tracking-wider transition-colors ${activeTab === "INSCRIPTIONS" ? "bg-white shadow-sm text-gray-700" : "text-slate-500 hover:text-gray-700"}`}
+          >
+            Inscriptions
+          </button>
+          <button 
             onClick={() => setActiveTab("PAYMENTS")} 
+ 
             className={`px-4 py-2 rounded text-xs font-bold uppercase tracking-wider transition-colors ${activeTab === "PAYMENTS" ? "bg-white shadow-sm text-gray-700" : "text-slate-500 hover:text-gray-700"}`}
           >
             Encaissements
@@ -440,6 +448,7 @@ export function SchoolAdminPayments() {
         )}
       </div>
 
+      {activeTab === "INSCRIPTIONS" && <CashierEnrollment />}
       {activeTab === "PAYMENTS" && (
         <div className="bg-white rounded-xl border border-slate-200 shadow-sm">
          <div className="p-4 border-b border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-4">

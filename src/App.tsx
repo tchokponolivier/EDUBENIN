@@ -19,6 +19,7 @@ import { ParentPayments } from './pages/ParentPayments';
 import { ParentSupport } from './pages/ParentSupport';
 import { ParentProspectus } from './pages/ParentProspectus';
 import { TeacherDashboard } from './pages/TeacherDashboard';
+import { DirectorDashboard } from './pages/DirectorDashboard';
 import { TeacherProfile } from './pages/TeacherProfile';
 import { SchoolOnboarding } from './pages/SchoolOnboarding';
 import { LoadingSkeleton } from './components/layout/LoadingSkeleton';
@@ -57,6 +58,7 @@ function RoleRouter() {
     case 'CASHIER': return <Navigate to="/school-admin/payments" replace />;
     case 'PARENT': return <Navigate to="/parent" replace />;
     case 'TEACHER': return <Navigate to="/teacher" replace />;
+    case 'DIRECTOR_OF_STUDIES': return <Navigate to="/director" replace />;
     default: return <Navigate to="/" replace />;
   }
 }
@@ -92,6 +94,7 @@ export default function App() {
           <Route path="/parent/support" element={<ProtectedRoute allowedRoles={['PARENT']}><ParentSupport /></ProtectedRoute>} />
           
           <Route path="/teacher" element={<ProtectedRoute allowedRoles={['TEACHER']}><TeacherDashboard /></ProtectedRoute>} />
+          <Route path="/director" element={<ProtectedRoute allowedRoles={['DIRECTOR_OF_STUDIES']}><DirectorDashboard /></ProtectedRoute>} />
           <Route path="/teacher/profile" element={<ProtectedRoute allowedRoles={['TEACHER']}><TeacherProfile /></ProtectedRoute>} />
         </Routes>
       </AuthProvider>

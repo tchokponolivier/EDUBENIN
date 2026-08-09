@@ -53,6 +53,7 @@ export function LoginPage() {
 
   const sampleUsers = [
     { email: "admin@school.com", title: "Directeur", desc: "Gestion globale" },
+    { email: "director@school.com", title: "Directeur des Études", desc: "Pédagogie & Notes" },
     { email: "secretary@school.com", title: "Secrétaire", desc: "Saisie d'élèves" },
     { email: "caisse@school.com", title: "Caisse", desc: "Encaissements" },
     { email: "parent@mail.com", title: "Parent d'élève", desc: "Inscriptions et suivi" },
@@ -279,6 +280,7 @@ export function LoginPage() {
               <div className="space-y-3">
                 {[
                   { id: "SCHOOL_ADMIN", title: "Directeur", desc: "Gestion globale" },
+                  { id: "DIRECTOR_OF_STUDIES", title: "Directeur des Études", desc: "Programmes, Notes et Résultats" },
                   { id: "SECRETARY", title: "Secrétaire", desc: "Saisie d'élèves" },
                   { id: "CASHIER", title: "Caisse", desc: "Encaissements" },
                   { id: "PARENT", title: "Parent d'élève", desc: "Inscriptions et suivi" },

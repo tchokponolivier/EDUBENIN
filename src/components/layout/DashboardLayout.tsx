@@ -76,6 +76,11 @@ export function DashboardLayout({ children }: { children: ReactNode }) {
           { name: "Assistance", href: "/parent/support", icon: HelpCircle },
           commonSettings
         ];
+      case "DIRECTOR_OF_STUDIES":
+        return [
+          { name: "Direction des Études", href: "/director", icon: BookOpen },
+          commonSettings
+        ];
       case "TEACHER":
         return [
           { name: "Mes Classes & Notes", href: "/teacher", icon: BookOpen },

@@ -15,45 +15,45 @@ const AuthContext = createContext<AuthContextType | null>(null);
 // Mock Users for testing
 const MOCK_USERS: Record<string, User> = {
   "admin@school.com": {
-    id: "admin_1",
+    id: "22222222-2222-4222-8222-222222222222",
     email: "admin@school.com",
     name: "Directeur Ecole A",
     role: "SCHOOL_ADMIN",
-    schoolId: "school_1",
+    schoolId: "11111111-1111-4111-8111-111111111111",
   },
   "caisse@school.com": {
-    id: "caisse_1",
+    id: "33333333-3333-4333-8333-333333333333",
     email: "caisse@school.com",
     name: "Caisse Ecole",
     role: "CASHIER",
-    schoolId: "school_1",
+    schoolId: "11111111-1111-4111-8111-111111111111",
   },
   "secretary@school.com": {
-    id: "sec_1",
+    id: "44444444-4444-4444-8444-444444444444",
     email: "secretary@school.com",
     name: "Secrétaire Ecole",
     role: "SECRETARY",
-    schoolId: "school_1",
+    schoolId: "11111111-1111-4111-8111-111111111111",
   },
   "parent@mail.com": {
-    id: "parent_1",
+    id: "55555555-5555-4555-8555-555555555555",
     email: "parent@mail.com",
     name: "Parent E.",
     role: "PARENT",
   },
   "director@school.com": {
-    id: "dir_1",
+    id: "66666666-6666-4666-8666-666666666666",
     email: "director@school.com",
     name: "Directeur des Études",
     role: "DIRECTOR_OF_STUDIES",
-    schoolId: "school_1",
+    schoolId: "11111111-1111-4111-8111-111111111111",
   },
   "prof@school.com": {
-    id: "prof_1",
+    id: "77777777-7777-4777-8777-777777777777",
     email: "prof@school.com",
     name: "Professeur P.",
     role: "TEACHER",
-    schoolId: "school_1",
+    schoolId: "11111111-1111-4111-8111-111111111111",
   }
 };
 
@@ -193,11 +193,11 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     } else {
       // Auto-create a mock user if not found just to not block testing
       const newUser: User = {
-        id: `user_${Date.now()}`,
+        id: "00000000-0000-4000-8000-000000000000",
         email,
         name: fullName || email.split("@")[0],
         role: (role as any) || "PARENT",
-        schoolId: (role === "SCHOOL_ADMIN") ? "school_mock_1" : undefined
+        schoolId: (role === "SCHOOL_ADMIN") ? "11111111-1111-4111-8111-111111111111" : undefined
       };
       setUser(newUser);
       localStorage.setItem("edubenin_auth", JSON.stringify(newUser));

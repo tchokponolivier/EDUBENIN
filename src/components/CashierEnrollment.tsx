@@ -85,7 +85,7 @@ export function CashierEnrollment() {
           </button>
         </div>
       ) : (
-        <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm max-w-4xl mx-auto">
+        <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm w-full">
           <form onSubmit={handleEnroll} className="space-y-8">
             <h3 className="font-bold text-gray-700 mb-6 pb-2 border-b border-slate-100 text-lg">Nouvelle Inscription (Caisse)</h3>
 

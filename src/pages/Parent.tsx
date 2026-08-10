@@ -467,8 +467,8 @@ Le Parent ou Tuteur légal (Signature précédée de la mention « Lu et approuv
       )}
 
       {showAddForm && (
-        <div className="animate-in fade-in slide-in-from-top-4 max-w-4xl mx-auto w-full">
-          <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
+        <div className="animate-in fade-in slide-in-from-top-4 w-full">
+          <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm w-full">
             <h3 className="font-bold text-gray-700 mb-6 pb-2 border-b border-slate-100">{editingChildId ? "Modifier l'inscription" : "Nouvelle Inscription"}</h3>
             <form onSubmit={handleSubmit} className="space-y-8">
             

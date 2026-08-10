@@ -54,7 +54,15 @@ export function ParentDashboard() {
     const fetchSettings = async () => {
       const { data: schools } = await supabase.from('schools').select('*').limit(1);
       if (schools && schools.length > 0) {
-        setSettings(schools[0]);
+        let extra = {};
+        try {
+          const savedExtra = localStorage.getItem('schoolSettings_extra_' + schools[0].id);
+          if (savedExtra) extra = JSON.parse(savedExtra);
+        } catch(e){}
+        setSettings({
+          ...schools[0],
+          enrollmentContractTemplate: extra.enrollmentContractTemplate || ""
+        });
       }
     };
     fetchSettings();
@@ -417,7 +425,6 @@ Le Parent ou Tuteur légal (Signature précédée de la mention « Lu et approuv
         date_of_birth: studentData.dateOfBirth,
         gender: studentData.gender,
         school_id: insertSchoolId,
-        canteen_options: studentData.canteenOptions.join(", ")
       });
       if (error) {
          alert("Erreur lors de l'inscription: " + error.message);

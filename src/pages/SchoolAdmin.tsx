@@ -34,20 +34,28 @@ export function SchoolAdminDashboard() {
   }, []);
 
   
+  
   const fetchSchoolSettings = async () => {
     if (!user?.schoolId) return;
     const { data } = await supabase.from('schools').select('*').eq('id', user.schoolId).single();
     if (data) {
+      let extra = {};
+      try {
+        const savedExtra = localStorage.getItem('schoolSettings_extra_' + user.schoolId);
+        if (savedExtra) extra = JSON.parse(savedExtra);
+      } catch (e) {}
       setSettings({
         name: data.name,
         address: data.locality,
         contact: data.contacts,
         motto: data.motto || "",
         logo: data.logo_url || "",
-        academicYear: data.academic_year || ""
+        academicYear: extra.academicYear || "",
+        enrollmentContractTemplate: extra.enrollmentContractTemplate || ""
       } as any);
     }
   };
+
 
   const fetchAnnouncements = async () => {
     if (!user?.schoolId) return;
@@ -126,21 +134,26 @@ export function SchoolAdminDashboard() {
       enrollmentContractTemplate: formData.get("enrollmentContractTemplate") as string,
       logo: logoBase64 || settings.logo,
     };
+    
     supabase.from('schools').update({
       name: updates.name,
       locality: updates.address,
       contacts: updates.contact,
-      motto: updates.motto,
-      academic_year: updates.academicYear,
-      logo_url: updates.logo
+      motto: updates.motto
+      // logo_url: updates.logo (if it existed)
     }).eq('id', user?.schoolId).then(({ error }) => {
        if (error) {
-         alert("Erreur");
+         alert("Erreur: " + error.message);
        } else {
+         localStorage.setItem('schoolSettings_extra_' + user.schoolId, JSON.stringify({
+           academicYear: updates.academicYear,
+           enrollmentContractTemplate: updates.enrollmentContractTemplate
+         }));
          setSettings({ ...settings, ...updates });
          alert("Paramètres enregistrés avec succès.");
        }
     });
+
   };
 
   const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -372,7 +385,7 @@ export function SchoolAdminDashboard() {
         </div>
       )}
 
-      {activeTab === "SETTINGS" && (
+      {activeTab === "SETTINGS" && settings && (
         <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm max-w-2xl">
            <h3 className="font-bold text-gray-700 mb-6 pb-2 border-b border-slate-100">En-tête des Bulletins & Documents</h3>
            <form onSubmit={handleSettingsSave} className="space-y-4">

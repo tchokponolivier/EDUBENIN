@@ -56,7 +56,7 @@ export function SchoolAdminAcademic() {
        setEndDate("");
        fetchYears();
     } else {
-       alert("Erreur lors de la création");
+       alert("Erreur lors de la création: " + error.message);
     }
   };
 

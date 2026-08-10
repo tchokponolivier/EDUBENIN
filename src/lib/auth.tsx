@@ -202,49 +202,53 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     }
   };
 
-  const login = (email: string, fullName?: string, password?: string, role?: string) => {
-    const foundUser = MOCK_USERS[email];
-    if (foundUser) {
-      // If a role is explicitly requested, we can update the mock user's role
-      const userToSet = role ? { ...foundUser, role: role as any, schoolId: (role === 'SUPER_ADMIN' || role === 'PARENT') ? undefined : (realSchoolId || foundUser.schoolId) } : { ...foundUser, schoolId: (foundUser.role === 'SUPER_ADMIN' || foundUser.role === 'PARENT') ? undefined : (realSchoolId || foundUser.schoolId) };
-      setUser(userToSet);
-      localStorage.setItem("edubenin_auth", JSON.stringify(userToSet));
-
-      // Upsert the profile in Supabase to ensure foreign keys work
-      supabase.from('profiles').upsert({
-        id: userToSet.id,
-        email: userToSet.email,
-        full_name: userToSet.name,
-        role: userToSet.role,
-        school_id: userToSet.schoolId
-      }).then(({ error }) => {
-        if (error) console.error("Mock Profile Upsert Error:", error);
-      });
-
-    } else {
-      // Auto-create a mock user if not found just to not block testing
-      const newUser: User = {
-        id: realProfileId || "00000000-0000-4000-8000-000000000000",
+  
+  const login = async (email: string, fullName?: string, password?: string, role?: string) => {
+    let foundUser = MOCK_USERS[email];
+    let mockPassword = password || "password123";
+    
+    let userToSet = foundUser ? 
+      (role ? { ...foundUser, role: role as any, schoolId: (role === 'SUPER_ADMIN' || role === 'PARENT') ? undefined : (realSchoolId || foundUser.schoolId) } : { ...foundUser, schoolId: (foundUser.role === 'SUPER_ADMIN' || foundUser.role === 'PARENT') ? undefined : (realSchoolId || foundUser.schoolId) })
+      : {
+        id: "00000000-0000-4000-8000-000000000000",
         email,
         name: fullName || email.split("@")[0],
         role: (role as any) || "PARENT",
         schoolId: (role === "SUPER_ADMIN" || role === "PARENT") ? undefined : (realSchoolId || "11111111-1111-4111-8111-111111111111")
       };
-      setUser(newUser);
-      localStorage.setItem("edubenin_auth", JSON.stringify(newUser));
 
-      // Upsert the profile in Supabase to ensure foreign keys work
-      supabase.from('profiles').upsert({
-        id: newUser.id,
-        email: newUser.email,
-        full_name: newUser.name,
-        role: newUser.role,
-        school_id: newUser.schoolId
-      }).then(({ error }) => {
-        if (error) console.error("Mock Profile Upsert Error:", error);
-      });
-
+    try {
+      // 1. Try to login
+      let { data: authData, error: authError } = await supabase.auth.signInWithPassword({ email, password: mockPassword });
+      
+      if (authError && (authError.message.includes('Invalid login credentials') || authError.message.includes('Invalid') || authError.status === 400)) {
+         // 2. Try to signup
+         const signupRes = await supabase.auth.signUp({ email, password: mockPassword });
+         authData = signupRes.data;
+      }
+      
+      if (authData?.user) {
+         userToSet.id = authData.user.id;
+         // Upsert profile
+         await supabase.from('profiles').upsert({
+           id: userToSet.id,
+           email: userToSet.email,
+           full_name: userToSet.name,
+           role: userToSet.role,
+           school_id: userToSet.schoolId
+         });
+         
+         setUser(userToSet);
+         localStorage.removeItem("edubenin_auth");
+         return; // Success!
+      }
+    } catch (e) {
+      console.error("Supabase auth failed, falling back to local mock", e);
     }
+    
+    // Fallback if Supabase fails (e.g. no internet)
+    setUser(userToSet);
+    localStorage.setItem("edubenin_auth", JSON.stringify(userToSet));
   };
 
   const logout = async () => {

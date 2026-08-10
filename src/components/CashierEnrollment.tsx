@@ -189,7 +189,8 @@ export function CashierEnrollment() {
                     "Garde surveillée (200F / jour)",
                     "Repas cantine (200F / jour)",
                     "Repas cantine (500F / jour)",
-                    "Repas cantine (1000F / jour)"
+                    "Repas cantine (1000F / jour)",
+                    "Non intéressé"
                   ].map(opt => (
                     <label key={opt} className="flex items-center gap-3 cursor-pointer bg-white p-3 rounded-lg border border-emerald-100 hover:border-emerald-300 transition-colors shadow-sm">
                       <input 
@@ -225,19 +226,7 @@ export function CashierEnrollment() {
                   </span>
                 </label>
                 
-                {disciplinaryCommitment && (
-                  <div className="mt-4">
-                    <label className="block text-[10px] font-bold text-gray-700 mb-1 uppercase tracking-wide">Signature Parent (Lu et approuvé)</label>
-                    <input 
-                      required 
-                      value={disciplinarySignature} 
-                      onChange={e => setDisciplinarySignature(e.target.value)} 
-                      type="text" 
-                      placeholder="Lu et approuvé, [Nom du parent]"
-                      className="w-full md:w-1/2 px-3 py-2 border border-slate-300 rounded text-sm focus:ring-emerald-500 focus:border-emerald-500 outline-none" 
-                    />
-                  </div>
-                )}
+                
               </div>
             </div>
             

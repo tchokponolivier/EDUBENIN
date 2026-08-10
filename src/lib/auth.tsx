@@ -60,6 +60,25 @@ const MOCK_USERS: Record<string, User> = {
 export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [realSchoolId, setRealSchoolId] = useState<string | null>(null);
+  const [realProfileId, setRealProfileId] = useState<string | null>(null);
+
+  useEffect(() => {
+    supabase.from('schools').select('id').limit(1).then(({ data }) => {
+      if (data && data.length > 0) {
+        setRealSchoolId(data[0].id);
+      } else {
+        supabase.from('schools').insert({ name: 'Ecole Primaire Test', locality: 'Cotonou', contacts: '0000' }).select('id').single().then(({ data: newSchool }) => {
+          if (newSchool) setRealSchoolId(newSchool.id);
+        });
+      }
+    });
+    supabase.from('profiles').select('id').limit(1).then(({ data }) => {
+      if (data && data.length > 0) {
+        setRealProfileId(data[0].id);
+      }
+    });
+  }, []);
 
   useEffect(() => {
     // Helper to get role
@@ -187,20 +206,44 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     const foundUser = MOCK_USERS[email];
     if (foundUser) {
       // If a role is explicitly requested, we can update the mock user's role
-      const userToSet = role ? { ...foundUser, role: role as any } : foundUser;
+      const userToSet = role ? { ...foundUser, role: role as any, schoolId: (role === 'SUPER_ADMIN' || role === 'PARENT') ? undefined : (realSchoolId || foundUser.schoolId) } : { ...foundUser, schoolId: (foundUser.role === 'SUPER_ADMIN' || foundUser.role === 'PARENT') ? undefined : (realSchoolId || foundUser.schoolId) };
       setUser(userToSet);
       localStorage.setItem("edubenin_auth", JSON.stringify(userToSet));
+
+      // Upsert the profile in Supabase to ensure foreign keys work
+      supabase.from('profiles').upsert({
+        id: userToSet.id,
+        email: userToSet.email,
+        full_name: userToSet.name,
+        role: userToSet.role,
+        school_id: userToSet.schoolId
+      }).then(({ error }) => {
+        if (error) console.error("Mock Profile Upsert Error:", error);
+      });
+
     } else {
       // Auto-create a mock user if not found just to not block testing
       const newUser: User = {
-        id: "00000000-0000-4000-8000-000000000000",
+        id: realProfileId || "00000000-0000-4000-8000-000000000000",
         email,
         name: fullName || email.split("@")[0],
         role: (role as any) || "PARENT",
-        schoolId: (role === "SCHOOL_ADMIN") ? "11111111-1111-4111-8111-111111111111" : undefined
+        schoolId: (role === "SUPER_ADMIN" || role === "PARENT") ? undefined : (realSchoolId || "11111111-1111-4111-8111-111111111111")
       };
       setUser(newUser);
       localStorage.setItem("edubenin_auth", JSON.stringify(newUser));
+
+      // Upsert the profile in Supabase to ensure foreign keys work
+      supabase.from('profiles').upsert({
+        id: newUser.id,
+        email: newUser.email,
+        full_name: newUser.name,
+        role: newUser.role,
+        school_id: newUser.schoolId
+      }).then(({ error }) => {
+        if (error) console.error("Mock Profile Upsert Error:", error);
+      });
+
     }
   };
 

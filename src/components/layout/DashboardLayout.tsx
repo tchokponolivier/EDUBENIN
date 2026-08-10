@@ -44,6 +44,7 @@ export function DashboardLayout({ children }: { children: ReactNode }) {
           { name: "Finances & Caisse", href: "/school-admin/payments?tab=DASHBOARD", icon: Banknote },
           { name: "Synthèse & Bilans", href: "/school-admin/stats", icon: BookOpen },
           { name: "Prospectus", href: "/school-admin/prospectus", icon: BookOpen },
+          { name: "Paramètres Établissement", href: "/school-admin?tab=SETTINGS", icon: Settings },
           commonSettings
         ];
       case "SECRETARY":

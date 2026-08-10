@@ -372,7 +372,7 @@ export function SchoolAdminDashboard() {
         </div>
       )}
 
-      {activeTab === "SETTINGS" && settings && (
+      {activeTab === "SETTINGS" && (
         <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm max-w-2xl">
            <h3 className="font-bold text-gray-700 mb-6 pb-2 border-b border-slate-100">En-tête des Bulletins & Documents</h3>
            <form onSubmit={handleSettingsSave} className="space-y-4">
@@ -387,27 +387,27 @@ export function SchoolAdminDashboard() {
              </div>
              <div>
                <label className="block text-xs font-semibold text-gray-700 mb-1 uppercase tracking-wide">Nom de l'établissement</label>
-               <input name="name" defaultValue={settings.name} required type="text" className="w-full px-4 py-2 border border-slate-300 rounded text-sm focus:ring-emerald-500 focus:border-emerald-500 outline-none" />
+               <input name="name" defaultValue={settings?.name || ""} required type="text" className="w-full px-4 py-2 border border-slate-300 rounded text-sm focus:ring-emerald-500 focus:border-emerald-500 outline-none" />
              </div>
              <div>
                <label className="block text-xs font-semibold text-gray-700 mb-1 uppercase tracking-wide">Adresse complète</label>
-               <input name="address" defaultValue={settings.address} required type="text" className="w-full px-4 py-2 border border-slate-300 rounded text-sm focus:ring-emerald-500 focus:border-emerald-500 outline-none" />
+               <input name="address" defaultValue={settings?.address || ""} required type="text" className="w-full px-4 py-2 border border-slate-300 rounded text-sm focus:ring-emerald-500 focus:border-emerald-500 outline-none" />
              </div>
              <div>
                <label className="block text-xs font-semibold text-gray-700 mb-1 uppercase tracking-wide">Contacts (Tél / Email)</label>
-               <input name="contact" defaultValue={settings.contact} required type="text" className="w-full px-4 py-2 border border-slate-300 rounded text-sm focus:ring-emerald-500 focus:border-emerald-500 outline-none" />
+               <input name="contact" defaultValue={settings?.contact || ""} required type="text" className="w-full px-4 py-2 border border-slate-300 rounded text-sm focus:ring-emerald-500 focus:border-emerald-500 outline-none" />
              </div>
              <div>
                <label className="block text-xs font-semibold text-gray-700 mb-1 uppercase tracking-wide">Devise</label>
-               <input name="motto" defaultValue={settings.motto} required type="text" className="w-full px-4 py-2 border border-slate-300 rounded text-sm focus:ring-emerald-500 focus:border-emerald-500 outline-none" />
+               <input name="motto" defaultValue={settings?.motto || ""} required type="text" className="w-full px-4 py-2 border border-slate-300 rounded text-sm focus:ring-emerald-500 focus:border-emerald-500 outline-none" />
              </div>
              <div>
                <label className="block text-xs font-semibold text-gray-700 mb-1 uppercase tracking-wide">Année académique en cours</label>
-               <input name="academicYear" defaultValue={settings.academicYear} required type="text" className="w-full px-4 py-2 border border-slate-300 rounded text-sm focus:ring-emerald-500 focus:border-emerald-500 outline-none" />
+               <input name="academicYear" defaultValue={settings?.academicYear || ""} required type="text" className="w-full px-4 py-2 border border-slate-300 rounded text-sm focus:ring-emerald-500 focus:border-emerald-500 outline-none" />
              </div>
              <div>
                <label className="block text-xs font-semibold text-gray-700 mb-1 uppercase tracking-wide">Modèle de la fiche d'engagement</label>
-               <textarea name="enrollmentContractTemplate" defaultValue={settings.enrollmentContractTemplate || ""} rows={10} className="w-full px-4 py-2 border border-slate-300 rounded text-sm focus:ring-emerald-500 focus:border-emerald-500 outline-none resize-none" placeholder="Laissez vide pour utiliser le modèle par défaut..." />
+               <textarea name="enrollmentContractTemplate" defaultValue={settings?.enrollmentContractTemplate || ""} rows={10} className="w-full px-4 py-2 border border-slate-300 rounded text-sm focus:ring-emerald-500 focus:border-emerald-500 outline-none resize-none" placeholder="Laissez vide pour utiliser le modèle par défaut..." />
                <p className="text-[10px] text-slate-500 mt-1">Utilisez les variables: {'{ecole_nom}'}, {'{directeur_nom}'}, {'{parent_nom}'}, {'{parent_profession}'}, {'{parent_telephone}'}, {'{parent_adresse}'}, {'{eleve_nom}'}, {'{eleve_classe}'}, {'{frais_scolarite}'}</p>
              </div>
              <div className="pt-4 mt-4 border-t border-slate-100">

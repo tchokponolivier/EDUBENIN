@@ -48,6 +48,18 @@ export function ParentDashboard() {
   const [children, setChildren] = useState<Student[]>([]);
   const [payments, setPayments] = useState<Record<string, Payment[]>>({});
   const [settings, setSettings] = useState<SchoolSettings | null>(null);
+
+  useEffect(() => {
+    if (!user) return;
+    const fetchSettings = async () => {
+      const { data: schools } = await supabase.from('schools').select('*').limit(1);
+      if (schools && schools.length > 0) {
+        setSettings(schools[0]);
+      }
+    };
+    fetchSettings();
+  }, [user]);
+
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
   const [activeAnnouncementIndex, setActiveAnnouncementIndex] = useState(0);
   const [showAddForm, setShowAddForm] = useState(false);
@@ -99,7 +111,7 @@ export function ParentDashboard() {
   const renderContract = () => {
     if (!settings) return "";
     
-    let template = settings.enrollmentContractTemplate;
+    let template = settings?.enrollmentContractTemplate;
     if (!template) {
       template = `CONTRAT DE SCOLARISATION
 Entre :
@@ -173,8 +185,8 @@ Le Parent ou Tuteur légal (Signature précédée de la mention « Lu et approuv
     const eleveClasse = level || "........................................";
 
     const content = template
-      .replace(/{ecole_nom}/g, settings.name || "........................................")
-      .replace(/{ecole_adresse}/g, settings.address || "........................................")
+      .replace(/{ecole_nom}/g, settings?.name || "........................................")
+      .replace(/{ecole_adresse}/g, settings?.address || "........................................")
       .replace(/{parent_nom}/g, parentNom)
       .replace(/{parent_profession}/g, parentProfession)
       .replace(/{parent_telephone}/g, parentPhone)
@@ -394,11 +406,57 @@ Le Parent ou Tuteur légal (Signature précédée de la mention « Lu et approuv
         gender: studentData.gender
       }).eq('id', editingChildId);
     } else {
-      /* db.addStudent removed */
+                  const { data: schools } = await supabase.from('schools').select('id').limit(1);
+      const insertSchoolId = user?.schoolId || (schools && schools.length > 0 ? schools[0].id : null);
+      
+      const { error } = await supabase.from('students').insert({
+        parent_id: user?.id,
+        first_name: studentData.firstName,
+        last_name: studentData.lastName,
+        level: studentData.level,
+        date_of_birth: studentData.dateOfBirth,
+        gender: studentData.gender,
+        school_id: insertSchoolId,
+        canteen_options: studentData.canteenOptions.join(", ")
+      });
+      if (error) {
+         alert("Erreur lors de l'inscription: " + error.message);
+         return;
+      }
+      
+      if (window.confirm("Inscription validée avec succès ! Voulez-vous ajouter un autre enfant ?")) {
+         resetForm();
+         return; // Keep form open
+      } else {
+         window.location.href = "/parent/payments";
+      }
     }
     
     setShowAddForm(false);
     loadData();
+  };
+
+  
+  const resetForm = () => {
+    setFirstName("");
+    setLastName("");
+    setDateOfBirth("");
+    setLevel(LEVELS[0]);
+    setGender("MALE");
+    setStudentType("NEW");
+    setPhoto(null);
+    setFatherName("");
+    setMotherName("");
+    setFatherProfession("");
+    setMotherProfession("");
+    setFatherContact("");
+    setMotherContact("");
+    setGuardianName("");
+    setGuardianContact("");
+    setCanteenOptions([]);
+    setDisciplinaryCommitment(false);
+    setDisciplinarySignature("");
+    setEditingChildId(null);
   };
 
   const isPrimarySchool = (lv: string) => {
@@ -647,7 +705,8 @@ Le Parent ou Tuteur légal (Signature précédée de la mention « Lu et approuv
                     "Garde surveillée (200F / jour)",
                     "Repas cantine (200F / jour)",
                     "Repas cantine (500F / jour)",
-                    "Repas cantine (1000F / jour)"
+                    "Repas cantine (1000F / jour)",
+                    "Non intéressé"
                   ].map(opt => (
                     <label key={opt} className="flex items-center gap-3 cursor-pointer bg-white p-3 rounded-lg border border-emerald-100 hover:border-emerald-300 transition-colors shadow-sm">
                       <input 
@@ -838,7 +897,7 @@ Le Parent ou Tuteur légal (Signature précédée de la mention « Lu et approuv
         </div>
       )}
 
-      {showCommitmentModal && settings && (
+      {showCommitmentModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
           <div className="bg-white rounded-xl shadow-xl border border-slate-200 w-full max-w-3xl max-h-[90vh] flex flex-col animate-in zoom-in-95 fade-in overflow-hidden">
             <div className="p-4 border-b border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-4 bg-slate-50 shrink-0">
@@ -856,13 +915,13 @@ Le Parent ou Tuteur légal (Signature précédée de la mention « Lu et approuv
                {/* En-tête */}
                <div className="flex flex-col sm:flex-row justify-between items-start gap-6 border-b-2 border-slate-800 pb-6 mb-6">
                  <div className="flex items-center gap-4">
-                   {settings.logo && (
-                     <img src={settings.logo} alt="Logo" className="w-20 h-20 object-contain rounded" />
+                   {settings?.logo && (
+                     <img src={settings?.logo} alt="Logo" className="w-20 h-20 object-contain rounded" />
                    )}
                    <div>
-                     <h2 className="text-xl font-bold text-gray-700 uppercase tracking-wide">{settings.name}</h2>
-                     <p className="text-sm text-slate-600 mt-1">{settings.address}</p>
-                     <p className="text-sm text-slate-600">{settings.contact}</p>
+                     <h2 className="text-xl font-bold text-gray-700 uppercase tracking-wide">{settings?.name}</h2>
+                     <p className="text-sm text-slate-600 mt-1">{settings?.address}</p>
+                     <p className="text-sm text-slate-600">{settings?.contact}</p>
                    </div>
                  </div>
                </div>
@@ -893,14 +952,14 @@ Le Parent ou Tuteur légal (Signature précédée de la mention « Lu et approuv
                {/* En-tête */}
                <div className="flex flex-col sm:flex-row justify-between items-start gap-6 border-b-2 border-slate-800 pb-6 mb-6">
                  <div className="flex items-center gap-4">
-                   {settings.logo && (
-                     <img src={settings.logo} alt="Logo" className="w-20 h-20 object-contain rounded" />
+                   {settings?.logo && (
+                     <img src={settings?.logo} alt="Logo" className="w-20 h-20 object-contain rounded" />
                    )}
                    <div>
-                     <h2 className="text-xl font-bold text-gray-700 uppercase tracking-wide">{settings.name}</h2>
-                     <p className="text-sm text-slate-600 mt-1">{settings.address}</p>
-                     <p className="text-sm text-slate-600">{settings.contact}</p>
-                     <p className="text-xs font-semibold text-slate-500 italic mt-1">{settings.motto}</p>
+                     <h2 className="text-xl font-bold text-gray-700 uppercase tracking-wide">{settings?.name}</h2>
+                     <p className="text-sm text-slate-600 mt-1">{settings?.address}</p>
+                     <p className="text-sm text-slate-600">{settings?.contact}</p>
+                     <p className="text-xs font-semibold text-slate-500 italic mt-1">{settings?.motto}</p>
                    </div>
                  </div>
                  <div className="text-right">

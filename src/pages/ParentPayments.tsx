@@ -121,7 +121,7 @@ export function ParentPayments() {
         
         pays.sort((a: any, b: any) => b.date - a.date);
         setAllPayments(pays);
-        supabase.from('schools').select('*').eq('id', user.schoolId).single().then(({data}) => {
+        supabase.from('schools').select('*').eq('id', kids.length > 0 ? kids[0].schoolId : user.schoolId).single().then(({data}) => {
            if (data) setSettings(data as any);
         });
         

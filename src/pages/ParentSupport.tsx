@@ -19,18 +19,41 @@ export function ParentSupport() {
     }
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  
+  const { user } = useAuth();
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!message.trim()) return;
-
-    // Simulate sending the report to the school administration
-    setSubmitted(true);
-    setTimeout(() => {
+    
+    setSubmitted(true); // Treat as loading state initially
+    try {
+      const payload = {
+        name: user?.name || "Parent",
+        email: user?.email || "parent@example.com",
+        subject: topic,
+        message: message,
+        timestamp: new Date().toISOString(),
+        page: window.location.href
+      };
+      
+      await fetch("https://counter-words.kochidigital229.workers.dev/", {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      
+      setTimeout(() => {
+        setSubmitted(false);
+        setMessage("");
+        setPhoto("");
+        alert("Votre message a été envoyé avec succès !");
+      }, 1000);
+    } catch (err) {
+      alert("Erreur lors de l'envoi du message.");
       setSubmitted(false);
-      setMessage("");
-      setPhoto("");
-    }, 4000);
+    }
   };
+
 
   return (
     <div className="flex flex-col gap-6 max-w-3xl mx-auto">
@@ -142,7 +165,7 @@ export function ParentSupport() {
            <div className="text-amber-500 shrink-0 mt-0.5"><AlertTriangle size={20} /></div>
            <div>
              <h4 className="font-bold text-amber-800">Support téléphonique</h4>
-             <p className="text-xs text-amber-700 mt-1">Pour toute urgence concernant un paiement Mobile Money, veuillez contacter directement la comptabilité au <span className="font-bold">+229 01 66 82 79 24</span> (Appel ou WhatsApp).</p>
+             <p className="text-xs text-amber-700 mt-1">Pour toute urgence concernant un paiement Mobile Money, veuillez contacter directement la comptabilité au <span className="font-bold">+229 01 40 68 85 98</span> (Appel ou WhatsApp).</p>
            </div>
         </div>
       )}

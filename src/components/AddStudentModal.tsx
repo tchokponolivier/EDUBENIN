@@ -25,6 +25,7 @@ export function AddStudentModal({ isOpen, onClose, onSuccess }: { isOpen: boolea
         last_name: formData.lastName,
         level: formData.level,
         gender: formData.gender,
+        
         school_id: user?.schoolId,
         parent_id: user?.id // using whoever is creating it as a placeholder parent for now if needed, or null
       });

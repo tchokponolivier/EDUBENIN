@@ -411,7 +411,9 @@ Le Parent ou Tuteur légal (Signature précédée de la mention « Lu et approuv
         last_name: studentData.lastName,
         level: studentData.level,
         date_of_birth: studentData.dateOfBirth,
-        gender: studentData.gender
+        gender: studentData.gender,
+        
+        
       }).eq('id', editingChildId);
     } else {
                   const { data: schools } = await supabase.from('schools').select('id').limit(1);
@@ -423,8 +425,27 @@ Le Parent ou Tuteur légal (Signature précédée de la mention « Lu et approuv
         last_name: studentData.lastName,
         level: studentData.level,
         date_of_birth: studentData.dateOfBirth,
+        place_of_birth: studentData.placeOfBirth,
         gender: studentData.gender,
+        student_type: studentData.studentType,
+        previous_class: studentData.previousClass,
+        previous_school: studentData.previousSchool,
+        last_year_attended: studentData.lastYearAttended,
+        educmaster_number: studentData.educmasterNumber,
+        nationality: studentData.nationality,
+        religion: studentData.religion,
+        father_name: studentData.fatherName,
+        mother_name: studentData.motherName,
+        father_profession: studentData.fatherProfession,
+        mother_profession: studentData.motherProfession,
+        father_contact: studentData.fatherContact,
+        mother_contact: studentData.motherContact,
+        guardian_name: studentData.guardianName,
+        guardian_contact: studentData.guardianContact,
+        disciplinary_commitment: studentData.disciplinaryCommitment,
+        disciplinary_signature: studentData.disciplinarySignature,
         school_id: insertSchoolId,
+        canteen_options: studentData.canteenOptions.join(", ")
       });
       if (error) {
          alert("Erreur lors de l'inscription: " + error.message);

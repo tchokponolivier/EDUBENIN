@@ -1,4 +1,5 @@
 import React, { useState, useRef } from "react";
+import { useAuth } from "../lib/auth";
 import { HelpCircle, CheckCircle2, MessageSquare, AlertTriangle, Send, Camera, X } from "lucide-react";
 
 export function ParentSupport() {

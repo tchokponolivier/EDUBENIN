@@ -6,10 +6,12 @@ import { Users, Search, Edit2, AlertCircle, Download, CheckSquare, Trash2, Arrow
 import { SecretaryAbsences } from "../components/SecretaryAbsences";
 import { SecretaryDocuments } from "../components/SecretaryDocuments";
 import { SecretaryTimetables } from "../components/SecretaryTimetables";
+import { AddStudentModal } from "../components/AddStudentModal";
 
 export function SchoolAdminStudents() {
   const { user } = useAuth();
   const location = useLocation();
+  const [showAddStudentModal, setShowAddStudentModal] = useState(false);
   const [activeTab, setActiveTab] = useState<"STUDENTS" | "ABSENCES" | "DOCUMENTS" | "TIMETABLES">(() => {
     const params = new URLSearchParams(location.search);
     const tab = params.get('tab');
@@ -228,12 +230,20 @@ export function SchoolAdminStudents() {
         </div>
 
         {activeTab === "STUDENTS" && (
-          <button 
+          <div className="flex gap-2">
+            <button
+               onClick={() => setShowAddStudentModal(true)}
+               className="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded font-bold uppercase tracking-wider text-xs hover:bg-emerald-700 transition shadow-sm"
+            >
+               Inscrire un élève
+            </button>
+            <button 
              onClick={() => setShowExportModal(true)}
              className="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded font-bold uppercase tracking-wider text-xs hover:bg-emerald-700 transition shadow-sm"
           >
              <Download size={14} /> Exporter Données
           </button>
+          </div>
         )}
       </div>
 

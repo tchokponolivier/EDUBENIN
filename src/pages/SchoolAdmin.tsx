@@ -50,8 +50,8 @@ export function SchoolAdminDashboard() {
         contact: data.contacts,
         motto: data.motto || "",
         logo: data.logo_url || "",
-        academicYear: extra.academicYear || "",
-        enrollmentContractTemplate: extra.enrollmentContractTemplate || ""
+        academicYear: (extra as any).academicYear || "",
+        enrollmentContractTemplate: (extra as any).enrollmentContractTemplate || ""
       } as any);
     }
   };

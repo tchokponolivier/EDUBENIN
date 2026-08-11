@@ -49,9 +49,12 @@ export interface Student {
   fatherProfession?: string;
   motherProfession?: string;
   fatherContact?: string;
+  fatherAddress?: string;
   motherContact?: string;
+  motherAddress?: string;
   guardianName?: string;
   guardianContact?: string;
+  guardianAddress?: string;
   canteenOptions?: string[];
   disciplinaryCommitment?: boolean;
   disciplinarySignature?: string;

@@ -61,7 +61,7 @@ export function ParentDashboard() {
         } catch(e){}
         setSettings({
           ...schools[0],
-          enrollmentContractTemplate: extra.enrollmentContractTemplate || ""
+          enrollmentContractTemplate: (extra as any).enrollmentContractTemplate || ""
         });
       }
     };
@@ -106,9 +106,12 @@ export function ParentDashboard() {
   const [fatherProfession, setFatherProfession] = useState("");
   const [motherProfession, setMotherProfession] = useState("");
   const [fatherContact, setFatherContact] = useState("");
+  const [fatherAddress, setFatherAddress] = useState("");
   const [motherContact, setMotherContact] = useState("");
+  const [motherAddress, setMotherAddress] = useState("");
   const [guardianName, setGuardianName] = useState("");
   const [guardianContact, setGuardianContact] = useState("");
+  const [guardianAddress, setGuardianAddress] = useState("");
   const [canteenOptions, setCanteenOptions] = useState<string[]>([]);
   const [disciplinaryCommitment, setDisciplinaryCommitment] = useState(false);
   const [disciplinarySignature, setDisciplinarySignature] = useState("");
@@ -264,9 +267,12 @@ Le Parent ou Tuteur légal (Signature précédée de la mention « Lu et approuv
       setFatherProfession(child.fatherProfession || "");
       setMotherProfession(child.motherProfession || "");
       setFatherContact(child.fatherContact || "");
+      setFatherAddress(child.fatherAddress || "");
       setMotherContact(child.motherContact || "");
+      setMotherAddress(child.motherAddress || "");
       setGuardianName(child.guardianName || "");
       setGuardianContact(child.guardianContact || "");
+      setGuardianAddress(child.guardianAddress || "");
       setCanteenOptions(child.canteenOptions || []);
       setDisciplinaryCommitment(child.disciplinaryCommitment || false);
       setDisciplinarySignature(child.disciplinarySignature || "");
@@ -397,9 +403,12 @@ Le Parent ou Tuteur légal (Signature précédée de la mention « Lu et approuv
       fatherProfession,
       motherProfession,
       fatherContact,
+      fatherAddress,
       motherContact,
+      motherAddress,
       guardianName,
       guardianContact,
+      guardianAddress,
       canteenOptions,
       disciplinaryCommitment,
       disciplinarySignature,
@@ -439,9 +448,12 @@ Le Parent ou Tuteur légal (Signature précédée de la mention « Lu et approuv
         father_profession: studentData.fatherProfession,
         mother_profession: studentData.motherProfession,
         father_contact: studentData.fatherContact,
+        father_address: studentData.fatherAddress,
         mother_contact: studentData.motherContact,
+        mother_address: studentData.motherAddress,
         guardian_name: studentData.guardianName,
         guardian_contact: studentData.guardianContact,
+        guardian_address: studentData.guardianAddress,
         disciplinary_commitment: studentData.disciplinaryCommitment,
         disciplinary_signature: studentData.disciplinarySignature,
         school_id: insertSchoolId,
@@ -690,6 +702,10 @@ Le Parent ou Tuteur légal (Signature précédée de la mention « Lu et approuv
                     <label className="block text-[10px] font-bold text-gray-700 mb-1 uppercase tracking-wide">WhatsApp / Contact</label>
                     <input required value={fatherContact} onChange={e => setFatherContact(e.target.value)} type="tel" className="w-full px-3 py-1.5 border border-slate-300 rounded text-xs focus:ring-emerald-500 focus:border-emerald-500 outline-none" />
                   </div>
+                  <div className="col-span-1 md:col-span-3">
+                    <label className="block text-[10px] font-bold text-gray-700 mb-1 uppercase tracking-wide">Adresse (Père)</label>
+                    <input value={fatherAddress} onChange={e => setFatherAddress(e.target.value)} type="text" className="w-full px-3 py-1.5 border border-slate-300 rounded text-xs focus:ring-emerald-500 focus:border-emerald-500 outline-none" />
+                  </div>
                 </div>
 
                 {/* Mère */}
@@ -706,6 +722,10 @@ Le Parent ou Tuteur légal (Signature précédée de la mention « Lu et approuv
                   <div>
                     <label className="block text-[10px] font-bold text-gray-700 mb-1 uppercase tracking-wide">WhatsApp / Contact</label>
                     <input required value={motherContact} onChange={e => setMotherContact(e.target.value)} type="tel" className="w-full px-3 py-1.5 border border-slate-300 rounded text-xs focus:ring-emerald-500 focus:border-emerald-500 outline-none" />
+                  </div>
+                  <div className="col-span-1 md:col-span-3">
+                    <label className="block text-[10px] font-bold text-gray-700 mb-1 uppercase tracking-wide">Adresse (Mère)</label>
+                    <input value={motherAddress} onChange={e => setMotherAddress(e.target.value)} type="text" className="w-full px-3 py-1.5 border border-slate-300 rounded text-xs focus:ring-emerald-500 focus:border-emerald-500 outline-none" />
                   </div>
                 </div>
 

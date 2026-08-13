@@ -330,11 +330,50 @@ export function ParentPayments() {
     setShowConfirmModal(true);
   };
 
-  const confirmPayment = () => {
+const confirmPayment = async () => {
     if (!user) return;
 
-    /* db.addPayment removed */
-    const newPayment: any = { id: Date.now().toString(), amount: totalAmountWithFee, date: Date.now(), reference: 'PAY-' + Date.now(), studentId: selectedChildId };
+    // Build items payload (optional, if we want to store it in reference or items column - wait, payments schema doesn't have an items jsonb column, but maybe we can add one or ignore it for now. Let's just insert.)
+    const child = children.find(c => c.id === selectedChildId);
+    if (!child) return;
+    
+    let reference = 'PAY-' + Date.now();
+    let ussdCode = "";
+    if (network === "MTN Bénin") {
+       ussdCode = `*880*41*681199*${totalAmountWithFee}#`;
+    } else if (network === "Moov Bénin") {
+       ussdCode = `*855*1*1*1*0195741278*0195741278*${totalAmountWithFee}#`;
+    } else if (network === "Celtiis Bénin") {
+       ussdCode = `*889*4*1*0140688598*0140688598*${totalAmountWithFee}#`;
+    }
+    
+    // Attempt insert into Supabase
+    const { data: inserted, error } = await supabase.from('payments').insert({
+       school_id: child.schoolId || user.schoolId || child.school_id, // ensure we have school_id
+       student_id: selectedChildId,
+       parent_id: user.id,
+       amount: totalAmountWithFee,
+       status: 'PENDING',
+       network: network,
+       reference: reference
+    }).select().single();
+    
+    if (error) {
+       console.error(error);
+       alert("Erreur lors de l'enregistrement de la transaction.");
+       return;
+    }
+    
+    // We still update local state for immediate UI feedback
+    const newPayment: any = { 
+       id: inserted ? inserted.id : Date.now().toString(), 
+       amount: totalAmountWithFee, 
+       date: inserted ? new Date(inserted.created_at).getTime() : Date.now(), 
+       reference: reference, 
+       studentId: selectedChildId,
+       status: 'PENDING',
+       network: network
+    };
 
     const updatedPays = [newPayment, ...allPayments];
     updatedPays.sort((a,b) => b.date - a.date);
@@ -342,12 +381,14 @@ export function ParentPayments() {
     
     setShowConfirmModal(false);
     setShowPayModal(false);
-    setShowReceiptModal(newPayment);
-
-    // Lancer le code USSD sur le téléphone
-    const ussdCode = `*880*41*681199*${totalAmountWithFee}#`;
-    // On utilise encodeURIComponent pour le # -> %23
-    window.location.href = `tel:${ussdCode.replace('#', '%23')}`;
+    
+    // Alert the user that the status is pending verification
+    alert("Votre paiement est passé en statut En Vérification. Vous allez être redirigé vers l'interface USSD pour finaliser le paiement.");
+    
+    // Launch USSD code
+    if (ussdCode) {
+       window.location.href = `tel:${ussdCode.replace('#', '%23')}`;
+    }
   };
 
   const handleWhatsAppReceipt = (payment: Payment, customPhone?: string) => {
@@ -398,7 +439,7 @@ export function ParentPayments() {
         childName,
         payment.network,
         payment.amount.toString(),
-        "Validé"
+        payment.status === 'PENDING' ? 'En vérification' : (payment.status === 'FAILED' ? 'Échoué' : 'Validé')
       ].join(",");
     });
 
@@ -681,9 +722,13 @@ export function ParentPayments() {
                       </td>
                       <td className="px-4 py-3 font-mono font-bold text-xs">{payment.amount.toLocaleString()} F</td>
                       <td className="px-4 py-3 text-right">
-                         <span className="px-2 py-0.5 bg-green-100 text-green-700 rounded-full text-[10px] font-bold uppercase tracking-wider">
-                           Validé
-                         </span>
+                         {payment.status === 'PENDING' ? (
+                            <span className="px-2 py-0.5 bg-orange-100 text-orange-700 rounded-full text-[10px] font-bold uppercase tracking-wider">En Vérification</span>
+                         ) : payment.status === 'FAILED' ? (
+                            <span className="px-2 py-0.5 bg-red-100 text-red-700 rounded-full text-[10px] font-bold uppercase tracking-wider">Échoué</span>
+                         ) : (
+                            <span className="px-2 py-0.5 bg-green-100 text-green-700 rounded-full text-[10px] font-bold uppercase tracking-wider">Validé</span>
+                         )}
                       </td>
                       <td className="px-4 py-3 text-right">
                         <button 

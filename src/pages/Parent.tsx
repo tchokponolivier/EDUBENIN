@@ -5,6 +5,7 @@ import { Plus, User as UserIcon, CreditCard, Edit2, Camera, Calendar, History, C
 import { supabase } from "../lib/supabase";
 import { Link } from "react-router-dom";
 import { ParentTimetable } from "../components/ParentTimetable";
+import { AddStudentModal } from "../components/AddStudentModal";
 import { ParentAttendance } from "../components/ParentAttendance";
 
 // Mock timetable data
@@ -82,428 +83,92 @@ export function ParentDashboard() {
   const [requestDate, setRequestDate] = useState("");
   const [requestReason, setRequestReason] = useState("");
   
-  const [showCommitmentModal, setShowCommitmentModal] = useState(false);
-  const [isVerifying, setIsVerifying] = useState(false);
 
   // Form states
-  const [firstName, setFirstName] = useState("");
-  const [lastName, setLastName] = useState("");
-  const [level, setLevel] = useState(LEVELS[0]);
-  const [dateOfBirth, setDateOfBirth] = useState("");
-  const [photo, setPhoto] = useState<string>("");
-  const [placeOfBirth, setPlaceOfBirth] = useState("");
-  const [studentType, setStudentType] = useState<"NEW" | "OLD">("NEW");
-  const [previousClass, setPreviousClass] = useState("");
-  const [previousSchool, setPreviousSchool] = useState("");
-  const [lastYearAttended, setLastYearAttended] = useState("");
-  const [status, setStatus] = useState<"PASSING" | "REPEATING" | "EXCLUDED">("PASSING");
-  const [educmasterNumber, setEducmasterNumber] = useState("");
-  const [gender, setGender] = useState<"MALE" | "FEMALE">("MALE");
-  const [nationality, setNationality] = useState("Béninoise");
-  const [religion, setReligion] = useState("Christianisme");
-  const [fatherName, setFatherName] = useState("");
-  const [motherName, setMotherName] = useState("");
-  const [fatherProfession, setFatherProfession] = useState("");
-  const [motherProfession, setMotherProfession] = useState("");
-  const [fatherContact, setFatherContact] = useState("");
-  const [fatherAddress, setFatherAddress] = useState("");
-  const [motherContact, setMotherContact] = useState("");
-  const [motherAddress, setMotherAddress] = useState("");
-  const [guardianName, setGuardianName] = useState("");
-  const [guardianContact, setGuardianContact] = useState("");
-  const [guardianAddress, setGuardianAddress] = useState("");
-  const [canteenOptions, setCanteenOptions] = useState<string[]>([]);
-  const [disciplinaryCommitment, setDisciplinaryCommitment] = useState(false);
-  const [disciplinarySignature, setDisciplinarySignature] = useState("");
   
-  const fileInputRef = useRef<HTMLInputElement>(null);
   const carouselRef = useRef<HTMLDivElement>(null);
-
-  const renderContract = () => {
-    if (!settings) return "";
-    
-    let template = settings?.enrollmentContractTemplate;
-    if (!template) {
-      template = `CONTRAT DE SCOLARISATION
-Entre :
-L'Établissement scolaire {ecole_nom}, situé à {ecole_adresse}, représenté par son Directeur/sa Directrice ........................................, ci-après dénommé « l'Établissement »,
-Et
-M./Mme {parent_nom},
-Profession : {parent_profession},
-Téléphone : {parent_telephone},
-Adresse : {parent_adresse},
-Parent ou tuteur légal de l'élève {eleve_nom},
-Classe : {eleve_classe},
-Ci-après dénommé « le Parent ».
-Il est convenu ce qui suit :
-Article 1 : Objet
-Le présent contrat fixe les conditions dans lesquelles l'Établissement assure l'éducation et l'encadrement de l'élève pendant l'année scolaire.
-Article 2 : Engagement de l'Établissement
-L'Établissement s'engage à :
-- assurer les enseignements conformément aux programmes officiels ;
-- garantir un environnement sécurisé et discipliné ;
-- informer régulièrement le parent des résultats et du comportement de l'élève ;
-- respecter les textes en vigueur en République du Bénin.
-Article 3 : Engagement du Parent
-Le Parent s'engage à :
-- payer intégralement les frais de scolarité dans les délais convenus ;
-- respecter le règlement intérieur ;
-- assurer l'assiduité et la ponctualité de son enfant ;
-- participer aux réunions de parents d'élèves ;
-- collaborer avec l'administration pour la réussite de l'enfant.
-Article 4 : Frais de scolarité
-Les frais de scolarité sont fixés à :
-Montant : {frais_scolarite} FCFA.
-Ils doivent être réglés selon l'échéancier suivant :
-1er versement : ....................
-2e versement : ....................
-Solde obligatoire au plus tard le 30 décembre.
-Par mesure exceptionnelle, l'Établissement peut accorder un délai de grâce jusqu'au 31 mars, sans que cela constitue un droit acquis pour les années suivantes.
-Article 5 : Défaut de paiement
-En cas de non-paiement après le 31 mars :
-- l'élève peut être suspendu ou radié conformément au règlement intérieur ;
-- l'Établissement peut refuser la délivrance des documents internes liés à la poursuite de la scolarité, dans le respect des lois et règlements en vigueur ;
-- les sommes dues restent exigibles.
-Article 6 : Discipline
-Le Parent reconnaît avoir reçu le règlement intérieur et s'engage à le respecter.
-Article 7 : Communication
-Toute réclamation doit être adressée à la Direction par écrit.
-Article 8 : Résiliation
-Le présent contrat peut prendre fin :
-- à la fin de l'année scolaire ;
-- par retrait volontaire de l'élève ;
-- par exclusion conformément au règlement intérieur ;
-- en cas de non-respect grave des obligations contractuelles.
-Article 9 : Règlement des litiges
-Les parties privilégient un règlement amiable.
-À défaut, les juridictions compétentes de la République du Bénin seront saisies.
-Article 10 : Acceptation
-Le Parent déclare avoir pris connaissance :
-- du règlement intérieur ;
-- du calendrier scolaire ;
-- des modalités de paiement ;
-- des conditions de discipline.
-Il accepte sans réserve les dispositions du présent contrat.
-Fait à .........................................., Le ...... / ...... / 20......
-Le Directeur (Signature et cachet)
-Le Parent ou Tuteur légal (Signature précédée de la mention « Lu et approuvé »)`;
-    }
-
-    const parentNom = fatherName || motherName || guardianName || "........................................";
-    const parentProfession = fatherProfession || motherProfession || "........................................";
-    const parentPhone = fatherContact || motherContact || guardianContact || "........................................";
-    const eleveNom = `${firstName} ${lastName}`.trim() || "........................................";
-    const eleveClasse = level || "........................................";
-
-    const content = template
-      .replace(/{ecole_nom}/g, settings?.name || "........................................")
-      .replace(/{ecole_adresse}/g, settings?.address || "........................................")
-      .replace(/{parent_nom}/g, parentNom)
-      .replace(/{parent_profession}/g, parentProfession)
-      .replace(/{parent_telephone}/g, parentPhone)
-      .replace(/{parent_adresse}/g, "........................................")
-      .replace(/{eleve_nom}/g, eleveNom)
-      .replace(/{eleve_classe}/g, eleveClasse)
-      .replace(/{frais_scolarite}/g, "....................");
-      
-    return content;
-  };
-
-  const scrollToAnnouncement = (index: number) => {
-    if (carouselRef.current) {
-      const scrollWidth = carouselRef.current.scrollWidth;
-      const amount = announcements.length;
-      const targetScroll = (scrollWidth / amount) * index;
-      carouselRef.current.scrollTo({ left: targetScroll, behavior: 'smooth' });
-    }
-  };
-
-    const loadData = async () => {
-    if (!user) return;
-    try {
-      const { data: kidsData } = await supabase.from('students').select('*').eq('parent_id', user.id);
-      const kids = (kidsData || []).map((d: any) => ({...d, createdAt: d.created_at, firstName: d.first_name, lastName: d.last_name, parentId: d.parent_id, schoolId: d.school_id, studentType: d.studentType, educmasterNumber: d.educmasterNumber, gender: d.gender}));
-      setChildren(kids);
-      
-      const { data: paysData } = await supabase.from('payments').select('*').eq('parent_id', user.id);
-      const allPays = (paysData || []).map((d: any) => ({...d, studentId: d.student_id, schoolId: d.school_id, parentId: d.parent_id, createdAt: d.created_at}));
-      
-      const pays: Record<string, any[]> = {};
-      kids.forEach((k: any) => {
-        pays[k.id] = allPays.filter((p: any) => p.studentId === k.id);
-      });
-      setPayments(pays);
-      /* db removed */
-      /* db removed */
-    } catch (err) {
-      console.error(err);
-    }
-  };
 
   useEffect(() => {
     loadData();
   }, [user]);
 
+
+  const loadData = async () => {
+    if (!user) return;
+    try {
+      const { data: studentsData } = await supabase.from('students').select('*').eq('parent_id', user.id);
+      if (studentsData) {
+        setChildren(studentsData.map(s => ({
+          id: s.id,
+          firstName: s.first_name,
+          lastName: s.last_name,
+          level: s.level,
+          status: s.status,
+          dateOfBirth: s.date_of_birth,
+          placeOfBirth: s.place_of_birth,
+          gender: s.gender,
+          studentType: s.student_type,
+          previousClass: s.previous_class,
+          previousSchool: s.previous_school,
+          lastYearAttended: s.last_year_attended,
+          educmasterNumber: s.educmaster_number,
+          nationality: s.nationality,
+          religion: s.religion,
+          fatherName: s.father_name,
+          motherName: s.mother_name,
+          fatherProfession: s.father_profession,
+          motherProfession: s.mother_profession,
+          fatherContact: s.father_contact,
+          fatherAddress: s.father_address,
+          motherContact: s.mother_contact,
+          motherAddress: s.mother_address,
+          guardianName: s.guardian_name,
+          guardianContact: s.guardian_contact,
+          guardianAddress: s.guardian_address,
+          canteenOptions: s.canteen_options ? s.canteen_options.split(', ') : [],
+          disciplinaryCommitment: s.disciplinary_commitment,
+          disciplinarySignature: s.disciplinary_signature,
+          photo: s.photo || "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=150&h=150&fit=crop"
+        })));
+      }
+      
+      const { data: annData } = await supabase.from('announcements').select('*').order('date', { ascending: false });
+      if (annData) {
+        setAnnouncements(annData.map(a => ({
+          id: a.id,
+          title: a.title,
+          content: a.content,
+          date: a.date,
+          author: a.author,
+          targetAudience: a.target_audience
+        })));
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const scrollToAnnouncement = (index: number) => {
+    setActiveAnnouncementIndex(index);
+    if (carouselRef.current) {
+      const width = carouselRef.current.offsetWidth;
+      carouselRef.current.scrollTo({
+        left: width * index,
+        behavior: 'smooth'
+      });
+    }
+  };
+
   const handleDisplayForm = (child?: Student) => {
     if (child) {
       setEditingChildId(child.id);
-      setFirstName(child.firstName);
-      setLastName(child.lastName);
-      setLevel(child.level);
-      setDateOfBirth(child.dateOfBirth || "");
-      setPhoto(child.photo || "");
-      setPlaceOfBirth(child.placeOfBirth || "");
-      setStudentType(child.studentType || "NEW");
-      setPreviousClass(child.previousClass || "");
-      setPreviousSchool(child.previousSchool || "");
-      setLastYearAttended(child.lastYearAttended || "");
-      setStatus(child.status || "PASSING");
-      setEducmasterNumber(child.educmasterNumber || "");
-      setGender(child.gender || "MALE");
-      setNationality(child.nationality || "Béninoise");
-      setReligion(child.religion || "Christianisme");
-      setFatherName(child.fatherName || "");
-      setMotherName(child.motherName || "");
-      setFatherProfession(child.fatherProfession || "");
-      setMotherProfession(child.motherProfession || "");
-      setFatherContact(child.fatherContact || "");
-      setFatherAddress(child.fatherAddress || "");
-      setMotherContact(child.motherContact || "");
-      setMotherAddress(child.motherAddress || "");
-      setGuardianName(child.guardianName || "");
-      setGuardianContact(child.guardianContact || "");
-      setGuardianAddress(child.guardianAddress || "");
-      setCanteenOptions(child.canteenOptions || []);
-      setDisciplinaryCommitment(child.disciplinaryCommitment || false);
-      setDisciplinarySignature(child.disciplinarySignature || "");
     } else {
       setEditingChildId(null);
-      setFirstName("");
-      setLastName("");
-      setLevel(LEVELS[0]);
-      setDateOfBirth("");
-      setPhoto("");
-      setPlaceOfBirth("");
-      setStudentType("NEW");
-      setPreviousClass("");
-      setPreviousSchool("");
-      setLastYearAttended("");
-      setStatus("PASSING");
-      setEducmasterNumber("");
-      setGender("MALE");
-      setNationality("Béninoise");
-      setReligion("Christianisme");
-      setFatherName("");
-      setMotherName("");
-      setFatherProfession("");
-      setMotherProfession("");
-      setFatherContact("");
-      setMotherContact("");
-      setGuardianName("");
-      setGuardianContact("");
-      setCanteenOptions([]);
-      setDisciplinaryCommitment(false);
-      setDisciplinarySignature("");
     }
     setShowAddForm(true);
   };
 
-  const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setPhoto(reader.result as string);
-      };
-      reader.readAsDataURL(file);
-    }
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!user) return;
-
-    if (!editingChildId) {
-      // Check for duplicates
-      const isDuplicate = children.some(c => c.firstName.toLowerCase() === firstName.toLowerCase() && c.lastName.toLowerCase() === lastName.toLowerCase());
-      if (isDuplicate) {
-        alert(`Un enfant nommé ${firstName} ${lastName} est déjà inscrit.`);
-        return;
-      }
-    }
-
-    let finalStudentType = studentType;
-    let finalLastYear = lastYearAttended;
-
-    if (studentType === "OLD") {
-      if (!educmasterNumber) {
-         alert("Vérification Système : Vous devez obligatoirement fournir le numéro EducMaster ou le Matricule de l'enfant pour réinscrire un ancien élève.");
-         return;
-      }
-
-      setIsVerifying(true);
-      
-      // Simulation d'une vérification asynchrone (API vers les archives ou EducMaster)
-      await new Promise(resolve => setTimeout(resolve, 1500));
-      
-      setIsVerifying(false);
-
-      const yearStr = lastYearAttended.split("-")[0]; 
-      const claimedYear = parseInt(yearStr);
-      const currentYear = new Date().getFullYear(); 
-      
-      // SIMULATION DU CHECK BACKEND
-      // Si on détecte un mot clé dans le nom ou matricule, on simule une incohérence
-      let actualLastYearInDB = claimedYear;
-      if (firstName.toLowerCase() === "menteur" || educmasterNumber === "0000") {
-         actualLastYearInDB = 2021; 
-      } else if (educmasterNumber === "1234") {
-         actualLastYearInDB = 2022; 
-      }
-
-      // Règles métiers:
-      if (!isNaN(claimedYear)) {
-          if (claimedYear !== actualLastYearInDB) {
-             const diff = currentYear - actualLastYearInDB;
-             if (diff >= 2) {
-                 alert(`Vérification Système : Les données nationales indiquent que la dernière année fréquentée par ${firstName} est ${actualLastYearInDB} (et non ${claimedYear}). L'absence étant de ${diff} ans, le statut passe automatiquement à "Nouvel élève" et les frais de réinscription s'appliqueront.`);
-                 finalStudentType = "NEW";
-             } else {
-                 alert(`Vérification Système : Correction de la dernière année fréquentée en ${actualLastYearInDB}. L'élève conserve son statut d'ancien élève.`);
-                 finalLastYear = actualLastYearInDB.toString();
-             }
-          } else {
-             const diff = currentYear - actualLastYearInDB;
-             if (diff >= 2) {
-                 alert(`Vérification Système : L'absence est de ${diff} ans. Conformément au règlement, le statut de l'élève passe automatiquement à "Nouvel élève" et les frais d'inscription seront appliqués.`);
-                 finalStudentType = "NEW";
-             }
-          }
-      }
-    }
-
-    const studentData = {
-      firstName,
-      lastName,
-      level,
-      dateOfBirth,
-      photo,
-      placeOfBirth,
-      studentType: finalStudentType,
-      previousClass,
-      previousSchool,
-      lastYearAttended: finalLastYear,
-      status,
-      educmasterNumber,
-      gender,
-      nationality,
-      religion,
-      fatherName,
-      motherName,
-      fatherProfession,
-      motherProfession,
-      fatherContact,
-      fatherAddress,
-      motherContact,
-      motherAddress,
-      guardianName,
-      guardianContact,
-      guardianAddress,
-      canteenOptions,
-      disciplinaryCommitment,
-      disciplinarySignature,
-    };
-
-    if (editingChildId) {
-      await supabase.from('students').update({
-        first_name: studentData.firstName,
-        last_name: studentData.lastName,
-        level: studentData.level,
-        date_of_birth: studentData.dateOfBirth,
-        gender: studentData.gender,
-        
-        
-      }).eq('id', editingChildId);
-    } else {
-                  const { data: schools } = await supabase.from('schools').select('id').limit(1);
-      const insertSchoolId = user?.schoolId || (schools && schools.length > 0 ? schools[0].id : null);
-      
-      const { error } = await supabase.from('students').insert({
-        parent_id: user?.id,
-        first_name: studentData.firstName,
-        last_name: studentData.lastName,
-        level: studentData.level,
-        date_of_birth: studentData.dateOfBirth,
-        place_of_birth: studentData.placeOfBirth,
-        gender: studentData.gender,
-        student_type: studentData.studentType,
-        previous_class: studentData.previousClass,
-        previous_school: studentData.previousSchool,
-        last_year_attended: studentData.lastYearAttended,
-        educmaster_number: studentData.educmasterNumber,
-        nationality: studentData.nationality,
-        religion: studentData.religion,
-        father_name: studentData.fatherName,
-        mother_name: studentData.motherName,
-        father_profession: studentData.fatherProfession,
-        mother_profession: studentData.motherProfession,
-        father_contact: studentData.fatherContact,
-        father_address: studentData.fatherAddress,
-        mother_contact: studentData.motherContact,
-        mother_address: studentData.motherAddress,
-        guardian_name: studentData.guardianName,
-        guardian_contact: studentData.guardianContact,
-        guardian_address: studentData.guardianAddress,
-        disciplinary_commitment: studentData.disciplinaryCommitment,
-        disciplinary_signature: studentData.disciplinarySignature,
-        school_id: insertSchoolId,
-        canteen_options: studentData.canteenOptions.join(", ")
-      });
-      if (error) {
-         alert("Erreur lors de l'inscription: " + error.message);
-         return;
-      }
-      
-      if (window.confirm("Inscription validée avec succès ! Voulez-vous ajouter un autre enfant ?")) {
-         resetForm();
-         return; // Keep form open
-      } else {
-         window.location.href = "/parent/payments";
-      }
-    }
-    
-    setShowAddForm(false);
-    loadData();
-  };
-
-  
-  const resetForm = () => {
-    setFirstName("");
-    setLastName("");
-    setDateOfBirth("");
-    setLevel(LEVELS[0]);
-    setGender("MALE");
-    setStudentType("NEW");
-    setPhoto(null);
-    setFatherName("");
-    setMotherName("");
-    setFatherProfession("");
-    setMotherProfession("");
-    setFatherContact("");
-    setMotherContact("");
-    setGuardianName("");
-    setGuardianContact("");
-    setCanteenOptions([]);
-    setDisciplinaryCommitment(false);
-    setDisciplinarySignature("");
-    setEditingChildId(null);
-  };
-
-  const isPrimarySchool = (lv: string) => {
-    return lv.startsWith("Maternelle") || lv.startsWith("CI") || lv.startsWith("CP") || lv.startsWith("CE") || lv.startsWith("CM");
-  };
-
-  return (
+return (
     <div className="flex flex-col gap-6">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
@@ -565,271 +230,15 @@ Le Parent ou Tuteur légal (Signature précédée de la mention « Lu et approuv
       )}
 
       {showAddForm && (
-        <div className="animate-in fade-in slide-in-from-top-4 w-full">
-          <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm w-full">
-            <h3 className="font-bold text-gray-700 mb-6 pb-2 border-b border-slate-100">{editingChildId ? "Modifier l'inscription" : "Nouvelle Inscription"}</h3>
-            <form onSubmit={handleSubmit} className="space-y-8">
-            
-            {/* Section 1: Informations de l'enfant */}
-            <div>
-              <h4 className="text-sm font-bold text-gray-700 mb-4 uppercase tracking-widest border-l-4 border-emerald-500 pl-2">Informations de l'élève</h4>
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
-                <div className="lg:col-span-3 flex items-center gap-4">
-                   <div 
-                     className="w-16 h-16 rounded-full border-2 border-dashed border-slate-300 flex items-center justify-center overflow-hidden bg-slate-50 cursor-pointer hover:bg-slate-100 shrink-0"
-                     onClick={() => fileInputRef.current?.click()}
-                   >
-                     {photo ? <img src={photo} className="w-full h-full object-cover" /> : <Camera className="w-6 h-6 text-slate-400" />}
-                   </div>
-                   <div>
-                      <p className="text-xs font-bold text-gray-700">Photo de l'enfant</p>
-                      <p className="text-[10px] text-slate-500">Cliquez pour ajouter</p>
-                      <input type="file" accept="image/*" className="hidden" ref={fileInputRef} onChange={handlePhotoUpload} />
-                   </div>
-                </div>
-                
-                <div>
-                  <label className="block text-xs font-semibold text-gray-700 mb-1 uppercase tracking-wide">Statut Élève</label>
-                  <select value={studentType} onChange={e => setStudentType(e.target.value as any)} className="w-full px-3 py-2 border border-slate-300 rounded text-sm focus:ring-emerald-500 focus:border-emerald-500 outline-none">
-                    <option value="NEW">Nouvel élève</option>
-                    <option value="OLD">Ancien élève (Réinscription)</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-xs font-semibold text-gray-700 mb-1 uppercase tracking-wide">Prénom</label>
-                  <input required value={firstName} onChange={e => setFirstName(e.target.value)} type="text" className="w-full px-3 py-2 border border-slate-300 rounded text-sm focus:ring-emerald-500 focus:border-emerald-500 outline-none" />
-                </div>
-                <div>
-                  <label className="block text-xs font-semibold text-gray-700 mb-1 uppercase tracking-wide">Nom</label>
-                  <input required value={lastName} onChange={e => setLastName(e.target.value)} type="text" className="w-full px-3 py-2 border border-slate-300 rounded text-sm focus:ring-emerald-500 focus:border-emerald-500 outline-none" />
-                </div>
-                <div>
-                  <label className="block text-xs font-semibold text-gray-700 mb-1 uppercase tracking-wide">Sexe</label>
-                  <select value={gender} onChange={e => setGender(e.target.value as any)} className="w-full px-3 py-2 border border-slate-300 rounded text-sm focus:ring-emerald-500 focus:border-emerald-500 outline-none">
-                    <option value="MALE">Masculin</option>
-                    <option value="FEMALE">Féminin</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-xs font-semibold text-gray-700 mb-1 uppercase tracking-wide">Date de naissance</label>
-                  <div className="relative">
-                    <Calendar className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
-                    <input required value={dateOfBirth} onChange={e => setDateOfBirth(e.target.value)} type="date" className="w-full pl-9 pr-3 py-2 border border-slate-300 rounded text-sm focus:ring-emerald-500 focus:border-emerald-500 outline-none" />
-                  </div>
-                </div>
-                <div>
-                  <label className="block text-xs font-semibold text-gray-700 mb-1 uppercase tracking-wide">Lieu de naissance</label>
-                  <input required value={placeOfBirth} onChange={e => setPlaceOfBirth(e.target.value)} type="text" className="w-full px-3 py-2 border border-slate-300 rounded text-sm focus:ring-emerald-500 focus:border-emerald-500 outline-none" />
-                </div>
-                <div>
-                  <label className="block text-xs font-semibold text-gray-700 mb-1 uppercase tracking-wide">Nationalité</label>
-                  <select required value={nationality} onChange={e => setNationality(e.target.value)} className="w-full px-3 py-2 border border-slate-300 rounded text-sm focus:ring-emerald-500 focus:border-emerald-500 outline-none">
-                    <option value="Béninoise">Béninoise</option>
-                    <option value="Togolaise">Togolaise</option>
-                    <option value="Ivoirienne">Ivoirienne</option>
-                    <option value="Nigériane">Nigériane</option>
-                    <option value="Autre">Autre</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-xs font-semibold text-gray-700 mb-1 uppercase tracking-wide">Religion</label>
-                  <select required value={religion} onChange={e => setReligion(e.target.value)} className="w-full px-3 py-2 border border-slate-300 rounded text-sm focus:ring-emerald-500 focus:border-emerald-500 outline-none">
-                    <option value="Christianisme">Christianisme</option>
-                    <option value="Islam">Islam</option>
-                    <option value="Animisme">Animisme</option>
-                    <option value="Autre">Autre</option>
-                  </select>
-                </div>
-              </div>
-            </div>
-
-            {/* Section 2: Parcours scolaire */}
-            <div>
-              <h4 className="text-sm font-bold text-gray-700 mb-4 uppercase tracking-widest border-l-4 border-emerald-500 pl-2">Parcours scolaire</h4>
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
-                <div>
-                  <label className="block text-xs font-semibold text-gray-700 mb-1 uppercase tracking-wide">Classe demandée</label>
-                  <select value={level} onChange={e => setLevel(e.target.value)} className="w-full px-3 py-2 border border-slate-300 rounded text-sm focus:ring-emerald-500 focus:border-emerald-500 outline-none">
-                    {LEVELS.map(l => <option key={l} value={l}>{l}</option>)}
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-xs font-semibold text-gray-700 mb-1 uppercase tracking-wide">Statut</label>
-                  <select value={status} onChange={e => setStatus(e.target.value as any)} className="w-full px-3 py-2 border border-slate-300 rounded text-sm focus:ring-emerald-500 focus:border-emerald-500 outline-none">
-                    <option value="PASSING">Passant</option>
-                    <option value="REPEATING">Redoublant</option>
-                    <option value="EXCLUDED">Exclu</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-xs font-semibold text-gray-700 mb-1 uppercase tracking-wide">N° EducMaster</label>
-                  <input value={educmasterNumber} onChange={e => setEducmasterNumber(e.target.value)} type="text" placeholder="Optionnel" className="w-full px-3 py-2 border border-slate-300 rounded text-sm focus:ring-emerald-500 focus:border-emerald-500 outline-none placeholder-slate-300" />
-                </div>
-                <div>
-                  <label className="block text-xs font-semibold text-gray-700 mb-1 uppercase tracking-wide">Dernière année fréquentée</label>
-                  <input required placeholder="Ex: 2023 ou 2023-2024" value={lastYearAttended} onChange={e => setLastYearAttended(e.target.value)} type="text" className="w-full px-3 py-2 border border-slate-300 rounded text-sm focus:ring-emerald-500 focus:border-emerald-500 outline-none" />
-                </div>
-                <div>
-                  <label className="block text-xs font-semibold text-gray-700 mb-1 uppercase tracking-wide">Etablissement antérieur</label>
-                  <input required={studentType === 'NEW'} value={previousSchool} onChange={e => setPreviousSchool(e.target.value)} type="text" placeholder="Obligatoire si nouvel élève" className="w-full px-3 py-2 border border-slate-300 rounded text-sm focus:ring-emerald-500 focus:border-emerald-500 outline-none placeholder-slate-300" />
-                </div>
-                <div>
-                  <label className="block text-xs font-semibold text-gray-700 mb-1 uppercase tracking-wide">Classe antérieure</label>
-                  <select value={previousClass} onChange={e => setPreviousClass(e.target.value)} className="w-full px-3 py-2 border border-slate-300 rounded text-sm focus:ring-emerald-500 focus:border-emerald-500 outline-none text-gray-700">
-                    <option value="">Sélectionner ou Aucun</option>
-                    {LEVELS.map(l => <option key={l} value={l}>{l}</option>)}
-                  </select>
-                </div>
-              </div>
-            </div>
-
-            {/* Section 3: Parents & Tuteurs */}
-            <div>
-              <h4 className="text-sm font-bold text-gray-700 mb-4 uppercase tracking-widest border-l-4 border-emerald-500 pl-2">Parents / Tuteur</h4>
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
-                {/* Père */}
-                <div className="space-y-3 bg-slate-50 p-4 rounded-xl border border-slate-100">
-                  <h5 className="font-bold text-xs text-slate-500 uppercase">Informations du Père</h5>
-                  <div>
-                    <label className="block text-[10px] font-bold text-gray-700 mb-1 uppercase tracking-wide">Nom & Prénoms</label>
-                    <input required value={fatherName} onChange={e => setFatherName(e.target.value)} type="text" className="w-full px-3 py-1.5 border border-slate-300 rounded text-xs focus:ring-emerald-500 focus:border-emerald-500 outline-none" />
-                  </div>
-                  <div>
-                    <label className="block text-[10px] font-bold text-gray-700 mb-1 uppercase tracking-wide">Profession</label>
-                    <input required value={fatherProfession} onChange={e => setFatherProfession(e.target.value)} type="text" className="w-full px-3 py-1.5 border border-slate-300 rounded text-xs focus:ring-emerald-500 focus:border-emerald-500 outline-none" />
-                  </div>
-                  <div>
-                    <label className="block text-[10px] font-bold text-gray-700 mb-1 uppercase tracking-wide">WhatsApp / Contact</label>
-                    <input required value={fatherContact} onChange={e => setFatherContact(e.target.value)} type="tel" className="w-full px-3 py-1.5 border border-slate-300 rounded text-xs focus:ring-emerald-500 focus:border-emerald-500 outline-none" />
-                  </div>
-                  <div className="col-span-1 md:col-span-3">
-                    <label className="block text-[10px] font-bold text-gray-700 mb-1 uppercase tracking-wide">Adresse (Père)</label>
-                    <input value={fatherAddress} onChange={e => setFatherAddress(e.target.value)} type="text" className="w-full px-3 py-1.5 border border-slate-300 rounded text-xs focus:ring-emerald-500 focus:border-emerald-500 outline-none" />
-                  </div>
-                </div>
-
-                {/* Mère */}
-                <div className="space-y-3 bg-slate-50 p-4 rounded-xl border border-slate-100">
-                  <h5 className="font-bold text-xs text-slate-500 uppercase">Informations de la Mère</h5>
-                  <div>
-                    <label className="block text-[10px] font-bold text-gray-700 mb-1 uppercase tracking-wide">Nom & Prénoms</label>
-                    <input required value={motherName} onChange={e => setMotherName(e.target.value)} type="text" className="w-full px-3 py-1.5 border border-slate-300 rounded text-xs focus:ring-emerald-500 focus:border-emerald-500 outline-none" />
-                  </div>
-                  <div>
-                    <label className="block text-[10px] font-bold text-gray-700 mb-1 uppercase tracking-wide">Profession</label>
-                    <input required value={motherProfession} onChange={e => setMotherProfession(e.target.value)} type="text" className="w-full px-3 py-1.5 border border-slate-300 rounded text-xs focus:ring-emerald-500 focus:border-emerald-500 outline-none" />
-                  </div>
-                  <div>
-                    <label className="block text-[10px] font-bold text-gray-700 mb-1 uppercase tracking-wide">WhatsApp / Contact</label>
-                    <input required value={motherContact} onChange={e => setMotherContact(e.target.value)} type="tel" className="w-full px-3 py-1.5 border border-slate-300 rounded text-xs focus:ring-emerald-500 focus:border-emerald-500 outline-none" />
-                  </div>
-                  <div className="col-span-1 md:col-span-3">
-                    <label className="block text-[10px] font-bold text-gray-700 mb-1 uppercase tracking-wide">Adresse (Mère)</label>
-                    <input value={motherAddress} onChange={e => setMotherAddress(e.target.value)} type="text" className="w-full px-3 py-1.5 border border-slate-300 rounded text-xs focus:ring-emerald-500 focus:border-emerald-500 outline-none" />
-                  </div>
-                </div>
-
-                {/* Tuteur */}
-                <div className="space-y-3 bg-slate-50 p-4 rounded-xl border border-slate-100">
-                  <h5 className="font-bold text-xs text-slate-500 uppercase">Tuteur (Optionnel)</h5>
-                  <div>
-                    <label className="block text-[10px] font-bold text-gray-700 mb-1 uppercase tracking-wide">Nom & Prénom du tuteur</label>
-                    <input value={guardianName} onChange={e => setGuardianName(e.target.value)} type="text" placeholder="Si différent des parents" className="w-full px-3 py-1.5 border border-slate-300 rounded text-xs focus:ring-emerald-500 focus:border-emerald-500 outline-none placeholder-slate-300" />
-                  </div>
-                  <div>
-                    <label className="block text-[10px] font-bold text-gray-700 mb-1 uppercase tracking-wide">WhatsApp / Contact du tuteur</label>
-                    <input value={guardianContact} onChange={e => setGuardianContact(e.target.value)} type="tel" placeholder="Si différent des parents" className="w-full px-3 py-1.5 border border-slate-300 rounded text-xs focus:ring-emerald-500 focus:border-emerald-500 outline-none placeholder-slate-300" />
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Options */}
-            {isPrimarySchool(level) && (
-              <div className="bg-emerald-50 p-5 rounded-xl border border-emerald-100">
-                <h4 className="text-sm font-bold text-gray-700 mb-3 uppercase tracking-widest border-l-4 border-emerald-500 pl-2">Services optionnels (Cantine)</h4>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  {[
-                    "Garde surveillée (200F / jour)",
-                    "Repas cantine (200F / jour)",
-                    "Repas cantine (500F / jour)",
-                    "Repas cantine (1000F / jour)",
-                    "Non intéressé"
-                  ].map(opt => (
-                    <label key={opt} className="flex items-center gap-3 cursor-pointer bg-white p-3 rounded-lg border border-emerald-100 hover:border-emerald-300 transition-colors shadow-sm">
-                      <input 
-                        type="checkbox" 
-                        checked={canteenOptions.includes(opt)} 
-                        onChange={(e) => {
-                          if (e.target.checked) setCanteenOptions([...canteenOptions, opt])
-                          else setCanteenOptions(canteenOptions.filter(o => o !== opt))
-                        }} 
-                        className="w-4 h-4 text-emerald-600 border-slate-300 rounded focus:ring-emerald-500"
-                      />
-                      <span className="text-sm font-bold text-gray-700">{opt}</span>
-                    </label>
-                  ))}
-                </div>
-              </div>
-            )}
-            
-            {/* Section 4: Engagement Disciplinaire */}
-            <div>
-              <h4 className="text-sm font-bold text-gray-700 mb-4 uppercase tracking-widest border-l-4 border-emerald-500 pl-2">Engagement Disciplinaire</h4>
-              <div className="bg-slate-50 p-5 rounded-xl border border-slate-200">
-                <p className="text-sm text-slate-600 mb-4">
-                  En inscrivant votre enfant, vous vous engagez à ce qu'il/elle respecte le règlement intérieur de l'établissement.
-                </p>
-                <div className="flex gap-4 mb-4">
-                  <button 
-                    type="button" 
-                    onClick={() => setShowCommitmentModal(true)}
-                    className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-300 rounded text-xs font-bold text-gray-700 hover:bg-slate-50 transition-colors"
-                  >
-                    <FileText size={16} />
-                    Lire & Télécharger la Fiche d'Engagement
-                  </button>
-                </div>
-                <div className="space-y-3">
-                  <label className="flex items-center gap-3 cursor-pointer">
-                    <input 
-                      type="checkbox" 
-                      required
-                      checked={disciplinaryCommitment}
-                      onChange={e => setDisciplinaryCommitment(e.target.checked)}
-                      className="w-4 h-4 text-emerald-600 border-slate-300 rounded focus:ring-emerald-500"
-                    />
-                    <span className="text-sm font-bold text-gray-700">
-                      Je reconnais avoir lu et j'accepte sans réserve les termes de l'engagement disciplinaire.
-                    </span>
-                  </label>
-                  
-                  {disciplinaryCommitment && (
-                    <div className="mt-4">
-                      <label className="block text-[10px] font-bold text-gray-700 mb-1 uppercase tracking-wide">Signature (Écrivez votre nom complet précédé de "Lu et approuvé")</label>
-                      <input 
-                        required 
-                        value={disciplinarySignature} 
-                        onChange={e => setDisciplinarySignature(e.target.value)} 
-                        type="text" 
-                        placeholder="Lu et approuvé, [Votre Nom]"
-                        className="w-full md:w-1/2 px-3 py-2 border border-slate-300 rounded text-sm focus:ring-emerald-500 focus:border-emerald-500 outline-none" 
-                      />
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
-            
-            <div className="flex justify-end gap-3 pt-4 border-t border-slate-100">
-              <button type="button" onClick={() => setShowAddForm(false)} className="px-5 py-2.5 text-xs font-bold text-slate-600 hover:bg-slate-100 rounded uppercase tracking-wider transition-colors">Annuler</button>
-              <button type="submit" disabled={isVerifying} className="px-5 py-2.5 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 disabled:opacity-75 disabled:cursor-wait rounded shadow-sm uppercase tracking-wider transition-colors">
-                 {isVerifying ? "Vérification en cours..." : (editingChildId ? "Enregistrer les modifications" : "Valider l'inscription")}
-              </button>
-            </div>
-          </form>
-        </div>
-      </div>
+        <AddStudentModal
+          isOpen={showAddForm}
+          onClose={() => setShowAddForm(false)}
+          onSuccess={() => {
+             setShowAddForm(false);
+             loadData();
+          }}
+          initialData={editingChildId ? children.find(c => c.id === editingChildId) : null}
+        />
       )}
 
       {children.length === 0 ? (
@@ -940,43 +349,6 @@ Le Parent ou Tuteur légal (Signature précédée de la mention « Lu et approuv
             </div>
             <div className="p-4 overflow-y-auto flex-1">
                <ParentTimetable student={selectedChildForTimetable} />
-            </div>
-          </div>
-        </div>
-      )}
-
-      {showCommitmentModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
-          <div className="bg-white rounded-xl shadow-xl border border-slate-200 w-full max-w-3xl max-h-[90vh] flex flex-col animate-in zoom-in-95 fade-in overflow-hidden">
-            <div className="p-4 border-b border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-4 bg-slate-50 shrink-0">
-               <div className="flex items-center gap-3">
-                 <button onClick={() => window.print()} className="px-3 py-1.5 bg-slate-800 text-white text-xs font-bold uppercase tracking-wider rounded hover:bg-slate-700 transition-colors">
-                   Imprimer / Télécharger (PDF)
-                 </button>
-               </div>
-               <button onClick={() => setShowCommitmentModal(false)} className="p-2 text-slate-400 hover:text-slate-600 rounded hover:bg-slate-200 transition-colors">
-                  <X size={20} />
-               </button>
-            </div>
-            
-            <div className="p-8 overflow-y-auto flex-1 bg-white" id="commitment-print-area">
-               {/* En-tête */}
-               <div className="flex flex-col sm:flex-row justify-between items-start gap-6 border-b-2 border-slate-800 pb-6 mb-6">
-                 <div className="flex items-center gap-4">
-                   {settings?.logo && (
-                     <img src={settings?.logo} alt="Logo" className="w-20 h-20 object-contain rounded" />
-                   )}
-                   <div>
-                     <h2 className="text-xl font-bold text-gray-700 uppercase tracking-wide">{settings?.name}</h2>
-                     <p className="text-sm text-slate-600 mt-1">{settings?.address}</p>
-                     <p className="text-sm text-slate-600">{settings?.contact}</p>
-                   </div>
-                 </div>
-               </div>
-
-               <div className="whitespace-pre-wrap text-sm text-gray-700 leading-relaxed">
-                 {renderContract()}
-               </div>
             </div>
           </div>
         </div>

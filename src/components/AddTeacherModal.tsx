@@ -23,7 +23,7 @@ export function AddTeacherModal({ isOpen, onClose, onSuccess }: { isOpen: boolea
       // But creating a profile without an auth user might fail if there's a foreign key on id.
       // We will create a dummy id, or just insert into profiles if it allows it.
       // Let's check if we can insert into profiles.
-      const dummyId = 'teacher_' + Date.now();
+      const dummyId = crypto.randomUUID();
       const { error } = await supabase.from('profiles').insert({
         id: dummyId,
         full_name: formData.fullName,

@@ -117,9 +117,9 @@ export function AddStudentModal({ isOpen, onClose, onSuccess, initialData = null
         first_name: studentData.firstName,
         last_name: studentData.lastName,
         level: studentData.level,
-        date_of_birth: studentData.dateOfBirth,
+        date_of_birth: studentData.dateOfBirth || null,
         gender: studentData.gender,
-        place_of_birth: studentData.placeOfBirth,
+        place_of_birth: studentData.placeOfBirth || null,
         student_type: studentData.studentType,
         previous_class: studentData.previousClass,
         previous_school: studentData.previousSchool,
@@ -147,12 +147,12 @@ export function AddStudentModal({ isOpen, onClose, onSuccess, initialData = null
       const insertSchoolId = user?.schoolId || (schools && schools.length > 0 ? schools[0].id : null);
       
       const { error } = await supabase.from('students').insert({
-        parent_id: null,
+        parent_id: user?.role === 'PARENT' ? user.id : null,
         first_name: studentData.firstName,
         last_name: studentData.lastName,
         level: studentData.level,
-        date_of_birth: studentData.dateOfBirth,
-        place_of_birth: studentData.placeOfBirth,
+        date_of_birth: studentData.dateOfBirth || null,
+        place_of_birth: studentData.placeOfBirth || null,
         gender: studentData.gender,
         student_type: studentData.studentType,
         previous_class: studentData.previousClass,
@@ -375,6 +375,10 @@ export function AddStudentModal({ isOpen, onClose, onSuccess, initialData = null
                   <div>
                     <label className="block text-[10px] font-bold text-gray-700 mb-1 uppercase tracking-wide">WhatsApp / Contact du tuteur</label>
                     <input value={guardianContact} onChange={e => setGuardianContact(e.target.value)} type="tel" placeholder="Si différent des parents" className="w-full px-3 py-1.5 border border-slate-300 rounded text-xs focus:ring-emerald-500 focus:border-emerald-500 outline-none placeholder-slate-300" />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-bold text-gray-700 mb-1 uppercase tracking-wide">Adresse (Tuteur)</label>
+                    <input value={guardianAddress} onChange={e => setGuardianAddress(e.target.value)} type="text" placeholder="Si différent des parents" className="w-full px-3 py-1.5 border border-slate-300 rounded text-xs focus:ring-emerald-500 focus:border-emerald-500 outline-none placeholder-slate-300" />
                   </div>
                 </div>
               </div>

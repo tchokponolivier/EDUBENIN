@@ -8,6 +8,7 @@ import { CashierExpenses } from "../components/CashierExpenses";
 import { CashierDashboard } from "../components/CashierDashboard";
 import { CashierEnrollment } from "../components/CashierEnrollment";
 import { CashierSalaries } from "../components/CashierSalaries";
+import { CashierVerification } from "../components/CashierVerification";
 
 const getTranchesForLevel = (level: string) => {
   if (["Maternelle 1", "Maternelle 2"].includes(level)) {
@@ -93,7 +94,7 @@ const getTranchesForLevel = (level: string) => {
 export function SchoolAdminPayments() {
   const { user } = useAuth();
   const location = useLocation();
-  const [activeTab, setActiveTab] = useState<"INSCRIPTIONS" | "PAYMENTS" | "EXPENSES" | "SALARIES" | "DASHBOARD">(() => {
+  const [activeTab, setActiveTab] = useState<"INSCRIPTIONS" | "PAYMENTS" | "EXPENSES" | "SALARIES" | "DASHBOARD" | "VERIFICATION">(() => {
     const params = new URLSearchParams(location.search);
     const tab = params.get('tab');
     if (tab === "PAYMENTS" || tab === "EXPENSES" || tab === "SALARIES" || tab === "DASHBOARD") return tab;
@@ -412,6 +413,12 @@ export function SchoolAdminPayments() {
             Inscriptions
           </button>
           <button 
+            onClick={() => setActiveTab("VERIFICATION")} 
+            className={`px-4 py-2 rounded text-xs font-bold uppercase tracking-wider transition-colors ${activeTab === "VERIFICATION" ? "bg-white shadow-sm text-gray-700" : "text-slate-500 hover:text-gray-700"}`}
+          >
+            Vérifications
+          </button>
+          <button 
             onClick={() => setActiveTab("PAYMENTS")} 
  
             className={`px-4 py-2 rounded text-xs font-bold uppercase tracking-wider transition-colors ${activeTab === "PAYMENTS" ? "bg-white shadow-sm text-gray-700" : "text-slate-500 hover:text-gray-700"}`}
@@ -506,6 +513,7 @@ export function SchoolAdminPayments() {
       </div>
       )}
 
+      {activeTab === "VERIFICATION" && <CashierVerification />}
       {activeTab === "EXPENSES" && <CashierExpenses />}
       {activeTab === "SALARIES" && <CashierSalaries />}
       {activeTab === "DASHBOARD" && <CashierDashboard />}

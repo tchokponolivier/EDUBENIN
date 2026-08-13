@@ -104,14 +104,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           const { data: tempProfile } = await supabase.from('profiles').select('school_id').eq('id', sessionUser.id).single();
           let schoolId = tempProfile?.school_id;
           if (pendingRole === 'SCHOOL_ADMIN' && !schoolId) {
-             const { data: newSchool, error: schoolErr } = await supabase.from('schools').insert({
-                name: "Mon Établissement",
-                locality: "À définir",
-                contacts: ""
-             }).select().single();
-             if (newSchool) {
-                schoolId = newSchool.id;
-             }
+             // Do not automatically create a school. Let the user go to onboarding.
+             schoolId = null;
           }
           const { error: updateError } = await supabase.from('profiles').update({ role: pendingRole, school_id: schoolId }).eq('id', sessionUser.id);
           if (updateError) {
@@ -214,7 +208,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         email,
         name: fullName || email.split("@")[0],
         role: (role as any) || "PARENT",
-        schoolId: (role === "SUPER_ADMIN" || role === "PARENT") ? undefined : (realSchoolId || "11111111-1111-4111-8111-111111111111")
+        schoolId: (role === 'SUPER_ADMIN' || role === 'PARENT' || role === 'SCHOOL_ADMIN') ? undefined : (realSchoolId || '11111111-1111-4111-8111-111111111111')
       };
 
     try {

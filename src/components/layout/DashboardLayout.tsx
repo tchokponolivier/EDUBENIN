@@ -5,6 +5,7 @@ import { Link, useLocation } from "react-router-dom";
 import { clsx } from "clsx";
 import { EduBeninLogo } from "../Logo";
 import { UserSettingsModal } from "../UserSettingsModal";
+import { NotificationMenu } from "../NotificationMenu";
 import { supabase } from "../../lib/supabase";
 import { useEffect } from "react";
 
@@ -191,6 +192,7 @@ export function DashboardLayout({ children }: { children: ReactNode }) {
             <div className="hidden md:flex items-center gap-2 px-3 py-1.5 bg-slate-100 rounded text-xs font-medium">
               <span className="w-2 h-2 rounded-full bg-emerald-500"></span> Système En Ligne
             </div>
+            <NotificationMenu />
             <div className="hidden md:block w-px h-6 bg-slate-200"></div>
             <button onClick={() => setIsMobileMenuOpen(true)} className="md:hidden text-slate-500 hover:text-emerald-600 p-2">
               <Menu className="w-6 h-6" />

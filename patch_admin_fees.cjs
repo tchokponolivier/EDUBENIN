@@ -1,4 +1,7 @@
-import React, { useState, useEffect } from "react";
+const fs = require('fs');
+let content = fs.readFileSync('src/components/SchoolAdminFees.tsx', 'utf-8');
+
+const newComponent = `import React, { useState, useEffect } from "react";
 import { supabase } from "../lib/supabase";
 import { FeeConfig, LEVELS } from "../types";
 import { useAuth } from "../lib/auth";
@@ -107,13 +110,13 @@ export function SchoolAdminFees() {
       <div className="flex p-1 bg-slate-100 rounded-lg shrink-0 overflow-x-auto max-w-fit">
         <button 
           onClick={() => setActiveTab("MANDATORY")} 
-          className={`px-4 py-2 rounded text-xs font-bold uppercase tracking-wider transition-colors ${activeTab === "MANDATORY" ? "bg-white shadow-sm text-gray-700" : "text-slate-500 hover:text-gray-700"}`}
+          className={\`px-4 py-2 rounded text-xs font-bold uppercase tracking-wider transition-colors \${activeTab === "MANDATORY" ? "bg-white shadow-sm text-gray-700" : "text-slate-500 hover:text-gray-700"}\`}
         >
           Frais Scolaires
         </button>
         <button 
           onClick={() => setActiveTab("OPTIONAL")} 
-          className={`px-4 py-2 rounded text-xs font-bold uppercase tracking-wider transition-colors ${activeTab === "OPTIONAL" ? "bg-white shadow-sm text-gray-700" : "text-slate-500 hover:text-gray-700"}`}
+          className={\`px-4 py-2 rounded text-xs font-bold uppercase tracking-wider transition-colors \${activeTab === "OPTIONAL" ? "bg-white shadow-sm text-gray-700" : "text-slate-500 hover:text-gray-700"}\`}
         >
           Services Optionnels
         </button>
@@ -188,3 +191,7 @@ export function SchoolAdminFees() {
     </div>
   );
 }
+`;
+
+fs.writeFileSync('src/components/SchoolAdminFees.tsx', newComponent);
+console.log("Patched SchoolAdminFees.tsx");

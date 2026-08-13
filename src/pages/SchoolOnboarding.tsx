@@ -12,7 +12,8 @@ export function SchoolOnboarding() {
   const [formData, setFormData] = useState({
     name: '',
     locality: '',
-    contacts: ''
+    contacts: '',
+    directorName: ''
   });
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -38,7 +39,7 @@ export function SchoolOnboarding() {
       // 2. Update the profile with the new school_id
       const { error: profileError } = await supabase
         .from('profiles')
-        .update({ school_id: school.id, role: 'SCHOOL_ADMIN' })
+        .update({ school_id: school.id, role: 'SCHOOL_ADMIN', full_name: formData.directorName })
         .eq('id', user?.id);
 
       if (profileError) throw profileError;
@@ -143,6 +144,24 @@ export function SchoolOnboarding() {
               </div>
             </div>
 
+            <div>
+              <label htmlFor="directorName" className="block text-sm font-medium text-gray-700">
+                Nom et Prénom du Directeur
+              </label>
+              <div className="mt-1 relative rounded-md shadow-sm">
+                <input
+                  type="text"
+                  name="directorName"
+                  id="directorName"
+                  required
+                  value={formData.directorName}
+                  onChange={(e) => setFormData({...formData, directorName: e.target.value})}
+                  className="focus:ring-emerald-500 focus:border-emerald-500 block w-full sm:text-sm border-gray-300 rounded-md py-3 px-4 border"
+                  placeholder="Ex: Jean Dupont"
+                />
+              </div>
+            </div>
+            
             <div>
               <button
                 type="submit"

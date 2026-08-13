@@ -63,6 +63,7 @@ export function DashboardLayout({ children }: { children: ReactNode }) {
           { name: "Inscriptions Élèves", href: "/school-admin/students?tab=STUDENTS", icon: Users },
           { name: "Liste des Élèves", href: "/school-admin/students-list", icon: Users },
           { name: "Professeurs", href: "/school-admin/teachers", icon: Users },
+          { name: "Vérifications", href: "/school-admin/payments?tab=VERIFICATION", icon: CreditCard },
           { name: "Encaissements", href: "/school-admin/payments?tab=PAYMENTS", icon: CreditCard },
           { name: "Dépenses", href: "/school-admin/payments?tab=EXPENSES", icon: ArrowDownToLine },
           { name: "Salaires", href: "/school-admin/payments?tab=SALARIES", icon: Banknote },

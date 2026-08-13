@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from "react";
 import { supabase } from "../lib/supabase";
-import { School, Building, Users, AlertCircle, Plus, Edit2, Trash2, Mail, X, CheckCircle, Search, Shield } from "lucide-react";
+import { School, Building, Users, User, AlertCircle, Plus, Edit2, Trash2, Mail, X, CheckCircle, Search, Shield } from "lucide-react";
 
 export function SuperAdminDashboard() {
   const [activeTab, setActiveTab] = useState<"SCHOOLS" | "USERS">("SCHOOLS");
@@ -183,6 +183,11 @@ export function SuperAdminDashboard() {
                           <div className="font-bold text-gray-800">{school.name}</div>
                           <div className="text-[10px] text-slate-400 font-mono mt-1 select-all">ID: {school.id}</div>
                           <div className="text-xs text-slate-500 mt-2 flex items-center gap-1"><Mail size={12}/> {school.contacts || "Aucun contact"}</div>
+                          {staff.find((p: any) => p.role === 'SCHOOL_ADMIN') && (
+                            <div className="text-xs text-emerald-600 mt-1 font-semibold flex items-center gap-1">
+                               <User size={12}/> Dir: {staff.find((p: any) => p.role === 'SCHOOL_ADMIN').full_name || "Non défini"}
+                            </div>
+                          )}
                         </td>
                         <td className="px-6 py-4 align-top">
                           <div className="flex items-center gap-2 mb-2">

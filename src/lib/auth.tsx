@@ -35,6 +35,13 @@ const MOCK_USERS: Record<string, User> = {
     role: "SECRETARY",
     schoolId: "11111111-1111-4111-8111-111111111111",
   },
+  "surveillant@school.com": {
+    id: "88888888-8888-4888-8888-888888888888",
+    email: "surveillant@school.com",
+    name: "Surveillant Test",
+    role: "SUPERVISOR",
+    schoolId: "11111111-1111-4111-8111-111111111111",
+  },
   "parent@mail.com": {
     id: "55555555-5555-4555-8555-555555555555",
     email: "parent@mail.com",
@@ -201,6 +208,12 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     let foundUser = MOCK_USERS[email];
     let mockPassword = password || "password123";
     
+    if (foundUser || email.includes("test")) {
+       localStorage.setItem("is_test_account", "true");
+    } else {
+       localStorage.removeItem("is_test_account");
+    }
+    
     let userToSet = foundUser ? 
       (role ? { ...foundUser, role: role as any, schoolId: (role === 'SUPER_ADMIN' || role === 'PARENT') ? undefined : (realSchoolId || foundUser.schoolId) } : { ...foundUser, schoolId: (foundUser.role === 'SUPER_ADMIN' || foundUser.role === 'PARENT') ? undefined : (realSchoolId || foundUser.schoolId) })
       : {
@@ -249,6 +262,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     await supabase.auth.signOut();
     setUser(null);
     localStorage.removeItem("edubenin_auth");
+    localStorage.removeItem("is_test_account");
   };
 
   return (

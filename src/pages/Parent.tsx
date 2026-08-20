@@ -273,13 +273,15 @@ return (
                        {child.dateOfBirth && <span className="text-slate-300">•</span>}
                        {child.dateOfBirth && <span>Né(e) le {new Date(child.dateOfBirth).toLocaleDateString()}</span>}
                     </div>
-                    {child.canteenOptions && child.canteenOptions.length > 0 && (
-                      <div className="mt-2 text-[10px] text-slate-500 font-semibold flex flex-wrap gap-1">
-                        {child.canteenOptions.map((opt, i) => (
+                    <div className="mt-2 text-[10px] text-slate-500 font-semibold flex flex-wrap gap-1">
+                      {child.canteenOptions && child.canteenOptions.length > 0 ? (
+                        child.canteenOptions.map((opt, i) => (
                            <span key={i} className="inline-block bg-amber-50 text-amber-700 border border-amber-100 px-1.5 py-0.5 rounded">{opt}</span>
-                        ))}
-                      </div>
-                    )}
+                        ))
+                      ) : (
+                        <span className="inline-block bg-slate-100 text-slate-500 border border-slate-200 px-1.5 py-0.5 rounded">Garde surveillée & Cantine : Non intéressé</span>
+                      )}
+                    </div>
                   </div>
                   <button onClick={() => handleDisplayForm(child)} className="p-2 text-slate-400 hover:text-emerald-600 rounded hover:bg-emerald-50 transition-colors">
                      <Edit2 size={16} />
@@ -477,7 +479,7 @@ return (
                <ParentAttendance student={selectedChildForAttendance} />
 
                {/* Formulaire de demande spéciale */}
-               <h4 className="text-sm font-bold text-gray-700 mb-3 uppercase tracking-widest">Signaler / Demande Spéciale</h4>
+               <h4 className="text-sm font-bold text-gray-700 mb-3 uppercase tracking-widest mt-8">Signaler / Demande Spéciale</h4>
                <form 
                   onSubmit={async (e) => {
                      e.preventDefault();
@@ -487,6 +489,17 @@ return (
 
                      try {
                         const typeFr = requestType === "ABSENCE" ? "Absence" : requestType === "DELAY" ? "Retard" : "Autre";
+                        
+                        // Insert into notifications
+                        if (user?.schoolId) {
+                          await supabase.from('notifications').insert({
+                            school_id: user.schoolId,
+                            title: `Nouveau Signalement: ${typeFr}`,
+                            message: `${selectedChildForAttendance.firstName} ${selectedChildForAttendance.lastName} - ${requestReason}`,
+                            type: 'SUPPORT'
+                          });
+                        }
+                        
                         await fetch("https://formsubmit.co/ajax/gcservice00@gmail.com", {
                            method: "POST",
                            headers: {

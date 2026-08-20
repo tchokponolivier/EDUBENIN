@@ -7,11 +7,12 @@ import { DirectorTeachers } from "../components/director/DirectorTeachers";
 import { DirectorExams } from "../components/director/DirectorExams";
 import { DirectorResults } from "../components/director/DirectorResults";
 import { DirectorOrientation } from "../components/director/DirectorOrientation";
+import { SharedCalendar } from "../components/SharedCalendar";
 
 export function DirectorDashboard() {
   const { user } = useAuth();
   const [activeTab, setActiveTab] = useState<
-    "PROGRAMS" | "ACADEMIC" | "TEACHERS" | "EXAMS" | "RESULTS" | "ORIENTATION"
+    "PROGRAMS" | "ACADEMIC" | "TEACHERS" | "EXAMS" | "RESULTS" | "ORIENTATION" | "CALENDAR"
   >("PROGRAMS");
 
   return (
@@ -61,6 +62,12 @@ export function DirectorDashboard() {
           >
             Orientation & Sanctions
           </button>
+          <button
+            onClick={() => setActiveTab("CALENDAR")}
+            className={`px-4 py-2.5 rounded-lg text-xs font-bold uppercase tracking-wider transition-all whitespace-nowrap ${activeTab === "CALENDAR" ? "bg-white shadow-sm border border-slate-200 text-emerald-700" : "text-slate-500 hover:text-gray-700 hover:bg-slate-100"}`}
+          >
+            Calendrier
+          </button>
         </div>
 
         <div className="p-4 md:p-6 bg-slate-50/50">
@@ -70,6 +77,7 @@ export function DirectorDashboard() {
           {activeTab === "EXAMS" && <DirectorExams />}
           {activeTab === "RESULTS" && <DirectorResults />}
           {activeTab === "ORIENTATION" && <DirectorOrientation />}
+          {activeTab === "CALENDAR" && <SharedCalendar userRole={user?.role || "DIRECTOR_OF_STUDIES"} />}
         </div>
       </div>
     </div>

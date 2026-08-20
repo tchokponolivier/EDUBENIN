@@ -548,3 +548,41 @@ CREATE TABLE IF NOT EXISTS public.notification_reads (
     UNIQUE(notification_id, user_id)
 );
 ALTER TABLE public.notification_reads ENABLE ROW LEVEL SECURITY;
+
+-- -----------------------------------------------------------------------------
+-- Table: calendar_events
+-- Description: Stocke les événements du calendrier partagé de l'établissement
+-- -----------------------------------------------------------------------------
+CREATE TABLE public.calendar_events (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    school_id UUID NOT NULL REFERENCES public.schools(id) ON DELETE CASCADE,
+    title TEXT NOT NULL,
+    description TEXT,
+    date TIMESTAMP WITH TIME ZONE NOT NULL,
+    time TEXT,
+    type TEXT NOT NULL CHECK (type IN ('EXAM', 'HOLIDAY', 'KEY_DATE', 'MEETING')),
+    created_by UUID REFERENCES public.profiles(id) ON DELETE SET NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- RLS: Les utilisateurs d'une école peuvent voir les événements
+ALTER TABLE public.calendar_events ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Users can view calendar events" ON public.calendar_events
+    FOR SELECT USING (
+        school_id IN (SELECT school_id FROM public.profiles WHERE id = auth.uid())
+    );
+
+CREATE POLICY "Staff can insert calendar events" ON public.calendar_events
+    FOR INSERT WITH CHECK (
+        school_id IN (SELECT school_id FROM public.profiles WHERE id = auth.uid() AND role IN ('SCHOOL_ADMIN', 'DIRECTOR_OF_STUDIES'))
+    );
+
+CREATE POLICY "Staff can delete calendar events" ON public.calendar_events
+    FOR DELETE USING (
+        school_id IN (SELECT school_id FROM public.profiles WHERE id = auth.uid() AND role IN ('SCHOOL_ADMIN', 'DIRECTOR_OF_STUDIES'))
+    );
+
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS phone TEXT;
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS address TEXT;
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS avatar_url TEXT;

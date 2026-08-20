@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from "react";
+const fs = require('fs');
+let content = `import React, { useState, useEffect } from "react";
 import { useAuth } from "../lib/auth";
 import { FileText, Download, Edit2, Check, Upload, Save, X } from "lucide-react";
 import { supabase } from "../lib/supabase";
@@ -13,9 +14,9 @@ export function ParentProspectus() {
     title: "Construisons l'Avenir",
     subtitle: "Une éducation de qualité, un encadrement rigoureux et des infrastructures modernes pour garantir la réussite de vos enfants.",
     valuesTitle: "Nos Valeurs",
-    values: "• Excellence académique\n• Rigueur et discipline\n• Épanouissement personnel\n• Citoyenneté et leadership",
+    values: "• Excellence académique\\n• Rigueur et discipline\\n• Épanouissement personnel\\n• Citoyenneté et leadership",
     infoTitle: "Informations Pratiques",
-    info: "**Horaires :** 08h00 - 17h00\n**Cantine :** Disponible (sur inscription)\n**Activités :** Sport, Arts, Clubs scientiques"
+    info: "**Horaires :** 08h00 - 17h00\\n**Cantine :** Disponible (sur inscription)\\n**Activités :** Sport, Arts, Clubs scientiques"
   });
 
   const [fees, setFees] = useState<any[]>([]);
@@ -24,7 +25,7 @@ export function ParentProspectus() {
 
   useEffect(() => {
     if (!user?.schoolId) return;
-    const saved = localStorage.getItem(`prospectus_${user.schoolId}`);
+    const saved = localStorage.getItem(\`prospectus_\${user.schoolId}\`);
     if (saved) {
       try {
         const parsed = JSON.parse(saved);
@@ -50,7 +51,7 @@ export function ParentProspectus() {
   }, [user?.schoolId]);
 
   const handleSave = () => {
-    localStorage.setItem(`prospectus_${user?.schoolId}`, JSON.stringify({
+    localStorage.setItem(\`prospectus_\${user?.schoolId}\`, JSON.stringify({
       imageUrl,
       bottomImageUrl,
       texts
@@ -83,7 +84,7 @@ export function ParentProspectus() {
           {canEdit && (
             <button 
               onClick={() => isEditing ? handleSave() : setIsEditing(true)}
-              className={`flex items-center gap-2 px-4 py-2 ${isEditing ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-blue-600 hover:bg-blue-700'} text-white rounded font-bold uppercase tracking-wider text-xs transition shadow-sm`}
+              className={\`flex items-center gap-2 px-4 py-2 \${isEditing ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-blue-600 hover:bg-blue-700'} text-white rounded font-bold uppercase tracking-wider text-xs transition shadow-sm\`}
             >
               {isEditing ? <><Save size={16} /> Enregistrer</> : <><Edit2 size={16} /> Éditer Prospectus</>}
             </button>
@@ -159,8 +160,8 @@ export function ParentProspectus() {
                <textarea value={texts.info} onChange={e => setTexts({...texts, info: e.target.value})} className="w-full h-40 border p-2 rounded text-sm text-slate-600" />
              ) : (
                <div className="space-y-2 text-sm text-slate-600 whitespace-pre-line">
-                 {texts.info.split('\n').map((line, i) => (
-                   <p key={i} dangerouslySetInnerHTML={{ __html: line.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>') }} />
+                 {texts.info.split(\'\\n\').map((line, i) => (
+                   <p key={i} dangerouslySetInnerHTML={{ __html: line.replace(/\\*\\*(.*?)\\*\\*/g, '<strong>$1</strong>') }} />
                  ))}
                </div>
              )}
@@ -218,3 +219,6 @@ export function ParentProspectus() {
     </div>
   );
 }
+`;
+fs.writeFileSync('src/pages/ParentProspectus.tsx', content);
+console.log("Patched ParentProspectus");

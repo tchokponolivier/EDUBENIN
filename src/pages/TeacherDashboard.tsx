@@ -6,6 +6,7 @@ import { BookOpen, Users, Save, Download, LayoutGrid, ArrowLeft, Plus, Trash2, C
 import { supabase } from "../lib/supabase";
 import { TeacherAttendance } from "../components/TeacherAttendance";
 import { TeacherTimetable } from "../components/TeacherTimetable";
+import { SharedCalendar } from "../components/SharedCalendar";
 
 interface Subject {
   id: string;
@@ -15,7 +16,7 @@ interface Subject {
 
 export function TeacherDashboard() {
   const { user } = useAuth();
-  const [activeTab, setActiveTab] = useState<"GRADES" | "ATTENDANCE" | "TIMETABLE">("GRADES");
+  const [activeTab, setActiveTab] = useState<"GRADES" | "ATTENDANCE" | "TIMETABLE" | "CALENDAR">("GRADES");
   const [students, setStudents] = useState<Student[]>([]);
   const [selectedClass, setSelectedClass] = useState<string | null>(null);
   
@@ -23,7 +24,7 @@ export function TeacherDashboard() {
   const [newSubject, setNewSubject] = useState("");
   const [newCoef, setNewCoef] = useState("1");
   
-  const [grades, setGrades] = useState<Record<string, Record<string, string>>>({});
+  const [grades, setGrades] = useState<Record<string, Record<string, any>>>({});
   const [appreciations, setAppreciations] = useState<Record<string, string>>({});
   
   const [includedStudents, setIncludedStudents] = useState<string[]>([]);
@@ -194,6 +195,12 @@ export function TeacherDashboard() {
           >
             Mon Planning
           </button>
+          <button 
+            onClick={() => setActiveTab("CALENDAR")}
+            className={`px-4 py-2 rounded text-xs font-bold uppercase tracking-wider transition-colors ${activeTab === "CALENDAR" ? "bg-white shadow-sm text-gray-700" : "text-slate-500 hover:text-gray-700"}`}
+          >
+            Calendrier
+          </button>
         </div>
       </div>
 
@@ -308,9 +315,14 @@ export function TeacherDashboard() {
                    <th className="px-3 py-2 border border-slate-700 w-48">Nom et prénoms</th>
                    
                    {subjects.map(s => (
-                     <th key={s.id} className="px-2 py-2 border border-slate-700 text-center min-w-[80px]">
-                        {s.name} <br/><span className="text-slate-400 font-normal">Coef {s.coef}</span>
-                     </th>
+                     <React.Fragment key={s.id}>
+                       <th className="px-2 py-2 border border-slate-700 text-center min-w-[60px] bg-slate-700/50 text-[9px]">Dev 1</th>
+                       <th className="px-2 py-2 border border-slate-700 text-center min-w-[60px] bg-slate-700/50 text-[9px]">Int 1</th>
+                       <th className="px-2 py-2 border border-slate-700 text-center min-w-[60px] bg-slate-700/50 text-[9px]">Int 2</th>
+                       <th className="px-2 py-2 border border-slate-700 text-center min-w-[60px] text-emerald-400">
+                          {s.name} (Moy)<br/><span className="text-slate-400 font-normal">Coef {s.coef}</span>
+                       </th>
+                     </React.Fragment>
                    ))}
 
                    <th className="px-3 py-2 border border-slate-700 min-w-[150px]">Appréciation globale</th>
@@ -377,6 +389,7 @@ export function TeacherDashboard() {
 
       {activeTab === "ATTENDANCE" && <TeacherAttendance />}
       {activeTab === "TIMETABLE" && <TeacherTimetable />}
+      {activeTab === "CALENDAR" && <SharedCalendar userRole={user?.role || "TEACHER"} />}
 
     </div>
   );

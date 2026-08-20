@@ -6,6 +6,9 @@ import { Users, Search, Edit2, AlertCircle, Download, CheckSquare, Trash2, Arrow
 import { SecretaryAbsences } from "../components/SecretaryAbsences";
 import { SecretaryDocuments } from "../components/SecretaryDocuments";
 import { SecretaryTimetables } from "../components/SecretaryTimetables";
+import { SecretaryMails } from "../components/SecretaryMails";
+import { SecretaryExams } from "../components/SecretaryExams";
+import { SecretaryPlanning } from "../components/SecretaryPlanning";
 import { AddStudentModal } from "../components/AddStudentModal";
 
 export function SchoolAdminStudents() {
@@ -340,7 +343,7 @@ export function SchoolAdminStudents() {
                      {student.fatherContact || student.motherContact || student.guardianContact || "-"}
                    </td>
                    <td className="px-4 py-3 text-slate-500">
-                      {new Date(student.dateOfBirth).toLocaleDateString()}
+                      {student.dateOfBirth ? new Date(student.dateOfBirth).toLocaleDateString() : '-'}
                    </td>
                    <td className="px-4 py-3">
                      {student.status === "ACTIVE" || !student.status ? <span className="text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded text-[10px] uppercase font-bold">Actif</span> : null}

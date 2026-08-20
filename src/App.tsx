@@ -24,6 +24,7 @@ import { TeacherProfile } from './pages/TeacherProfile';
 import { SchoolOnboarding } from './pages/SchoolOnboarding';
 import { LoadingSkeleton } from './components/layout/LoadingSkeleton';
 import { SuperAdminDashboard } from './pages/SuperAdmin';
+import { SupervisorDashboard } from "./pages/SupervisorDashboard";
 
 // Role-based Dashboards (Placeholders for SuperAdmin and Teacher for now)
 
@@ -92,6 +93,7 @@ export default function App() {
           <Route path="/parent/payments" element={<ProtectedRoute allowedRoles={['PARENT']}><ParentPayments /></ProtectedRoute>} />
           <Route path="/parent/prospectus" element={<ProtectedRoute allowedRoles={['PARENT']}><ParentProspectus /></ProtectedRoute>} />
           <Route path="/parent/support" element={<ProtectedRoute allowedRoles={['PARENT']}><ParentSupport /></ProtectedRoute>} />
+          <Route path="/supervisor" element={<ProtectedRoute allowedRoles={['SUPERVISOR']}><SupervisorDashboard /></ProtectedRoute>} />
           
           <Route path="/teacher" element={<ProtectedRoute allowedRoles={['TEACHER']}><TeacherDashboard /></ProtectedRoute>} />
           <Route path="/director" element={<ProtectedRoute allowedRoles={['DIRECTOR_OF_STUDIES']}><DirectorDashboard /></ProtectedRoute>} />

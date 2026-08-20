@@ -48,6 +48,15 @@ export function DashboardLayout({ children }: { children: ReactNode }) {
           { name: "Paramètres Établissement", href: "/school-admin?tab=SETTINGS", icon: Settings },
           commonSettings
         ];
+      case "SUPERVISOR":
+        return [
+          { name: "Tableau de Bord", href: "/supervisor", icon: LayoutDashboard },
+          { name: "Absences Élèves", href: "/supervisor?tab=ABSENCES", icon: Clock },
+          { name: "Sorties Pédagogiques", href: "/supervisor?tab=TRIPS", icon: Building },
+          { name: "Absences Profs", href: "/supervisor?tab=TEACHER_ABSENCES", icon: Users },
+          { name: "Matériel", href: "/supervisor?tab=MATERIALS", icon: BookOpen },
+          commonSettings
+        ];
       case "SECRETARY":
         return [
           { name: "Inscriptions & Élèves", href: "/school-admin/students?tab=STUDENTS", icon: Users },
@@ -55,7 +64,9 @@ export function DashboardLayout({ children }: { children: ReactNode }) {
           { name: "Professeurs", href: "/school-admin/teachers", icon: Users },
           { name: "Absences & Retards", href: "/school-admin/students?tab=ABSENCES", icon: Clock },
           { name: "Documents", href: "/school-admin/students?tab=DOCUMENTS", icon: FileText },
-          { name: "Emplois du temps", href: "/school-admin/students?tab=TIMETABLES", icon: Calendar },
+          { name: "Courriers", href: "/school-admin/students?tab=MAILS", icon: FileText },
+          { name: "Épreuves", href: "/school-admin/students?tab=EXAMS", icon: BookOpen },
+          { name: "Planning", href: "/school-admin/students?tab=PLANNING", icon: Calendar },
           commonSettings
         ];
       case "CASHIER":

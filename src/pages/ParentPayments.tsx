@@ -99,6 +99,8 @@ export function ParentPayments() {
   const [showReceiptModal, setShowReceiptModal] = useState<Payment | null>(null);
   
   const [dateFilter, setDateFilter] = useState<DateFilter>('ALL');
+  const [filterStudentId, setFilterStudentId] = useState<string>("ALL");
+  const [filterYear, setFilterYear] = useState<string>("ALL");
 
   // Payment Form
   const [selectedChildId, setSelectedChildId] = useState("");
@@ -431,7 +433,8 @@ const confirmPayment = async () => {
 
     const headers = ["Date", "Référence", "Élève", "Réseau", "Montant (FCFA)", "Statut"];
     const rows = filteredPayments.map(payment => {
-      const childName = children.find(c => c.id === payment.studentId)?.firstName || "Inconnu";
+      const child = children.find(c => c.id === payment.studentId);
+const childName = child ? `${child.lastName} ${child.firstName}` : "Inconnu";
       const date = new Date(payment.date).toLocaleDateString();
       return [
         date,
@@ -669,12 +672,24 @@ const confirmPayment = async () => {
             >
               <Download size={14} /> Exporter
             </button>
-            <div className="flex p-1 bg-slate-100 rounded overflow-x-auto">
-               <button onClick={() => setDateFilter('ALL')} className={`px-3 py-1 rounded text-[10px] font-bold uppercase tracking-wider transition-colors ${dateFilter === 'ALL' ? 'bg-white shadow-sm text-gray-700' : 'text-slate-500 hover:text-gray-700'}`}>Tous</button>
-               <button onClick={() => setDateFilter('DAY')} className={`px-3 py-1 rounded text-[10px] font-bold uppercase tracking-wider transition-colors ${dateFilter === 'DAY' ? 'bg-white shadow-sm text-gray-700' : 'text-slate-500 hover:text-gray-700'}`}>Jour</button>
-               <button onClick={() => setDateFilter('WEEK')} className={`px-3 py-1 rounded text-[10px] font-bold uppercase tracking-wider transition-colors ${dateFilter === 'WEEK' ? 'bg-white shadow-sm text-gray-700' : 'text-slate-500 hover:text-gray-700'}`}>Sem</button>
-               <button onClick={() => setDateFilter('MONTH')} className={`px-3 py-1 rounded text-[10px] font-bold uppercase tracking-wider transition-colors ${dateFilter === 'MONTH' ? 'bg-white shadow-sm text-gray-700' : 'text-slate-500 hover:text-gray-700'}`}>Mois</button>
-               <button onClick={() => setDateFilter('YEAR')} className={`px-3 py-1 rounded text-[10px] font-bold uppercase tracking-wider transition-colors ${dateFilter === 'YEAR' ? 'bg-white shadow-sm text-gray-700' : 'text-slate-500 hover:text-gray-700'}`}>An</button>
+            <div className="flex gap-2 items-center flex-wrap">
+              <select value={filterStudentId} onChange={e => setFilterStudentId(e.target.value)} className="px-3 py-1.5 border border-slate-200 rounded text-xs text-gray-700 outline-none">
+                <option value="ALL">Tous les enfants</option>
+                {children.map(c => <option key={c.id} value={c.id}>{c.firstName} {c.lastName}</option>)}
+              </select>
+              <select value={filterYear} onChange={e => setFilterYear(e.target.value)} className="px-3 py-1.5 border border-slate-200 rounded text-xs text-gray-700 outline-none">
+                <option value="ALL">Toutes les années</option>
+                {Array.from(new Set(allPayments.map(p => new Date(p.date).getFullYear()))).sort().reverse().map(y => (
+                  <option key={y} value={y.toString()}>{y}</option>
+                ))}
+              </select>
+              <div className="flex p-1 bg-slate-100 rounded overflow-x-auto">
+                 <button onClick={() => setDateFilter('ALL')} className={`px-3 py-1 rounded text-[10px] font-bold uppercase tracking-wider transition-colors ${dateFilter === 'ALL' ? 'bg-white shadow-sm text-gray-700' : 'text-slate-500 hover:text-gray-700'}`}>Tous</button>
+                 <button onClick={() => setDateFilter('DAY')} className={`px-3 py-1 rounded text-[10px] font-bold uppercase tracking-wider transition-colors ${dateFilter === 'DAY' ? 'bg-white shadow-sm text-gray-700' : 'text-slate-500 hover:text-gray-700'}`}>Jour</button>
+                 <button onClick={() => setDateFilter('WEEK')} className={`px-3 py-1 rounded text-[10px] font-bold uppercase tracking-wider transition-colors ${dateFilter === 'WEEK' ? 'bg-white shadow-sm text-gray-700' : 'text-slate-500 hover:text-gray-700'}`}>Sem</button>
+                 <button onClick={() => setDateFilter('MONTH')} className={`px-3 py-1 rounded text-[10px] font-bold uppercase tracking-wider transition-colors ${dateFilter === 'MONTH' ? 'bg-white shadow-sm text-gray-700' : 'text-slate-500 hover:text-gray-700'}`}>Mois</button>
+                 <button onClick={() => setDateFilter('YEAR')} className={`px-3 py-1 rounded text-[10px] font-bold uppercase tracking-wider transition-colors ${dateFilter === 'YEAR' ? 'bg-white shadow-sm text-gray-700' : 'text-slate-500 hover:text-gray-700'}`}>An</button>
+              </div>
             </div>
           </div>
         </div>
@@ -705,7 +720,8 @@ const confirmPayment = async () => {
                   if (payment.network === "Moov Bénin") networkDotColor = "bg-emerald-500";
                   if (payment.network === "Celtiis Bénin") networkDotColor = "bg-red-500";
 
-                  const childName = children.find(c => c.id === payment.studentId)?.firstName || "Inconnu";
+                  const child = children.find(c => c.id === payment.studentId);
+const childName = child ? `${child.lastName} ${child.firstName}` : "Inconnu";
 
                   return (
                     <tr key={payment.id} className="hover:bg-slate-50 transition-colors">

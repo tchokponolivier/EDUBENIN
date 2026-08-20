@@ -102,6 +102,14 @@ export function AddStudentModal({ isOpen, onClose, onSuccess, initialData = null
     let finalStudentType = studentType;
     let finalLastYear = lastYearAttended;
 
+    let finalPhoto = photo;
+    if (!finalPhoto) {
+      if (gender === 'MALE') {
+        finalPhoto = "https://images.unsplash.com/photo-1506869408013-189f783ee855?auto=format&fit=crop&q=80&w=200&h=200"; // Default African boy
+      } else if (gender === 'FEMALE') {
+        finalPhoto = "https://images.unsplash.com/photo-1531123897727-8f129e1688ce?auto=format&fit=crop&q=80&w=200&h=200"; // Default African girl
+      }
+    }
     const studentData = {
       firstName, lastName, level, dateOfBirth, placeOfBirth,
       studentType: finalStudentType, previousClass, previousSchool,
@@ -109,7 +117,8 @@ export function AddStudentModal({ isOpen, onClose, onSuccess, initialData = null
       nationality, religion, fatherName, motherName, fatherProfession,
       motherProfession, fatherContact, fatherAddress, motherContact,
       motherAddress, guardianName, guardianContact, guardianAddress,
-      canteenOptions, disciplinaryCommitment, disciplinarySignature
+      canteenOptions, disciplinaryCommitment, disciplinarySignature,
+      photo: finalPhoto
     };
 
     if (initialData?.id) {
@@ -140,7 +149,8 @@ export function AddStudentModal({ isOpen, onClose, onSuccess, initialData = null
         guardian_address: studentData.guardianAddress,
         disciplinary_commitment: studentData.disciplinaryCommitment,
         disciplinary_signature: studentData.disciplinarySignature,
-        canteen_options: studentData.canteenOptions.join(", ")
+        canteen_options: studentData.canteenOptions.join(", "),
+        photo: studentData.photo
       }).eq('id', initialData.id);
     } else {
       const { data: schools } = await supabase.from('schools').select('id').limit(1);
@@ -175,7 +185,8 @@ export function AddStudentModal({ isOpen, onClose, onSuccess, initialData = null
         disciplinary_commitment: studentData.disciplinaryCommitment,
         disciplinary_signature: studentData.disciplinarySignature,
         school_id: insertSchoolId,
-        canteen_options: studentData.canteenOptions.join(", ")
+        canteen_options: studentData.canteenOptions.join(", "),
+        photo: studentData.photo
       });
       if (error) {
          alert("Erreur lors de l'inscription: " + error.message);

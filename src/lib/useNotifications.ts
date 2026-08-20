@@ -4,7 +4,7 @@ import { useAuth } from './auth';
 
 export interface AppNotification {
   id: string;
-  type: 'PAYMENT' | 'ANNOUNCEMENT';
+  type: 'PAYMENT' | 'ANNOUNCEMENT' | 'SUPPORT';
   title: string;
   message: string;
   date: number;
@@ -50,6 +50,30 @@ export function useNotifications() {
       }
 
       // 2. Fetch Payment Reminders (only for PARENT)
+      // 3. Fetch Support Notifications for Admin, Cashier, Secretary
+      if (['SCHOOL_ADMIN', 'CASHIER', 'SECRETARY', 'SUPERVISOR'].includes(user.role)) {
+        const { data: dbNotifs } = await supabase
+          .from('notifications')
+          .select('*')
+          .eq('school_id', user.schoolId)
+          .order('created_at', { ascending: false })
+          .limit(20);
+          
+        if (dbNotifs) {
+          dbNotifs.forEach((n: any) => {
+            notifs.push({
+              id: `dbnotif-${n.id}`,
+              type: n.type as any,
+              title: n.title,
+              message: n.message,
+              date: new Date(n.created_at).getTime(),
+              read: readIds.includes(`dbnotif-${n.id}`),
+              link: user.role === 'SECRETARY' ? '/school-admin/students' : '/school-admin'
+            });
+          });
+        }
+      }
+
       if (user.role === 'PARENT') {
         const { data: students } = await supabase.from('students').select('*').eq('parent_id', user.id);
         const { data: feeConfigs } = await supabase.from('fee_config').select('*').eq('school_id', user.schoolId);

@@ -12,6 +12,8 @@ export function SchoolAdminStudentList() {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedClass, setSelectedClass] = useState<string>("ALL");
+  const [selectedYear, setSelectedYear] = useState<string>("ALL");
+  const [selectedStudentInfo, setSelectedStudentInfo] = useState<any>(null);
   const [showAddModal, setShowAddModal] = useState(false);
 
   useEffect(() => {

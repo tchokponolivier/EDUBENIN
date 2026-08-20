@@ -350,6 +350,8 @@ export function SchoolAdminDashboard() {
                   <option value="SECRETARY">Secrétaire (Secretary)</option>
                   <option value="CASHIER">Caissier(e) (Cashier)</option>
                   <option value="PARENT">Parent (Parent)</option>
+                  <option value="DIRECTOR_OF_STUDIES">Directeur des Études</option>
+                  <option value="SUPERVISOR">Surveillant</option>
                 </select>
               </div>
               <button 

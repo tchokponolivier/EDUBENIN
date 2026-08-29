@@ -315,7 +315,7 @@ export function ParentPayments() {
 
   const hasPartialPayment = useMemo(() => {
     return currentPaymentItemsTemplate.some(item => item.remaining && item.remaining > 0);
-  }, [currentPaymentItemsTemplate]);
+  }, []);
 
   const handlePaymentSubmit = (e: React.FormEvent) => {
     e.preventDefault();

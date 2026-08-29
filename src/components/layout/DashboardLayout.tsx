@@ -15,12 +15,16 @@ export function DashboardLayout({ children }: { children: ReactNode }) {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [schoolName, setSchoolName] = useState<string | null>(null);
+  const [academicYear, setAcademicYear] = useState<string | null>(null);
 
   useEffect(() => {
     if (user?.schoolId) {
-      supabase.from('schools').select('name').eq('id', user.schoolId).single()
+      supabase.from('schools').select('name, academic_year').eq('id', user.schoolId).single()
         .then(({ data }) => {
-          if (data) setSchoolName(data.name);
+          if (data) {
+          setSchoolName(data.name);
+          if (data.academic_year) setAcademicYear(data.academic_year);
+        }
         });
     }
   }, [user]);
@@ -197,7 +201,7 @@ export function DashboardLayout({ children }: { children: ReactNode }) {
           <div className="flex items-center gap-4">
             <h2 className="text-xl font-bold text-gray-700 hidden md:block">{schoolName || "Vue d'ensemble du Système"}</h2>
             <h2 className="text-xl font-bold text-gray-700 md:hidden">{schoolName ? schoolName.substring(0, 15) + (schoolName.length > 15 ? '...' : '') : "EduBénin"}</h2>
-            <span className="hidden md:inline-block px-3 py-1 bg-emerald-100 text-emerald-800 rounded-full text-xs font-bold uppercase tracking-wider shadow-sm">Année Scolaire 2025-2026</span>
+            <span className="hidden md:inline-block px-3 py-1 bg-emerald-100 text-emerald-800 rounded-full text-xs font-bold uppercase tracking-wider shadow-sm">Année Scolaire {academicYear}</span>
           </div>
           <div className="flex items-center gap-2 md:gap-4">
             <div className="hidden md:flex items-center gap-2 px-3 py-1.5 bg-slate-100 rounded text-xs font-medium">

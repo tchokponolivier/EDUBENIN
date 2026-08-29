@@ -110,6 +110,9 @@ export function SchoolAdminPayments() {
   const [payments, setPayments] = useState<Payment[]>([]);
   const [students, setStudents] = useState<Student[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
+  const [filterClass, setFilterClass] = useState("ALL");
+  const [filterYear, setFilterYear] = useState("ALL");
+  const [filterType, setFilterType] = useState("ALL");
   
   // Modal states
   const [showPayModal, setShowPayModal] = useState(false);
@@ -141,7 +144,15 @@ export function SchoolAdminPayments() {
         setStudents(studentsRes.data.map(d => ({...d, createdAt: d.created_at, firstName: d.first_name, lastName: d.last_name, parentId: d.parent_id, schoolId: d.school_id, studentType: d.studentType, educmasterNumber: d.educmasterNumber, gender: d.gender})) as any);
       }
       if (paymentsRes.data) {
-        setPayments(paymentsRes.data.map(d => ({...d, studentId: d.student_id, schoolId: d.school_id, parentId: d.parent_id, createdAt: d.created_at})) as any);
+        setPayments(paymentsRes.data.map(d => ({
+          ...d, 
+          studentId: d.student_id, 
+          schoolId: d.school_id, 
+          parentId: d.parent_id, 
+          createdAt: d.created_at,
+          date: d.payment_date ? new Date(d.payment_date).getTime() : new Date(d.created_at).getTime(),
+          items: d.items || []
+        })) as any);
       }
     } catch (err) {
       console.error("Failed to fetch dashboard data from supabase", err);
@@ -249,7 +260,7 @@ export function SchoolAdminPayments() {
     });
 
     return items;
-  }, [selectedFeeIds, availableFees, levelTranches, trancheAmounts, paidAmountsPerFee, customItems]);
+  }, [selectedFeeIds, availableFees, levelTranches, trancheAmounts, paidAmountsPerFee, ]);
 
   const totalAmount = useMemo(() => currentPaymentItemsTemplate.reduce((acc, curr) => acc + curr.amount, 0), [currentPaymentItemsTemplate]);
 
@@ -291,7 +302,7 @@ export function SchoolAdminPayments() {
   const executeWhatsAppReceipt = (phone: string, payment: Payment, student: Student) => {
     const formattedPhone = phone.replace(/\D/g, '');
     const settings: any = { name: "École" };
-    const dateStr = new Date(payment.date).toLocaleDateString();
+    const dateStr = payment.date && !isNaN(new Date(payment.date).getTime()) ? new Date(payment.date).toLocaleDateString() : '-';
     
     // items text
     const itemsText = payment.items?.map(i => `- ${i.name} : ${i.amount.toLocaleString()} FCFA`).join('%0A') || `- Scolarité : ${payment.amount.toLocaleString()} FCFA`;
@@ -309,7 +320,7 @@ export function SchoolAdminPayments() {
 
   const printReceipt = (payment: Payment, student: Student) => {
     const settings: any = { name: "École" };
-    const dateStr = new Date(payment.date).toLocaleDateString();
+    const dateStr = payment.date && !isNaN(new Date(payment.date).getTime()) ? new Date(payment.date).toLocaleDateString() : '-';
     
     const w = window.open('', '_blank');
     if (!w) return;
@@ -394,7 +405,24 @@ export function SchoolAdminPayments() {
     const student = students.find(s => s.id === p.studentId);
     if (!student) return false;
     const nameStr = `${student.firstName} ${student.lastName}`.toLowerCase();
-    return nameStr.includes(searchTerm.toLowerCase()) || p.reference.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchSearch = nameStr.includes(searchTerm.toLowerCase()) || p.reference.toLowerCase().includes(searchTerm.toLowerCase());
+    
+    // Fallbacks since we don't have year or type explicitly on payment for now, 
+    // but we might have them in the items.
+    // For type: check if any item name matches or if 'ALL'
+    let matchType = true;
+    if (filterType !== "ALL") {
+       matchType = p.items?.some(i => i.name.toLowerCase().includes(filterType.toLowerCase())) || false;
+       if (!p.items?.length && filterType === "Scolarité") matchType = true; // Default payments are usually scolarité
+    }
+    
+    // For class
+    let matchClass = true;
+    if (filterClass !== "ALL") {
+       matchClass = student.level === filterClass;
+    }
+    
+    return matchSearch && matchType && matchClass;
   });
 
   return (
@@ -460,15 +488,35 @@ export function SchoolAdminPayments() {
         <div className="bg-white rounded-xl border border-slate-200 shadow-sm">
          <div className="p-4 border-b border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-4">
            <h3 className="font-bold text-gray-700 flex items-center gap-2"><History size={18}/> Historique Global</h3>
-           <div className="relative">
-             <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
-             <input 
-               type="text" 
-               placeholder="Rechercher (réf ou élève)..." 
-               value={searchTerm}
-               onChange={e => setSearchTerm(e.target.value)}
-               className="pl-9 pr-4 py-1.5 border border-slate-200 rounded-md text-xs focus:ring-emerald-500 focus:border-emerald-500 outline-none w-64"
-             />
+           <div className="flex flex-wrap items-center gap-2">
+             <select value={filterYear} onChange={e => setFilterYear(e.target.value)} className="px-3 py-1.5 border border-slate-200 rounded-md text-xs focus:ring-emerald-500 outline-none">
+               <option value="ALL">Toutes les années</option>
+               <option value="2024-2025">2024-2025</option>
+               <option value="2023-2024">2023-2024</option>
+             </select>
+             <select value={filterType} onChange={e => setFilterType(e.target.value)} className="px-3 py-1.5 border border-slate-200 rounded-md text-xs focus:ring-emerald-500 outline-none">
+               <option value="ALL">Tous les types</option>
+               <option value="Scolarité">Scolarité</option>
+               <option value="Inscription">Inscription</option>
+               <option value="Cantine">Cantine</option>
+             </select>
+             <select value={filterClass} onChange={e => setFilterClass(e.target.value)} className="px-3 py-1.5 border border-slate-200 rounded-md text-xs focus:ring-emerald-500 outline-none">
+               <option value="ALL">Toutes les classes</option>
+               <option value="6ème">6ème</option>
+               <option value="5ème">5ème</option>
+               <option value="4ème">4ème</option>
+               <option value="3ème">3ème</option>
+             </select>
+             <div className="relative">
+               <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+               <input 
+                 type="text" 
+                 placeholder="Recherche..." 
+                 value={searchTerm}
+                 onChange={e => setSearchTerm(e.target.value)}
+                 className="pl-9 pr-4 py-1.5 border border-slate-200 rounded-md text-xs focus:ring-emerald-500 focus:border-emerald-500 outline-none w-48"
+               />
+             </div>
            </div>
          </div>
          <div className="overflow-x-auto">
@@ -488,7 +536,7 @@ export function SchoolAdminPayments() {
                  const studentName = student ? `${student.firstName} ${student.lastName}` : "Inconnu";
                  return (
                    <tr key={payment.id} className="hover:bg-slate-50 transition-colors">
-                     <td className="px-4 py-3 text-xs">{new Date(payment.date).toLocaleDateString()}</td>
+                     <td className="px-4 py-3 text-xs">{payment.date && !isNaN(new Date(payment.date).getTime()) ? new Date(payment.date).toLocaleDateString() : '-'}</td>
                      <td className="px-4 py-3 font-mono text-[10px] text-slate-400">{payment.reference}</td>
                      <td className="px-4 py-3 text-xs font-semibold">{studentName}</td>
                      <td className="px-4 py-3 font-mono text-xs font-bold text-right">{payment.amount.toLocaleString()} F</td>

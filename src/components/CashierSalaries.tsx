@@ -10,7 +10,10 @@ type Salary = {
   employeeRole: string;
   amount: number;
   paymentDate: string;
+  periodStart: string;
+  periodEnd: string;
   month: string;
+  deductions: string;
   status: string;
 };
 
@@ -37,12 +40,23 @@ export function CashierSalaries() {
   const [employeeRole, setEmployeeRole] = useState(ROLES[0]);
   const [amount, setAmount] = useState("");
   const [paymentDate, setPaymentDate] = useState(new Date().toISOString().split('T')[0]);
-  const [month, setMonth] = useState(new Date().toISOString().slice(0, 7)); // YYYY-MM
+  const [month, setMonth] = useState(new Date().toISOString().slice(0, 7));
+  const [periodStart, setPeriodStart] = useState("");
+  const [periodEnd, setPeriodEnd] = useState("");
+  const [deductions, setDeductions] = useState("Aucun");
   const [status, setStatus] = useState("PAYÉ");
+  const [schoolEmployees, setSchoolEmployees] = useState<any[]>([]);
 
   useEffect(() => {
     fetchSalaries();
+    fetchEmployees();
   }, [user?.schoolId]);
+
+  const fetchEmployees = async () => {
+    if (!user?.schoolId) return;
+    const { data } = await supabase.from('profiles').select('*').eq('school_id', user.schoolId);
+    if (data) setSchoolEmployees(data);
+  };
 
   const fetchSalaries = async () => {
     if (!user?.schoolId) return;
@@ -67,7 +81,10 @@ export function CashierSalaries() {
           employeeRole: d.employee_role,
           amount: Number(d.amount),
           paymentDate: d.payment_date,
-          month: d.month,
+          periodStart: d.period_start || "",
+          periodEnd: d.period_end || "",
+          deductions: d.deductions || "Aucun",
+          month: d.month || "",
           status: d.status
         })));
       }
@@ -88,7 +105,7 @@ export function CashierSalaries() {
       employee_role: employeeRole,
       amount: Number(amount),
       payment_date: paymentDate,
-      month: month,
+      period_start: periodStart, period_end: periodEnd, deductions: deductions,
       status: status
     };
 
@@ -284,7 +301,7 @@ CREATE POLICY "Super admins can manage all salaries" ON public.salaries FOR ALL 
                       <div className="text-xs text-slate-500">{s.employeeRole}</div>
                     </td>
                     <td className="px-6 py-4 text-sm text-slate-600 font-medium">
-                      <div className="flex items-center gap-1"><Calendar size={14} className="text-slate-400"/> {s.month}</div>
+                      <div className="flex flex-col text-xs gap-0.5"><div className="flex items-center gap-1"><Calendar size={12} className="text-slate-400"/> {new Date(s.periodStart).toLocaleDateString()}</div><div className="flex items-center gap-1"><Calendar size={12} className="text-slate-400"/> {new Date(s.periodEnd).toLocaleDateString()}</div></div>
                     </td>
                     <td className="px-6 py-4 text-sm font-bold font-mono text-gray-700">{s.amount.toLocaleString()} F</td>
                     <td className="px-6 py-4 text-sm text-slate-600">{new Date(s.paymentDate).toLocaleDateString()}</td>
@@ -332,11 +349,24 @@ CREATE POLICY "Super admins can manage all salaries" ON public.salaries FOR ALL 
                   <input required type="number" min="0" value={amount} onChange={e => setAmount(e.target.value)} className="w-full px-3 py-2 border border-slate-300 rounded font-mono focus:ring-2 focus:ring-emerald-500 outline-none" />
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold text-gray-700 mb-1">Mois (AAAA-MM)</label>
-                  <input required type="month" value={month} onChange={e => setMonth(e.target.value)} className="w-full px-3 py-2 border border-slate-300 rounded focus:ring-2 focus:ring-emerald-500 outline-none" />
+                  <label className="block text-xs font-semibold text-gray-700 mb-1">Période (Début)</label>
+                  <input required type="date" value={periodStart} onChange={e => setPeriodStart(e.target.value)} className="w-full px-3 py-2 border border-slate-300 rounded focus:ring-2 focus:ring-emerald-500 outline-none" />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-gray-700 mb-1">Période (Fin)</label>
+                  <input required type="date" value={periodEnd} onChange={e => setPeriodEnd(e.target.value)} className="w-full px-3 py-2 border border-slate-300 rounded focus:ring-2 focus:ring-emerald-500 outline-none" />
                 </div>
               </div>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-3 gap-4">
+                <div>
+                  <label className="block text-xs font-semibold text-gray-700 mb-1">Retenues</label>
+                  <select value={deductions} onChange={e => setDeductions(e.target.value)} className="w-full px-3 py-2 border border-slate-300 rounded focus:ring-2 focus:ring-emerald-500 outline-none bg-white">
+                    <option value="Aucun">Aucun</option>
+                    <option value="AIB">AIB</option>
+                    <option value="CNSS">CNSS</option>
+                    <option value="Autres">Autres</option>
+                  </select>
+                </div>
                 <div>
                   <label className="block text-xs font-semibold text-gray-700 mb-1">Date d'opération</label>
                   <input required type="date" value={paymentDate} onChange={e => setPaymentDate(e.target.value)} className="w-full px-3 py-2 border border-slate-300 rounded focus:ring-2 focus:ring-emerald-500 outline-none" />

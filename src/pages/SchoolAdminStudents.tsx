@@ -123,6 +123,13 @@ export function SchoolAdminStudents() {
               status: d.status,
               schoolId: d.school_id,
               parentId: d.parent_id,
+              dateOfBirth: d.date_of_birth,
+              fatherContact: d.father_contact,
+              motherContact: d.mother_contact,
+              guardianContact: d.guardian_contact,
+              fatherName: d.father_name,
+              motherName: d.mother_name,
+              guardianName: d.guardian_name,
               createdAt: new Date(d.created_at).getTime()
             })) as Student[];
             setStudents(mappedStudents);
@@ -343,7 +350,7 @@ export function SchoolAdminStudents() {
                      {student.fatherContact || student.motherContact || student.guardianContact || "-"}
                    </td>
                    <td className="px-4 py-3 text-slate-500">
-                      {student.dateOfBirth ? new Date(student.dateOfBirth).toLocaleDateString() : '-'}
+                      {student.dateOfBirth && !isNaN(new Date(student.dateOfBirth).getTime()) ? new Date(student.dateOfBirth).toLocaleDateString() : '-'}
                    </td>
                    <td className="px-4 py-3">
                      {student.status === "ACTIVE" || !student.status ? <span className="text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded text-[10px] uppercase font-bold">Actif</span> : null}
@@ -465,6 +472,7 @@ export function SchoolAdminStudents() {
       {activeTab === "ABSENCES" && <SecretaryAbsences />}
       {activeTab === "DOCUMENTS" && <SecretaryDocuments />}
       {activeTab === "TIMETABLES" && <SecretaryTimetables />}
+      {showAddStudentModal && <AddStudentModal onClose={() => { setShowAddStudentModal(false); window.location.reload(); }} />}
 
     </div>
   );

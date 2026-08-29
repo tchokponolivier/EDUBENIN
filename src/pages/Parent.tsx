@@ -132,7 +132,7 @@ export function ParentDashboard() {
         })));
       }
       
-      const { data: annData } = await supabase.from('announcements').select('*').order('date', { ascending: false });
+      const { data: annData } = await supabase.from('announcements').select('*').in('target_audience', ['Parents', 'ALL']).order('created_at', { ascending: false });
       if (annData) {
         setAnnouncements(annData.map(a => ({
           id: a.id,

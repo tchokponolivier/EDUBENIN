@@ -7,7 +7,6 @@ import { DollarSign, Plus, Settings } from "lucide-react";
 const OPTIONAL_FEE_TYPES: Record<string, string> = {
   CANTEEN: "Cantine",
   BOOKS: "Livres Scolaires",
-  ID_CARD: "Cartes Scolaires",
   UNIFORMS: "Achat des Uniformes",
   EVALUATION: "Frais d'Évaluation",
   BOOK_KITS: "Kits Livres par Classe"
@@ -15,7 +14,9 @@ const OPTIONAL_FEE_TYPES: Record<string, string> = {
 
 const MANDATORY_FEE_TYPES: Record<string, string> = {
   INSCRIPTION: "Inscription",
-  MONTHLY: "Mensualité / Scolarité",
+  MONTHLY: "Scolarité",
+  TD: "TD",
+  ID_CARD: "Carte Scolaire",
   TRANSPORT: "Transport",
   OTHER: "Autre"
 };
@@ -28,6 +29,7 @@ export function SchoolAdminFees() {
   
   const [level, setLevel] = useState(LEVELS[0]);
   const [feeType, setFeeType] = useState<string>("INSCRIPTION");
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [amount, setAmount] = useState("");
 
   const fetchFees = async () => {
@@ -64,16 +66,28 @@ export function SchoolAdminFees() {
     e.preventDefault();
     if (!user?.schoolId) return;
     
-    const { error } = await supabase.from('fee_config').insert({
-       school_id: user.schoolId,
-       level,
-       fee_type: feeType,
-       amount: Number(amount)
-    });
+    let error;
+    if (editingId) {
+       const res = await supabase.from('fee_config').update({
+         level,
+         fee_type: feeType,
+         amount: Number(amount)
+       }).eq('id', editingId);
+       error = res.error;
+    } else {
+       const res = await supabase.from('fee_config').insert({
+         school_id: user.schoolId,
+         level,
+         fee_type: feeType,
+         amount: Number(amount)
+       });
+       error = res.error;
+    }
     
     if (!error) {
        setShowForm(false);
        setAmount("");
+       setEditingId(null);
        fetchFees();
     } else {
        alert("Erreur lors de la création");
@@ -97,7 +111,7 @@ export function SchoolAdminFees() {
       <div className="flex justify-between items-center">
         <h2 className="text-lg font-bold text-gray-700">Configuration des Frais</h2>
         <button 
-          onClick={() => setShowForm(!showForm)}
+          onClick={() => { setShowForm(!showForm); setEditingId(null); }}
           className="px-4 py-2 bg-emerald-600 text-white rounded text-sm font-bold uppercase tracking-wider hover:bg-emerald-700 transition-colors flex items-center gap-2"
         >
           <Plus size={16} /> Ajouter des Frais
@@ -169,6 +183,18 @@ export function SchoolAdminFees() {
                 </td>
                 <td className="px-6 py-4 text-sm font-bold text-gray-800 text-right">{fee.amount.toLocaleString()}</td>
                 <td className="px-6 py-4 text-sm text-right">
+                   <button onClick={() => {
+                     setLevel(fee.level);
+                     setFeeType(fee.feeType);
+                     setAmount(fee.amount.toString());
+                     setShowForm(true);
+                     setEditingId(fee.id);
+                   }} className="text-blue-500 hover:text-blue-700 text-xs font-bold uppercase tracking-wider mr-3">
+                     Éditer
+                   </button>
+                   <button onClick={() => handleDelete(fee.id)} className="text-red-500 hover:text-red-700 text-xs font-bold uppercase tracking-wider">
+                     Supprimer
+                   </button>
                    <button onClick={() => handleDelete(fee.id)} className="text-red-500 hover:text-red-700 text-xs font-bold uppercase tracking-wider">
                      Supprimer
                    </button>

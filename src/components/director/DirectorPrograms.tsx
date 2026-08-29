@@ -12,7 +12,13 @@ export function DirectorPrograms() {
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <h2 className="text-xl font-bold text-gray-800">Programmes et Coefficients</h2>
-        <button className="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700">
+        <button onClick={() => {
+    const name = window.prompt("Nom de la matière:");
+    const level = window.prompt("Classe:");
+    if (name && level) {
+      setSubjects([...subjects, { id: Date.now(), name, level, coefficient: 2, weeklyHours: 2, competencies: [] }]);
+    }
+}} className="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700">
           <Plus size={18} />
           <span className="font-bold">Nouvelle Matière</span>
         </button>
@@ -46,8 +52,18 @@ export function DirectorPrograms() {
                     </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                    <button className="text-blue-600 hover:text-blue-900 mr-3"><Edit size={16} /></button>
-                    <button className="text-rose-600 hover:text-rose-900"><Trash2 size={16} /></button>
+                    <button onClick={() => {
+                        const newName = window.prompt("Nouveau nom de la matière:", subject.name);
+                        const newLevel = window.prompt("Nouveau niveau/classe:", subject.level);
+                        if (newName && newLevel) {
+                            setSubjects(subjects.map(s => s.id === subject.id ? { ...s, name: newName, level: newLevel } : s));
+                        }
+                    }} className="text-blue-600 hover:text-blue-900 mr-3"><Edit size={16} /></button>
+                    <button onClick={() => {
+                        if (window.confirm("Supprimer cette matière ?")) {
+                            setSubjects(subjects.filter(s => s.id !== subject.id));
+                        }
+                    }} className="text-rose-600 hover:text-rose-900"><Trash2 size={16} /></button>
                   </td>
                 </tr>
               ))}

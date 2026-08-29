@@ -1,4 +1,4 @@
-export type UserRole = "SUPER_ADMIN" | "SCHOOL_ADMIN" | "SECRETARY" | "CASHIER" | "PARENT" | "TEACHER" | "DIRECTOR_OF_STUDIES";
+export type UserRole = "SUPER_ADMIN" | "SCHOOL_ADMIN" | "SECRETARY" | "CASHIER" | "PARENT" | "TEACHER" | "DIRECTOR_OF_STUDIES" | "SUPERVISOR";
 
 export interface User {
   id: string;
@@ -86,7 +86,7 @@ export interface FeeConfig {
   id: string;
   schoolId: string;
   level: string;
-  feeType: "INSCRIPTION" | "MONTHLY" | "TRANSPORT" | "CANTEEN" | "OTHER" | "BOOKS" | "ID_CARD" | "UNIFORMS" | "EVALUATION" | "BOOK_KITS";
+  feeType: "INSCRIPTION" | "MONTHLY" | "TD" | "TRANSPORT" | "CANTEEN" | "OTHER" | "BOOKS" | "ID_CARD" | "UNIFORMS" | "EVALUATION" | "BOOK_KITS";
   amount: number;
   createdAt: number;
 }

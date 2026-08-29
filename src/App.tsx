@@ -59,6 +59,7 @@ function RoleRouter() {
     case 'CASHIER': return <Navigate to="/school-admin/payments" replace />;
     case 'PARENT': return <Navigate to="/parent" replace />;
     case 'TEACHER': return <Navigate to="/teacher" replace />;
+    case 'SUPERVISOR': return <Navigate to="/supervisor" replace />;
     case 'DIRECTOR_OF_STUDIES': return <Navigate to="/director" replace />;
     default: return <Navigate to="/" replace />;
   }

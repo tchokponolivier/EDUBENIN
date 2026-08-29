@@ -34,7 +34,7 @@ export function SchoolAdminAcademic() {
   };
 
   useEffect(() => {
-    fetchYears();
+    fetchYears(); window.location.reload();
   }, [user]);
 
   const handleCreate = async (e: React.FormEvent) => {
@@ -50,11 +50,15 @@ export function SchoolAdminAcademic() {
     });
     
     if (!error) {
+       await supabase.from('schools').update({ academic_year: name }).eq('id', user.schoolId);
+    }
+    
+    if (!error) {
        setShowForm(false);
        setName("");
        setStartDate("");
        setEndDate("");
-       fetchYears();
+       fetchYears(); window.location.reload();
     } else {
        alert("Erreur lors de la création: " + error.message);
     }
@@ -64,7 +68,7 @@ export function SchoolAdminAcademic() {
     if (window.confirm("Attention: Clôturer l'année basculera les effectifs. Continuer?")) {
       const { error } = await supabase.from('academic_years').update({ status: 'CLOSED' }).eq('id', id);
       if (!error) {
-        fetchYears();
+        fetchYears(); window.location.reload();
       }
     }
   };

@@ -24,15 +24,16 @@ export function ParentProspectus() {
 
   useEffect(() => {
     if (!user?.schoolId) return;
-    const saved = localStorage.getItem(`prospectus_${user.schoolId}`);
-    if (saved) {
-      try {
-        const parsed = JSON.parse(saved);
-        setImageUrl(parsed.imageUrl || imageUrl);
-        setBottomImageUrl(parsed.bottomImageUrl || "");
-        setTexts(parsed.texts || texts);
-      } catch (e) {}
-    }
+    supabase.from('fee_config').select('description').eq('school_id', user.schoolId).eq('level', 'PROSPECTUS_DATA').single().then(({data}) => {
+      if (data && data.description) {
+        try {
+          const parsed = JSON.parse(data.description);
+          setImageUrl(parsed.imageUrl || imageUrl);
+          setBottomImageUrl(parsed.bottomImageUrl || "");
+          setTexts(parsed.texts || texts);
+        } catch(e) {}
+      }
+    });
 
     // Fetch fees
     supabase.from('fee_config').select('*').eq('school_id', user.schoolId).then(({ data }) => {
@@ -50,11 +51,16 @@ export function ParentProspectus() {
   }, [user?.schoolId]);
 
   const handleSave = () => {
-    localStorage.setItem(`prospectus_${user?.schoolId}`, JSON.stringify({
-      imageUrl,
-      bottomImageUrl,
-      texts
-    }));
+    if (user?.schoolId) {
+      const payload = JSON.stringify({ imageUrl, bottomImageUrl, texts });
+      supabase.from('fee_config').select('id').eq('school_id', user.schoolId).eq('level', 'PROSPECTUS_DATA').single().then(({data}) => {
+        if (data) {
+          supabase.from('fee_config').update({ description: payload }).eq('id', data.id).then(() => {});
+        } else {
+          supabase.from('fee_config').insert({ school_id: user.schoolId, level: 'PROSPECTUS_DATA', type: 'DATA', amount: 0, description: payload }).then(() => {});
+        }
+      });
+    }
     setIsEditing(false);
   };
 
@@ -63,8 +69,36 @@ export function ParentProspectus() {
     if (file) {
       const reader = new FileReader();
       reader.onloadend = () => {
-        if (isBottom) setBottomImageUrl(reader.result as string);
-        else setImageUrl(reader.result as string);
+        const img = new Image();
+        img.onload = () => {
+            const canvas = document.createElement('canvas');
+            const MAX_WIDTH = 1200;
+            const MAX_HEIGHT = 1200;
+            let width = img.width;
+            let height = img.height;
+            
+            if (width > height) {
+                if (width > MAX_WIDTH) {
+                    height = height * (MAX_WIDTH / width);
+                    width = MAX_WIDTH;
+                }
+            } else {
+                if (height > MAX_HEIGHT) {
+                    width = width * (MAX_HEIGHT / height);
+                    height = MAX_HEIGHT;
+                }
+            }
+            canvas.width = width;
+            canvas.height = height;
+            const ctx = canvas.getContext('2d');
+            if(ctx) {
+                ctx.drawImage(img, 0, 0, width, height);
+                const resized = canvas.toDataURL('image/jpeg', 0.7);
+                if (isBottom) setBottomImageUrl(resized);
+                else setImageUrl(resized);
+            }
+        };
+        img.src = reader.result as string;
       };
       reader.readAsDataURL(file);
     }
@@ -101,10 +135,12 @@ export function ParentProspectus() {
         <div className="aspect-[21/9] w-full bg-slate-100 flex flex-col items-center justify-center relative overflow-hidden group">
            <img src={imageUrl} alt="Prospectus" className="w-full h-full object-cover" />
            {isEditing && (
-             <label className="absolute top-4 right-4 flex items-center gap-2 px-4 py-2 bg-white/90 text-gray-800 rounded font-bold uppercase tracking-wider text-xs hover:bg-white transition cursor-pointer shadow-sm">
+             <>
+             <button onClick={() => document.getElementById("main-img-upload")?.click()} className="absolute top-4 right-4 flex items-center gap-2 px-4 py-2 bg-white/90 text-gray-800 rounded font-bold uppercase tracking-wider text-xs hover:bg-white transition cursor-pointer shadow-sm z-10">
                 <Upload size={16} /> Changer l'image principale
-                <input type="file" className="hidden" accept="image/*" onChange={(e) => handlePhotoUpload(e, false)} />
-             </label>
+             </button>
+             <input id="main-img-upload" type="file" className="hidden" accept="image/*" onChange={(e) => handlePhotoUpload(e, false)} />
+             </>
            )}
            <div className="absolute inset-0 bg-gradient-to-t from-slate-900/80 to-transparent flex items-end p-8">
              <div className="text-white w-full">
@@ -197,10 +233,12 @@ export function ParentProspectus() {
         {/* Bottom Image */}
         <div className="p-8 border-t border-slate-100 bg-slate-50 relative min-h-[200px] flex flex-col items-center justify-center">
            {isEditing && (
-             <label className="absolute top-4 right-4 z-10 flex items-center gap-2 px-4 py-2 bg-white text-gray-800 rounded font-bold uppercase tracking-wider text-xs border border-slate-200 hover:bg-slate-50 transition cursor-pointer shadow-sm">
+             <>
+             <label htmlFor="bottom-img-upload" className="absolute top-4 right-4 z-10 flex items-center gap-2 px-4 py-2 bg-white text-gray-800 rounded font-bold uppercase tracking-wider text-xs border border-slate-200 hover:bg-slate-50 transition cursor-pointer shadow-sm">
                 <Upload size={16} /> Ajouter/Changer image du bas
-                <input type="file" className="hidden" accept="image/*" onChange={(e) => handlePhotoUpload(e, true)} />
              </label>
+             <input id="bottom-img-upload" type="file" className="hidden" accept="image/*" onChange={(e) => handlePhotoUpload(e, true)} />
+             </>
            )}
            {bottomImageUrl ? (
              <img src={bottomImageUrl} alt="Bottom Prospectus" className="w-full max-h-96 object-contain rounded-lg shadow-sm" />

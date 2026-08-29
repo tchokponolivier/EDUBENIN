@@ -66,9 +66,7 @@ export function SchoolAdminStudentList() {
           </h1>
           <p className="text-slate-500 mt-1">Gérez et recherchez vos élèves par classe, avec les informations sur leurs professeurs.</p>
         </div>
-        <button onClick={() => setShowAddModal(true)} className="flex items-center gap-2 bg-emerald-600 text-white px-4 py-2 rounded font-bold uppercase tracking-wider text-xs hover:bg-emerald-700 transition shadow-sm">
-          <Plus size={16} /> Inscrire un élève
-        </button>
+        
       </div>
 
       <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex flex-col md:flex-row gap-4 items-end">
@@ -129,7 +127,7 @@ export function SchoolAdminStudentList() {
           )}
         </div>
       )}
-      <AddStudentModal isOpen={showAddModal} onClose={() => setShowAddModal(false)} onSuccess={fetchData} />
+      
     </div>
   );
 }

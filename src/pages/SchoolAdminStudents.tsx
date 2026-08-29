@@ -472,7 +472,7 @@ export function SchoolAdminStudents() {
       {activeTab === "ABSENCES" && <SecretaryAbsences />}
       {activeTab === "DOCUMENTS" && <SecretaryDocuments />}
       {activeTab === "TIMETABLES" && <SecretaryTimetables />}
-      {showAddStudentModal && <AddStudentModal onClose={() => { setShowAddStudentModal(false); window.location.reload(); }} />}
+      {showAddStudentModal && <AddStudentModal isOpen={true} onClose={() => setShowAddStudentModal(false)} onSuccess={() => { setShowAddStudentModal(false); window.location.reload(); }} />}
 
     </div>
   );

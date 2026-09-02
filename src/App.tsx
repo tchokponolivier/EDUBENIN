@@ -93,6 +93,7 @@ export default function App() {
           <Route path="/parent" element={<ProtectedRoute allowedRoles={['PARENT']}><ParentDashboard /></ProtectedRoute>} />
           <Route path="/parent/payments" element={<ProtectedRoute allowedRoles={['PARENT']}><ParentPayments /></ProtectedRoute>} />
           <Route path="/parent/prospectus" element={<ProtectedRoute allowedRoles={['PARENT']}><ParentProspectus /></ProtectedRoute>} />
+          <Route path="/teacher/prospectus" element={<ProtectedRoute allowedRoles={['TEACHER']}><ParentProspectus /></ProtectedRoute>} />
           <Route path="/parent/support" element={<ProtectedRoute allowedRoles={['PARENT']}><ParentSupport /></ProtectedRoute>} />
           <Route path="/supervisor" element={<ProtectedRoute allowedRoles={['SUPERVISOR']}><SupervisorDashboard /></ProtectedRoute>} />
           

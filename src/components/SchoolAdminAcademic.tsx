@@ -34,7 +34,7 @@ export function SchoolAdminAcademic() {
   };
 
   useEffect(() => {
-    fetchYears(); window.location.reload();
+    fetchYears();
   }, [user]);
 
   const handleCreate = async (e: React.FormEvent) => {

@@ -39,6 +39,7 @@ export interface Student {
   previousSchool?: string;
   lastYearAttended?: string;
   status?: "PASSING" | "REPEATING" | "EXCLUDED" | "DROPOUT" | "ACTIVE";
+  academicYear?: string;
   discountPercentage?: number;
   educmasterNumber?: string;
   gender?: "MALE" | "FEMALE";

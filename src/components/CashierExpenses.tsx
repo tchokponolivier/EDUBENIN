@@ -8,6 +8,7 @@ export function CashierExpenses() {
   const { user } = useAuth();
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [showForm, setShowForm] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
   
   const [description, setDescription] = useState("");
   const [amount, setAmount] = useState("");
@@ -57,14 +58,29 @@ export function CashierExpenses() {
     e.preventDefault();
     if (!user?.schoolId) return;
     
-    const { error } = await supabase.from('expenses').insert({
-       school_id: user.schoolId,
-       description,
-       amount: Number(amount),
-       expense_date: expenseDate,
-       category: category === "AUTRE" ? customCategory : category,
-       proof_url: proofBase64 || null
-    });
+    const finalCategory = category === "AUTRE" ? customCategory : category;
+    
+    let error;
+    if (editingId) {
+       const res = await supabase.from('expenses').update({
+           description,
+           amount: Number(amount),
+           expense_date: expenseDate,
+           category: finalCategory,
+           proof_url: proofBase64 || null
+       }).eq('id', editingId);
+       error = res.error;
+    } else {
+       const res = await supabase.from('expenses').insert({
+           school_id: user.schoolId,
+           description,
+           amount: Number(amount),
+           expense_date: expenseDate,
+           category: finalCategory,
+           proof_url: proofBase64 || null
+       });
+       error = res.error;
+    }
     
     if (!error) {
        setShowForm(false);
@@ -76,6 +92,29 @@ export function CashierExpenses() {
     } else {
        alert("Erreur lors de la création");
     }
+  };
+
+  const handleEdit = (expense: Expense) => {
+    setDescription(expense.description);
+    setAmount(expense.amount.toString());
+    setExpenseDate(expense.expenseDate || "");
+    const presetCategories = ["MATERIEL_FOURNITURE", "ENTRETIEN", "SERVICES_EXTERIEURS", "ACHAT_STOCKS"];
+    if (presetCategories.includes(expense.category)) {
+       setCategory(expense.category);
+       setCustomCategory("");
+    } else {
+       setCategory("AUTRE");
+       setCustomCategory(expense.category);
+    }
+    setProofBase64(expense.proofUrl || "");
+    setEditingId(expense.id);
+    setShowForm(true);
+  };
+  
+  const handleDelete = async (id: string) => {
+    if (!window.confirm("Supprimer cette dépense ?")) return;
+    await supabase.from('expenses').delete().eq('id', id);
+    fetchExpenses();
   };
 
   return (
@@ -146,6 +185,7 @@ export function CashierExpenses() {
               <th className="px-6 py-4">Catégorie</th>
               <th className="px-6 py-4">Justificatif</th>
               <th className="px-6 py-4 text-right">Montant</th>
+              <th className="px-6 py-4 text-right">Actions</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">

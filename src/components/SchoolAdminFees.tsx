@@ -31,6 +31,9 @@ export function SchoolAdminFees() {
   const [feeType, setFeeType] = useState<string>("INSCRIPTION");
   const [editingId, setEditingId] = useState<string | null>(null);
   const [amount, setAmount] = useState("");
+  const [filterLevel, setFilterLevel] = useState("ALL");
+  const [filterType, setFilterType] = useState("ALL");
+  const [filterYear, setFilterYear] = useState("ALL");
 
   const fetchFees = async () => {
     if (!user?.schoolId) return;
@@ -100,11 +103,17 @@ export function SchoolAdminFees() {
     fetchFees();
   };
 
-  const displayedFees = fees.filter(f => 
-    activeTab === "MANDATORY" 
+  const displayedFees = fees.filter(f => {
+    const isTabMatch = activeTab === "MANDATORY" 
       ? Object.keys(MANDATORY_FEE_TYPES).includes(f.feeType)
-      : Object.keys(OPTIONAL_FEE_TYPES).includes(f.feeType)
-  );
+      : Object.keys(OPTIONAL_FEE_TYPES).includes(f.feeType);
+    if (!isTabMatch) return false;
+    
+    if (filterLevel !== "ALL" && f.level !== filterLevel) return false;
+    if (filterType !== "ALL" && f.feeType !== filterType) return false;
+    
+    return true;
+  });
 
   return (
     <div className="space-y-6">
@@ -133,6 +142,33 @@ export function SchoolAdminFees() {
         </button>
       </div>
 
+      <div className="flex flex-wrap gap-4 bg-white p-4 rounded-xl shadow-sm border border-slate-200">
+        <div>
+          <label className="block text-xs font-semibold text-gray-700 mb-1">Classe</label>
+          <select value={filterLevel} onChange={e => setFilterLevel(e.target.value)} className="px-3 py-1.5 border border-slate-200 rounded text-xs outline-none">
+            <option value="ALL">Toutes les classes</option>
+            {LEVELS.map(l => <option key={l} value={l}>{l}</option>)}
+          </select>
+        </div>
+        <div>
+          <label className="block text-xs font-semibold text-gray-700 mb-1">Type</label>
+          <select value={filterType} onChange={e => setFilterType(e.target.value)} className="px-3 py-1.5 border border-slate-200 rounded text-xs outline-none">
+            <option value="ALL">Tous les types</option>
+            {activeTab === "MANDATORY" 
+              ? Object.entries(MANDATORY_FEE_TYPES).map(([k, v]) => <option key={k} value={k}>{v}</option>)
+              : Object.entries(OPTIONAL_FEE_TYPES).map(([k, v]) => <option key={k} value={k}>{v}</option>)
+            }
+          </select>
+        </div>
+        <div>
+          <label className="block text-xs font-semibold text-gray-700 mb-1">Année Scolaire</label>
+          <select value={filterYear} onChange={e => setFilterYear(e.target.value)} className="px-3 py-1.5 border border-slate-200 rounded text-xs outline-none">
+            <option value="ALL">Toutes les années</option>
+            <option value="2024-2025">2024-2025</option>
+            <option value="2023-2024">2023-2024</option>
+          </select>
+        </div>
+      </div>
       {showForm && (
         <form onSubmit={handleCreate} className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm grid grid-cols-1 md:grid-cols-4 gap-4 items-end animate-in fade-in slide-in-from-top-4">
           <div>
@@ -191,9 +227,6 @@ export function SchoolAdminFees() {
                      setEditingId(fee.id);
                    }} className="text-blue-500 hover:text-blue-700 text-xs font-bold uppercase tracking-wider mr-3">
                      Éditer
-                   </button>
-                   <button onClick={() => handleDelete(fee.id)} className="text-red-500 hover:text-red-700 text-xs font-bold uppercase tracking-wider">
-                     Supprimer
                    </button>
                    <button onClick={() => handleDelete(fee.id)} className="text-red-500 hover:text-red-700 text-xs font-bold uppercase tracking-wider">
                      Supprimer

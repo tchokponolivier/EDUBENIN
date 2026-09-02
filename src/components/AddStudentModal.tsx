@@ -52,6 +52,8 @@ export function AddStudentModal({ isOpen, onClose, onSuccess, initialData = null
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [level, setLevel] = useState(LEVELS[0]);
+  const [academicYears, setAcademicYears] = useState<{id: string, name: string}[]>([]);
+  const [academicYear, setAcademicYear] = useState("");
   const [dateOfBirth, setDateOfBirth] = useState("");
   const [photo, setPhoto] = useState<string>("");
   const [placeOfBirth, setPlaceOfBirth] = useState("");
@@ -86,14 +88,23 @@ export function AddStudentModal({ isOpen, onClose, onSuccess, initialData = null
       supabase.from('schools').select('*').limit(1).then(({ data }) => {
         if (data && data.length > 0) setSettings(data[0]);
       });
+      if (user?.schoolId) {
+        supabase.from('academic_years').select('id, name').eq('school_id', user.schoolId).eq('status', 'ACTIVE').then(({data}) => {
+           if(data) {
+             setAcademicYears(data);
+             if(data.length > 0) setAcademicYear(data[0].name);
+           }
+        });
+      }
     }
-  }, [isOpen]);
+  }, [isOpen, user]);
 
   useEffect(() => {
     if (initialData) {
       setFirstName(initialData.first_name || "");
       setLastName(initialData.last_name || "");
       setLevel(initialData.level || LEVELS[0]);
+      if (initialData.academic_year) setAcademicYear(initialData.academic_year);
       setDateOfBirth(initialData.date_of_birth || "");
       setPlaceOfBirth(initialData.place_of_birth || "");
       setGender(initialData.gender || "MALE");
@@ -263,6 +274,13 @@ export function AddStudentModal({ isOpen, onClose, onSuccess, initialData = null
                 </div>
                 
                 <div>
+                 <label className="block text-xs font-semibold text-gray-700 mb-1 uppercase tracking-wide">Année Scolaire *</label>
+                 <select required value={academicYear} onChange={e => setAcademicYear(e.target.value)} className="w-full px-3 py-2 border border-slate-300 rounded focus:ring-emerald-500 focus:border-emerald-500 outline-none text-sm bg-emerald-50 text-emerald-800 font-bold">
+                   {academicYears.length === 0 && <option value="">Aucune année active</option>}
+                   {academicYears.map(y => <option key={y.id} value={y.name}>{y.name}</option>)}
+                 </select>
+              </div>
+              <div>
                   <label className="block text-xs font-semibold text-gray-700 mb-1 uppercase tracking-wide">Statut Élève</label>
                   <select value={studentType} onChange={e => setStudentType(e.target.value as any)} className="w-full px-3 py-2 border border-slate-300 rounded text-sm focus:ring-emerald-500 focus:border-emerald-500 outline-none">
                     <option value="NEW">Nouvel élève</option>

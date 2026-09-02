@@ -1,72 +1,111 @@
 const fs = require('fs');
 let code = fs.readFileSync('src/components/CashierExpenses.tsx', 'utf8');
 
-// The categories array
-const CATEGORIES = [
-  "Matériels et Fournitures de Bureau",
-  "Entretien & réparations",
-  "Travaux",
-  "Prélèvements BANQUE",
-  "Uniformes",
-  "Livres",
-  "Cantine",
-  "Communications",
-  "Prestataires",
-  "Impots",
-  "Collations",
-  "Matériels didactiques",
-  "Primes",
-  "FACTURE",
-  "AUTRE"
-];
-
-// In CashierExpenses.tsx:
-// Find standard categories and replace them.
 code = code.replace(
-  `  const [category, setCategory] = useState("FOURNITURE");`,
-  `  const [category, setCategory] = useState("Matériels et Fournitures de Bureau");
-  const [customCategory, setCustomCategory] = useState("");`
+  `const [showForm, setShowForm] = useState(false);`,
+  `const [showForm, setShowForm] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);`
 );
 
 code = code.replace(
-  `                  <select value={category} onChange={e => setCategory(e.target.value)} className="w-full px-3 py-2 border border-slate-300 rounded focus:ring-2 focus:ring-emerald-500 outline-none bg-white">
-                    <option value="FOURNITURE">Fournitures</option>
-                    <option value="FACTURE">Facture</option>
-                    <option value="SALAIRE">Salaire</option>
-                    <option value="AUTRE">Autre</option>
-                  </select>`,
-  `                  <select value={category} onChange={e => setCategory(e.target.value)} className="w-full px-3 py-2 border border-slate-300 rounded focus:ring-2 focus:ring-emerald-500 outline-none bg-white">
-                    <option value="Matériels et Fournitures de Bureau">Matériels et Fournitures de Bureau</option>
-                    <option value="Entretien & réparations">Entretien & réparations</option>
-                    <option value="Travaux">Travaux</option>
-                    <option value="Prélèvements BANQUE">Prélèvements BANQUE</option>
-                    <option value="Uniformes">Uniformes</option>
-                    <option value="Livres">Livres</option>
-                    <option value="Cantine">Cantine</option>
-                    <option value="Communications">Communications</option>
-                    <option value="Prestataires">Prestataires</option>
-                    <option value="Impots">Impots</option>
-                    <option value="Collations">Collations</option>
-                    <option value="Matériels didactiques">Matériels didactiques</option>
-                    <option value="Primes">Primes</option>
-                    <option value="FACTURE">Facture (Electricité/Eau)</option>
-                    <option value="AUTRE">Autre (Préciser)</option>
-                  </select>
-                </div>
-                {category === "AUTRE" && (
-                  <div>
-                    <label className="block text-xs font-semibold text-gray-700 mb-1">Catégorie Personnalisée</label>
-                    <input required type="text" value={customCategory} onChange={e => setCustomCategory(e.target.value)} className="w-full px-3 py-2 border border-slate-300 rounded focus:ring-2 focus:ring-emerald-500 outline-none" />
-                  </div>
-                )}
-                <div>` // This relies on the div structure being there, wait, I'll be careful.
+  `const handleCreate = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!user?.schoolId) return;
+    
+    const { error } = await supabase.from('expenses').insert({
+       school_id: user.schoolId,
+       description,
+       amount: Number(amount),
+       expense_date: expenseDate,
+       category: category === "AUTRE" ? customCategory : category,
+       proof_url: proofBase64 || null
+    });`,
+  `const handleCreate = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!user?.schoolId) return;
+    
+    const finalCategory = category === "AUTRE" ? customCategory : category;
+    
+    let error;
+    if (editingId) {
+       const res = await supabase.from('expenses').update({
+           description,
+           amount: Number(amount),
+           expense_date: expenseDate,
+           category: finalCategory,
+           proof_url: proofBase64 || null
+       }).eq('id', editingId);
+       error = res.error;
+    } else {
+       const res = await supabase.from('expenses').insert({
+           school_id: user.schoolId,
+           description,
+           amount: Number(amount),
+           expense_date: expenseDate,
+           category: finalCategory,
+           proof_url: proofBase64 || null
+       });
+       error = res.error;
+    }`
 );
 
-// We need to inject `customCategory` into the save payload:
 code = code.replace(
-  `      category,`,
-  `      category: category === "AUTRE" ? customCategory : category,`
+  `setCustomCategory("");
+       setProofBase64("");`,
+  `setCustomCategory("");
+       setProofBase64("");
+       setEditingId(null);`
 );
 
-// We need to fix the JSX replacement carefully.
+// Add edit function
+code = code.replace(
+  `return (
+    <div className="space-y-6">`,
+  `const handleEdit = (expense: Expense) => {
+    setDescription(expense.description);
+    setAmount(expense.amount.toString());
+    setExpenseDate(expense.expenseDate || "");
+    const presetCategories = ["MATERIEL_FOURNITURE", "ENTRETIEN", "SERVICES_EXTERIEURS", "ACHAT_STOCKS"];
+    if (presetCategories.includes(expense.category)) {
+       setCategory(expense.category);
+       setCustomCategory("");
+    } else {
+       setCategory("AUTRE");
+       setCustomCategory(expense.category);
+    }
+    setProofBase64(expense.proofUrl || "");
+    setEditingId(expense.id);
+    setShowForm(true);
+  };
+  
+  const handleDelete = async (id: string) => {
+    if (!window.confirm("Supprimer cette dépense ?")) return;
+    await supabase.from('expenses').delete().eq('id', id);
+    fetchExpenses();
+  };
+
+  return (
+    <div className="space-y-6">`
+);
+
+// Modify buttons in table
+code = code.replace(
+  `<td className="px-6 py-4 text-sm font-bold text-gray-800 text-right">{expense.amount.toLocaleString()} FCFA</td>
+              </tr>`,
+  `<td className="px-6 py-4 text-sm font-bold text-gray-800 text-right">{expense.amount.toLocaleString()} FCFA</td>
+                <td className="px-6 py-4 text-sm text-right">
+                   <button onClick={() => handleEdit(expense)} className="text-blue-500 hover:text-blue-700 text-xs font-bold uppercase tracking-wider mr-3">Éditer</button>
+                   <button onClick={() => handleDelete(expense.id)} className="text-red-500 hover:text-red-700 text-xs font-bold uppercase tracking-wider">Supprimer</button>
+                </td>
+              </tr>`
+);
+
+code = code.replace(
+  `<th className="px-6 py-4 text-right">Montant</th>
+            </tr>`,
+  `<th className="px-6 py-4 text-right">Montant</th>
+              <th className="px-6 py-4 text-right">Actions</th>
+            </tr>`
+);
+
 fs.writeFileSync('src/components/CashierExpenses.tsx', code);

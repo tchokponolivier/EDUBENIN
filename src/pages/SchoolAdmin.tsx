@@ -155,6 +155,7 @@ export function SchoolAdminDashboard() {
       
       enrollmentContractTemplate: formData.get("enrollmentContractTemplate") as string,
       logo: logoBase64 || settings.logo,
+      academicYear: settings.academicYear,
     };
     
     supabase.from('schools').update({
@@ -260,12 +261,7 @@ export function SchoolAdminDashboard() {
           >
             <span className="flex items-center gap-2"><Megaphone size={14} /> Annonces</span>
           </button>
-          <button 
-            onClick={() => setActiveTab("SETTINGS")} 
-            className={`px-4 py-2 rounded text-xs font-bold uppercase tracking-wider transition-colors ${activeTab === "SETTINGS" ? "bg-white shadow-sm text-gray-700" : "text-slate-500 hover:text-gray-700"}`}
-          >
-            <span className="flex items-center gap-2"><Settings size={14} /> Paramètres</span>
-          </button>
+          
         </div>
       </div>
 
@@ -315,6 +311,7 @@ export function SchoolAdminDashboard() {
                     <th className="px-4 py-3">Matricule</th>
                     <th className="px-4 py-3">Nom de l'élève</th>
                     <th className="px-4 py-3">Niveau / Classe</th>
+                    <th className="px-4 py-3">Année Scolaire</th>
                     <th className="px-4 py-3">Date</th>
                     <th className="px-4 py-3">Enregistré par</th>
                   </tr>
@@ -322,7 +319,7 @@ export function SchoolAdminDashboard() {
                 <tbody className="divide-y divide-slate-100">
                   {students.length === 0 ? (
                     <tr>
-                      <td colSpan={5} className="px-4 py-8 text-center text-slate-500 text-xs">
+                      <td colSpan={6} className="px-4 py-8 text-center text-slate-500 text-xs">
                         Aucun élève inscrit pour le moment.
                       </td>
                     </tr>
@@ -330,12 +327,13 @@ export function SchoolAdminDashboard() {
                     students.filter(s => (s.firstName + ' ' + s.lastName).toLowerCase().includes(searchTerm.toLowerCase()) || s.id.toLowerCase().includes(searchTerm.toLowerCase())).slice(0, 10).map((student) => (
                       <tr key={student.id} className="hover:bg-slate-50 transition-colors">
                         <td className="px-4 py-3 font-medium text-xs text-slate-500">
-                          {student.id.substring(0, 8)}
+                          {student.matricule || student.id.substring(0, 8)}
                         </td>
                         <td className="px-4 py-3 font-medium text-xs text-gray-700">
                           {student.firstName} {student.lastName}
                         </td>
                         <td className="px-4 py-3 text-xs text-slate-500">{student.level}</td>
+                        <td className="px-4 py-3 text-xs text-slate-500">{student.academic_year || student.academicYear || '-'}</td>
                         <td className="px-4 py-3 text-xs text-slate-500">
                           {new Date(student.createdAt).toLocaleDateString()}
                         </td>
@@ -461,7 +459,7 @@ export function SchoolAdminDashboard() {
       {activeTab === "SETTINGS" && settings && (
         <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm w-full">
            <h3 className="font-bold text-gray-700 mb-6 pb-2 border-b border-slate-100">En-tête des Bulletins & Documents</h3>
-           <form onSubmit={handleSettingsSave} className="space-y-4">
+           <form onSubmit={handleSettingsSave} className="grid grid-cols-1 md:grid-cols-2 gap-4">
              <div>
                <label className="block text-xs font-semibold text-gray-700 mb-1 uppercase tracking-wide">Logo de l'établissement</label>
                <div className="flex items-center gap-4">
@@ -493,12 +491,12 @@ export function SchoolAdminDashboard() {
                </select>
              </div>
 
-             <div>
+             <div className="md:col-span-2">
                <label className="block text-xs font-semibold text-gray-700 mb-1 uppercase tracking-wide">Modèle de la fiche d'engagement</label>
                <textarea name="enrollmentContractTemplate" defaultValue={settings?.enrollmentContractTemplate || ""} rows={10} className="w-full px-4 py-2 border border-slate-300 rounded text-sm focus:ring-emerald-500 focus:border-emerald-500 outline-none resize-none" placeholder="Laissez vide pour utiliser le modèle par défaut..." />
                <p className="text-[10px] text-slate-500 mt-1">Utilisez les variables: {'{ecole_nom}'}, {'{directeur_nom}'}, {'{parent_nom}'}, {'{parent_profession}'}, {'{parent_telephone}'}, {'{parent_adresse}'}, {'{eleve_nom}'}, {'{eleve_classe}'}, {'{frais_scolarite}'}</p>
              </div>
-             <div className="pt-4 mt-4 border-t border-slate-100">
+             <div className="pt-4 mt-4 border-t border-slate-100 md:col-span-2">
                <button type="submit" className="w-full sm:w-auto px-6 py-2.5 text-xs font-bold text-white bg-slate-900 hover:bg-slate-800 rounded shadow-sm uppercase tracking-wider transition-colors">
                  Enregistrer les paramètres
                </button>

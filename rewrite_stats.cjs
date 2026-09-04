@@ -1,4 +1,6 @@
-import React, { useState, useEffect } from "react";
+const fs = require('fs');
+
+const code = `import React, { useState, useEffect } from "react";
 import { supabase } from "../lib/supabase";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from 'recharts';
 import { BookOpen, Printer, Search } from "lucide-react";
@@ -77,13 +79,13 @@ export function SchoolAdminStats() {
         <div className="flex p-1 bg-slate-100 rounded-lg shrink-0 overflow-x-auto max-w-full">
           <button 
             onClick={() => setActiveTab("BILAN_CLASSE")} 
-            className={`px-4 py-2 rounded text-xs font-bold uppercase tracking-wider transition-colors ${activeTab === "BILAN_CLASSE" ? "bg-white shadow-sm text-gray-700" : "text-slate-500 hover:text-gray-700"}`}
+            className={\`px-4 py-2 rounded text-xs font-bold uppercase tracking-wider transition-colors \${activeTab === "BILAN_CLASSE" ? "bg-white shadow-sm text-gray-700" : "text-slate-500 hover:text-gray-700"}\`}
           >
             Bilan par Classes
           </button>
           <button 
             onClick={() => setActiveTab("SYNTHESE_ELEVE")} 
-            className={`px-4 py-2 rounded text-xs font-bold uppercase tracking-wider transition-colors ${activeTab === "SYNTHESE_ELEVE" ? "bg-white shadow-sm text-gray-700" : "text-slate-500 hover:text-gray-700"}`}
+            className={\`px-4 py-2 rounded text-xs font-bold uppercase tracking-wider transition-colors \${activeTab === "SYNTHESE_ELEVE" ? "bg-white shadow-sm text-gray-700" : "text-slate-500 hover:text-gray-700"}\`}
           >
             Synthèse Élève
           </button>
@@ -97,10 +99,10 @@ export function SchoolAdminStats() {
              <div className="h-[300px] w-full min-h-[300px]">
                 <ResponsiveContainer width="100%" height="100%">
                    <PieChart>
-                     <Pie data={pieData} cx="50%" cy="50%" labelLine={false} label={({ name, percent }) => `${name} (${(percent * 100).toFixed(0)}%)`} outerRadius={100} fill="#8884d8" dataKey="value">
-                       {pieData.map((entry, index) => <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />)}
+                     <Pie data={pieData} cx="50%" cy="50%" labelLine={false} label={({ name, percent }) => \`\${name} (\${(percent * 100).toFixed(0)}%)\`} outerRadius={100} fill="#8884d8" dataKey="value">
+                       {pieData.map((entry, index) => <Cell key={\`cell-\${index}\`} fill={COLORS[index % COLORS.length]} />)}
                      </Pie>
-                     <Tooltip formatter={(value: number) => [`${value} élèves`, 'Effectif']} />
+                     <Tooltip formatter={(value: number) => [\`\${value} élèves\`, 'Effectif']} />
                      <Legend />
                    </PieChart>
                 </ResponsiveContainer>
@@ -261,3 +263,6 @@ export function SchoolAdminStats() {
     </div>
   );
 }
+`;
+
+fs.writeFileSync('src/pages/SchoolAdminStats.tsx', code);

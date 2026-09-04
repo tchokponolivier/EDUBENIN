@@ -25,6 +25,7 @@ export interface School {
 
 export interface Student {
   id: string;
+  matricule?: string;
   firstName: string;
   lastName: string;
   parentId: string;

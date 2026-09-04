@@ -194,7 +194,19 @@ export function AddStudentModal({ isOpen, onClose, onSuccess, initialData = null
       const { data: schools } = await supabase.from('schools').select('id').limit(1);
       const insertSchoolId = user?.schoolId || (schools && schools.length > 0 ? schools[0].id : null);
       
+      let generatedMatricule = "";
+      if (insertSchoolId && academicYear) {
+         const countRes = await supabase.from('students').select('id', { count: 'exact' })
+            .eq('school_id', insertSchoolId)
+            .eq('academic_year', academicYear);
+         const studentCount = countRes.count || 0;
+         const yearPrefix = academicYear.substring(0, 4);
+         generatedMatricule = `MAT-${yearPrefix}-${studentCount + 1}`;
+      }
+      
       const { error } = await supabase.from('students').insert({
+        matricule: generatedMatricule,
+        academic_year: academicYear,
         parent_id: user?.role === 'PARENT' ? user.id : null,
         first_name: studentData.firstName,
         last_name: studentData.lastName,

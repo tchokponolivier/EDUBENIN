@@ -13,6 +13,7 @@ export function SchoolAdminStudentList() {
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedClass, setSelectedClass] = useState<string>("ALL");
   const [selectedYear, setSelectedYear] = useState<string>("ALL");
+  const [academicYears, setAcademicYears] = useState<{id: string, name: string}[]>([]);
   const [selectedStudentInfo, setSelectedStudentInfo] = useState<any>(null);
   const [showAddModal, setShowAddModal] = useState(false);
 

@@ -1,9 +1,52 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
+import { supabase } from "../lib/supabase";
+import { useAuth } from "../lib/auth";
+import { Student, Payment, AcademicYear } from "../types";
 import { Download, Search, BookOpen, Printer } from "lucide-react";
 import { PieChart, Pie, Cell, Tooltip, Legend, ResponsiveContainer } from "recharts";
 
 export function SchoolAdminStats() {
   const [activeTab, setActiveTab] = useState<"BILAN_CLASSE" | "SYNTHESE_ELEVE">("BILAN_CLASSE");
+  const { user } = useAuth();
+  const [academicYears, setAcademicYears] = useState<AcademicYear[]>([]);
+  const [students, setStudents] = useState<Student[]>([]);
+  const [payments, setPayments] = useState<Payment[]>([]);
+  
+  // Filters
+  const [filterYear, setFilterYear] = useState("");
+  const [filterClass, setFilterClass] = useState("");
+  const [filterStudentId, setFilterStudentId] = useState("");
+  
+  useEffect(() => {
+     if (!user?.schoolId) return;
+     const fetchData = async () => {
+         const [yRes, sRes, pRes] = await Promise.all([
+             supabase.from('academic_years').select('*').eq('school_id', user.schoolId),
+             supabase.from('students').select('*').eq('school_id', user.schoolId),
+             supabase.from('payments').select('*').eq('school_id', user.schoolId)
+         ]);
+         if (yRes.data) setAcademicYears(yRes.data.map(d => ({id: d.id, name: d.name, status: d.status} as any)));
+         if (sRes.data) setStudents(sRes.data.map(d => ({...d, id: d.id, firstName: d.first_name, lastName: d.last_name, level: d.level, academicYear: d.academic_year} as any)));
+         if (pRes.data) setPayments(pRes.data.map(d => ({...d, studentId: d.student_id, amount: d.amount, academicYear: d.academic_year} as any)));
+         
+         const activeYear = yRes.data?.find(y => y.status === 'ACTIVE')?.name;
+         if (activeYear) setFilterYear(activeYear);
+     };
+     fetchData();
+  }, [user]);
+  
+  // Derive options
+  const availableClasses = Array.from(new Set(students.filter(s => filterYear ? s.academicYear === filterYear : true).map(s => s.level))).sort();
+  const availableStudents = students.filter(s => {
+      let match = true;
+      if (filterYear) match = match && s.academicYear === filterYear;
+      if (filterClass) match = match && s.level === filterClass;
+      return match;
+  });
+  
+  const selectedStudent = students.find(s => s.id === filterStudentId);
+  const studentPayments = payments.filter(p => p.studentId === filterStudentId && (!filterYear || p.academicYear === filterYear));
+  const totalPaid = studentPayments.reduce((acc, p) => acc + p.amount, 0);
 
   // Mock data as requested
   const bilanData = [

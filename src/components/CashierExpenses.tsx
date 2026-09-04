@@ -168,7 +168,7 @@ export function CashierExpenses() {
           </div>
           <div>
             <label className="block text-xs font-semibold text-gray-700 mb-1">Justificatif (Photo/Facture)</label>
-            <input type="file" accept="image/*" onChange={handleUpload} className="w-full text-xs" />
+            <input type="file" accept="image/*" onChange={handleUpload} className="w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-sm file:font-semibold file:bg-emerald-50 file:text-emerald-700 hover:file:bg-emerald-100 bg-emerald-50/20 rounded border border-emerald-200 outline-none" />
           </div>
           <div className="lg:col-span-3 pt-2">
             <button type="submit" className="px-6 py-2 bg-slate-900 text-white rounded font-bold">Enregistrer la dépense</button>
@@ -206,11 +206,15 @@ export function CashierExpenses() {
                   )}
                 </td>
                 <td className="px-6 py-4 text-sm font-bold text-red-600 text-right">- {exp.amount.toLocaleString()}</td>
+                <td className="px-6 py-4 text-sm text-right space-x-2">
+                    <button onClick={() => handleEdit(exp)} className="text-emerald-600 font-bold hover:underline">Éditer</button>
+                    <button onClick={() => handleDelete(exp.id)} className="text-red-600 font-bold hover:underline">Supprimer</button>
+                </td>
               </tr>
             ))}
             {expenses.length === 0 && (
               <tr>
-                <td colSpan={5} className="px-6 py-8 text-center text-slate-500 text-sm">
+                <td colSpan={6} className="px-6 py-8 text-center text-slate-500 text-sm">
                   Aucune dépense enregistrée.
                 </td>
               </tr>

@@ -90,11 +90,11 @@ export function UserSettingsModal({ isOpen, onClose }: Props) {
           <div className="grid grid-cols-2 gap-4 mb-4">
              <div>
                <label className="block text-xs font-bold text-gray-700 mb-1 uppercase tracking-wide">Rôle</label>
-               <input type="text" value={user.role} readOnly className="w-full px-3 py-2 border border-slate-300 bg-slate-100 rounded text-slate-500 outline-none cursor-not-allowed" />
+               <input type="text" value={user.role} disabled readOnly className="w-full px-3 py-2 border border-slate-300 bg-slate-100 rounded text-slate-500 outline-none cursor-not-allowed" />
              </div>
              <div>
                <label className="block text-xs font-bold text-gray-700 mb-1 uppercase tracking-wide">Adresse Email</label>
-               <input type="email" value={email} readOnly className="w-full px-3 py-2 border border-slate-300 bg-slate-100 rounded text-slate-500 outline-none cursor-not-allowed" />
+               <input type="email" value={email} disabled readOnly className="w-full px-3 py-2 border border-slate-300 bg-slate-100 rounded text-slate-500 outline-none cursor-not-allowed" />
              </div>
           </div>
           <div className="mb-4">

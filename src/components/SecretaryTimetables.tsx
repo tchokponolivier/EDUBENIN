@@ -21,13 +21,16 @@ export function SecretaryTimetables() {
   const [ttRoom, setTtRoom] = useState("");
 
   const [selectedLevelFilter, setSelectedLevelFilter] = useState(LEVELS[0]);
+  const [teachers, setTeachers] = useState<any[]>([]);
+  const [courseTeacherId, setCourseTeacherId] = useState("");
 
   const fetchData = async () => {
     if (!user?.schoolId) return;
     
-    const [coursesRes, timetablesRes] = await Promise.all([
+    const [coursesRes, timetablesRes, teachersRes] = await Promise.all([
       supabase.from('courses').select('*').eq('school_id', user.schoolId),
-      supabase.from('timetables').select('*').eq('school_id', user.schoolId)
+      supabase.from('timetables').select('*').eq('school_id', user.schoolId),
+      supabase.from('profiles').select('*').eq('school_id', user.schoolId).eq('role', 'TEACHER')
     ]);
     
     if (coursesRes.data) {
@@ -39,6 +42,10 @@ export function SecretaryTimetables() {
          teacherId: d.teacher_id,
          createdAt: new Date(d.created_at).getTime()
        })));
+    }
+    
+    if (teachersRes.data) {
+       setTeachers(teachersRes.data);
     }
     
     if (timetablesRes.data) {

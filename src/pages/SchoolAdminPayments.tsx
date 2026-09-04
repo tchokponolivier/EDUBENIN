@@ -483,7 +483,7 @@ export function SchoolAdminPayments() {
         )}
       </div>
 
-      {activeTab === "INSCRIPTIONS" && <CashierEnrollment />}
+      
       {activeTab === "PAYMENTS" && (
         <div className="bg-white rounded-xl border border-slate-200 shadow-sm">
          <div className="p-4 border-b border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-4">

@@ -3,14 +3,17 @@ import { Student, Payment, SchoolSettings, Announcement } from "../types";
 import { Users, GraduationCap, ArrowUpRight, Search, Settings, Megaphone, Trash2, Edit, Mail, Plus } from "lucide-react";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../lib/auth";
+import { useLocation } from "react-router-dom";
 import { SchoolAdminAcademic } from "../components/SchoolAdminAcademic";
 import { SchoolAdminFees } from "../components/SchoolAdminFees";
 
 export function SchoolAdminDashboard() {
   const { user } = useAuth();
+  const location = useLocation();
   const [students, setStudents] = useState<Student[]>([]);
   const [payments, setPayments] = useState<Payment[]>([]);
   const [settings, setSettings] = useState<SchoolSettings | null>(null);
+  const [searchTerm, setSearchTerm] = useState("");
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
 
   const [activeTab, setActiveTab] = useState<"DASHBOARD" | "MEMBERS" | "ANNOUNCEMENTS" | "SETTINGS" | "ACADEMIC" | "FEES">("DASHBOARD");
@@ -28,6 +31,14 @@ export function SchoolAdminDashboard() {
   const [announcementContent, setAnnouncementContent] = useState("");
   const [announcementTarget, setAnnouncementTarget] = useState("Parents");
   const [logoBase64, setLogoBase64] = useState("");
+
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const tabParam = params.get('tab');
+    if (tabParam && ["DASHBOARD", "MEMBERS", "ANNOUNCEMENTS", "SETTINGS", "ACADEMIC", "FEES"].includes(tabParam)) {
+       setActiveTab(tabParam as any);
+    }
+  }, [location]);
 
   useEffect(() => {
     fetchDashboardData();
@@ -141,7 +152,7 @@ export function SchoolAdminDashboard() {
       address: formData.get("address") as string,
       contact: formData.get("contact") as string,
       motto: formData.get("motto") as string,
-      academicYear: formData.get("academicYear") as string,
+      
       enrollmentContractTemplate: formData.get("enrollmentContractTemplate") as string,
       logo: logoBase64 || settings.logo,
     };
@@ -301,27 +312,35 @@ export function SchoolAdminDashboard() {
               <table className="w-full text-left border-collapse">
                 <thead className="bg-slate-50 text-[10px] uppercase text-slate-500 font-bold">
                   <tr className="border-b border-slate-100">
+                    <th className="px-4 py-3">Matricule</th>
                     <th className="px-4 py-3">Nom de l'élève</th>
                     <th className="px-4 py-3">Niveau / Classe</th>
                     <th className="px-4 py-3">Date</th>
+                    <th className="px-4 py-3">Enregistré par</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
                   {students.length === 0 ? (
                     <tr>
-                      <td colSpan={3} className="px-4 py-8 text-center text-slate-500 text-xs">
+                      <td colSpan={5} className="px-4 py-8 text-center text-slate-500 text-xs">
                         Aucun élève inscrit pour le moment.
                       </td>
                     </tr>
                   ) : (
-                    students.slice(0, 5).map((student) => (
+                    students.filter(s => (s.firstName + ' ' + s.lastName).toLowerCase().includes(searchTerm.toLowerCase()) || s.id.toLowerCase().includes(searchTerm.toLowerCase())).slice(0, 10).map((student) => (
                       <tr key={student.id} className="hover:bg-slate-50 transition-colors">
+                        <td className="px-4 py-3 font-medium text-xs text-slate-500">
+                          {student.id.substring(0, 8)}
+                        </td>
                         <td className="px-4 py-3 font-medium text-xs text-gray-700">
                           {student.firstName} {student.lastName}
                         </td>
                         <td className="px-4 py-3 text-xs text-slate-500">{student.level}</td>
                         <td className="px-4 py-3 text-xs text-slate-500">
                           {new Date(student.createdAt).toLocaleDateString()}
+                        </td>
+                        <td className="px-4 py-3 text-xs text-slate-500">
+                          {student.parentId ? "Parent" : "Administration"}
                         </td>
                       </tr>
                     ))
@@ -440,7 +459,7 @@ export function SchoolAdminDashboard() {
       )}
 
       {activeTab === "SETTINGS" && settings && (
-        <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm max-w-2xl">
+        <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm w-full">
            <h3 className="font-bold text-gray-700 mb-6 pb-2 border-b border-slate-100">En-tête des Bulletins & Documents</h3>
            <form onSubmit={handleSettingsSave} className="space-y-4">
              <div>
@@ -465,13 +484,15 @@ export function SchoolAdminDashboard() {
                <input name="contact" defaultValue={settings?.contact || ""} required type="text" className="w-full px-4 py-2 border border-slate-300 rounded text-sm focus:ring-emerald-500 focus:border-emerald-500 outline-none" />
              </div>
              <div>
-               <label className="block text-xs font-semibold text-gray-700 mb-1 uppercase tracking-wide">Devise</label>
-               <input name="motto" defaultValue={settings?.motto || ""} required type="text" className="w-full px-4 py-2 border border-slate-300 rounded text-sm focus:ring-emerald-500 focus:border-emerald-500 outline-none" />
+               <label className="block text-xs font-semibold text-gray-700 mb-1 uppercase tracking-wide">Devise (Monnaie)</label>
+               <select name="motto" defaultValue={settings?.motto || "FCFA"} className="w-full px-4 py-2 border border-slate-300 rounded text-sm focus:ring-emerald-500 focus:border-emerald-500 outline-none bg-white">
+                  <option value="FCFA">Franc CFA (XOF/XAF)</option>
+                  <option value="GNF">Franc Guinéen (GNF)</option>
+                  <option value="EUR">Euro (€)</option>
+                  <option value="USD">Dollar US ($)</option>
+               </select>
              </div>
-             <div>
-               <label className="block text-xs font-semibold text-gray-700 mb-1 uppercase tracking-wide">Année académique en cours</label>
-               <input name="academicYear" defaultValue={settings?.academicYear || ""} required type="text" className="w-full px-4 py-2 border border-slate-300 rounded text-sm focus:ring-emerald-500 focus:border-emerald-500 outline-none" />
-             </div>
+
              <div>
                <label className="block text-xs font-semibold text-gray-700 mb-1 uppercase tracking-wide">Modèle de la fiche d'engagement</label>
                <textarea name="enrollmentContractTemplate" defaultValue={settings?.enrollmentContractTemplate || ""} rows={10} className="w-full px-4 py-2 border border-slate-300 rounded text-sm focus:ring-emerald-500 focus:border-emerald-500 outline-none resize-none" placeholder="Laissez vide pour utiliser le modèle par défaut..." />

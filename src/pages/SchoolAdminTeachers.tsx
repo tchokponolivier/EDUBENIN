@@ -126,10 +126,10 @@ export function SchoolAdminTeachers() {
                 </div>
                 
                 <div className="p-3 bg-slate-50 border-t border-slate-100 flex gap-2">
-                  <button className="flex-1 py-1.5 bg-white border border-slate-200 text-slate-600 text-xs font-bold rounded shadow-sm hover:bg-slate-100 transition-colors flex items-center justify-center gap-1">
+                  <button onClick={() => window.location.href = '/school-admin/students?tab=TIMETABLES'} className="flex-1 py-1.5 bg-white border border-slate-200 text-slate-600 text-xs font-bold rounded shadow-sm hover:bg-slate-100 transition-colors flex items-center justify-center gap-1">
                     <Calendar size={14} /> Emploi du temps
                   </button>
-                  <button className="flex-1 py-1.5 bg-emerald-600 text-white text-xs font-bold rounded shadow-sm hover:bg-emerald-700 transition-colors flex items-center justify-center gap-1">
+                  <button onClick={() => window.location.href = '/school-admin/payments?tab=SALARIES'} className="flex-1 py-1.5 bg-emerald-600 text-white text-xs font-bold rounded shadow-sm hover:bg-emerald-700 transition-colors flex items-center justify-center gap-1">
                     <Banknote size={14} /> Payer
                   </button>
                 </div>

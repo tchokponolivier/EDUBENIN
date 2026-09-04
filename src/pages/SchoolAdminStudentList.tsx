@@ -25,7 +25,7 @@ export function SchoolAdminStudentList() {
   const fetchData = async () => {
     setLoading(true);
     try {
-      const [studentsRes, coursesRes] = await Promise.all([
+      const [studentsRes, coursesRes, yearsRes] = await Promise.all([
         supabase.from('students').select('*').eq('school_id', user?.schoolId),
         supabase.from('courses').select('*, profiles(full_name)').eq('school_id', user?.schoolId)
       ]);
@@ -42,6 +42,7 @@ export function SchoolAdminStudentList() {
   const classes = Array.from<string>(new Set(students.map(s => s.level as string))).sort();
 
   const filteredStudents = students.filter(s => {
+    const matchesYear = selectedYear === "ALL" || s.academic_year === selectedYear;
     const matchesSearch = 
       s.first_name.toLowerCase().includes(searchTerm.toLowerCase()) || 
       s.last_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -49,7 +50,7 @@ export function SchoolAdminStudentList() {
     
     const matchesClass = selectedClass === "ALL" || s.level === selectedClass;
     
-    return matchesSearch && matchesClass;
+    return matchesSearch && matchesClass && matchesYear;
   });
 
   const getTeachersForClass = (level: string) => {
@@ -83,9 +84,22 @@ export function SchoolAdminStudentList() {
             />
           </div>
         </div>
-        <div className="w-full md:w-64">
+        <div className="w-full md:w-48">
           <label className="block text-xs font-bold text-gray-700 mb-1 uppercase tracking-wide flex items-center gap-1">
-            <Filter size={14} /> Filtrer par classe
+            <Filter size={14} /> Année Scolaire
+          </label>
+          <select 
+            value={selectedYear}
+            onChange={e => setSelectedYear(e.target.value)}
+            className="w-full px-3 py-2 border border-slate-300 rounded focus:ring-2 focus:ring-emerald-500 outline-none bg-white"
+          >
+            <option value="ALL">Toutes les années</option>
+            {academicYears.map(y => <option key={y.id} value={y.name}>{y.name}</option>)}
+          </select>
+        </div>
+        <div className="w-full md:w-48">
+          <label className="block text-xs font-bold text-gray-700 mb-1 uppercase tracking-wide flex items-center gap-1">
+            <Filter size={14} /> Classe
           </label>
           <select 
             value={selectedClass}

@@ -31,9 +31,16 @@ export function SchoolAdminFees() {
   const [feeType, setFeeType] = useState<string>("INSCRIPTION");
   const [editingId, setEditingId] = useState<string | null>(null);
   const [amount, setAmount] = useState("");
+  const [academicYears, setAcademicYears] = useState<{id: string, name: string}[]>([]);
   const [filterLevel, setFilterLevel] = useState("ALL");
   const [filterType, setFilterType] = useState("ALL");
   const [filterYear, setFilterYear] = useState("ALL");
+
+  const fetchAcademicYears = async () => {
+    if (!user?.schoolId) return;
+    const { data } = await supabase.from('academic_years').select('id, name').eq('school_id', user.schoolId);
+    if (data) setAcademicYears(data);
+  };
 
   const fetchFees = async () => {
     if (!user?.schoolId) return;
@@ -57,6 +64,7 @@ export function SchoolAdminFees() {
 
   useEffect(() => {
     fetchFees();
+    fetchAcademicYears();
   }, [user]);
 
   // Adjust default feeType when tab changes
@@ -164,8 +172,7 @@ export function SchoolAdminFees() {
           <label className="block text-xs font-semibold text-gray-700 mb-1">Année Scolaire</label>
           <select value={filterYear} onChange={e => setFilterYear(e.target.value)} className="px-3 py-1.5 border border-slate-200 rounded text-xs outline-none">
             <option value="ALL">Toutes les années</option>
-            <option value="2024-2025">2024-2025</option>
-            <option value="2023-2024">2023-2024</option>
+            {academicYears.map(y => <option key={y.id} value={y.name}>{y.name}</option>)}
           </select>
         </div>
       </div>

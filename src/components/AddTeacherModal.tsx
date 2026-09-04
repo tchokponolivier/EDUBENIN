@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../lib/auth";
 import { X, UserPlus } from "lucide-react";
+import { LEVELS } from "../types";
 
 export function AddTeacherModal({ isOpen, onClose, onSuccess }: { isOpen: boolean, onClose: () => void, onSuccess: () => void }) {
   const { user } = useAuth();
@@ -10,7 +11,16 @@ export function AddTeacherModal({ isOpen, onClose, onSuccess }: { isOpen: boolea
     fullName: "",
     email: "",
     phone: "",
+    subject: "",
+    classes: [] as string[]
   });
+  
+  const handleToggleClass = (cls: string) => {
+    setFormData(prev => ({
+        ...prev,
+        classes: prev.classes.includes(cls) ? prev.classes.filter(c => c !== cls) : [...prev.classes, cls]
+    }));
+  };
 
   if (!isOpen) return null;
 
@@ -33,6 +43,16 @@ export function AddTeacherModal({ isOpen, onClose, onSuccess }: { isOpen: boolea
         school_id: user?.schoolId
       });
       if (error) throw error;
+      
+      if (formData.subject && formData.classes.length > 0) {
+          const coursesToInsert = formData.classes.map(cls => ({
+              school_id: user?.schoolId,
+              name: formData.subject,
+              level: cls,
+              teacher_id: dummyId
+          }));
+          await supabase.from('courses').insert(coursesToInsert);
+      }
       onSuccess();
       onClose();
     } catch (err: any) {
@@ -44,7 +64,7 @@ export function AddTeacherModal({ isOpen, onClose, onSuccess }: { isOpen: boolea
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
-      <div className="bg-white rounded-xl shadow-xl w-full max-w-md overflow-hidden animate-in zoom-in-95">
+      <div className="bg-white rounded-xl shadow-xl w-full max-w-md overflow-hidden animate-in zoom-in-95 max-h-[90vh] flex flex-col">
         <div className="p-4 border-b border-slate-100 flex justify-between items-center bg-slate-50">
           <h3 className="font-bold text-gray-700 flex items-center gap-2">
             <UserPlus size={18} className="text-emerald-600" /> Inscrire un Professeur
@@ -53,7 +73,7 @@ export function AddTeacherModal({ isOpen, onClose, onSuccess }: { isOpen: boolea
             <X size={20} />
           </button>
         </div>
-        <form onSubmit={handleSubmit} className="p-6 space-y-4">
+        <form onSubmit={handleSubmit} className="p-6 space-y-4 overflow-y-auto">
           <div>
             <label className="block text-xs font-bold text-gray-700 mb-1 uppercase tracking-wide">Nom Complet</label>
             <input type="text" required value={formData.fullName} onChange={e => setFormData({...formData, fullName: e.target.value})} className="w-full px-3 py-2 border border-slate-300 rounded focus:ring-emerald-500 outline-none" />
@@ -65,6 +85,21 @@ export function AddTeacherModal({ isOpen, onClose, onSuccess }: { isOpen: boolea
           <div>
             <label className="block text-xs font-bold text-gray-700 mb-1 uppercase tracking-wide">Téléphone</label>
             <input type="text" value={formData.phone} onChange={e => setFormData({...formData, phone: e.target.value})} className="w-full px-3 py-2 border border-slate-300 rounded focus:ring-emerald-500 outline-none" />
+          </div>
+          <div>
+            <label className="block text-xs font-bold text-gray-700 mb-1 uppercase tracking-wide">Matière enseignée</label>
+            <input type="text" required value={formData.subject} onChange={e => setFormData({...formData, subject: e.target.value})} placeholder="Mathématiques, Français..." className="w-full px-3 py-2 border border-slate-300 rounded focus:ring-emerald-500 outline-none" />
+          </div>
+          <div>
+            <label className="block text-xs font-bold text-gray-700 mb-1 uppercase tracking-wide">Classes (Cochez une ou plusieurs)</label>
+            <div className="max-h-32 overflow-y-auto border border-slate-300 rounded p-2 grid grid-cols-2 gap-2 bg-slate-50">
+               {LEVELS.map(l => (
+                   <label key={l} className="flex items-center gap-2 text-xs text-slate-700 cursor-pointer">
+                       <input type="checkbox" checked={formData.classes.includes(l)} onChange={() => handleToggleClass(l)} className="rounded text-emerald-600 focus:ring-emerald-500" />
+                       {l}
+                   </label>
+               ))}
+            </div>
           </div>
           <div className="pt-4 flex gap-3">
              <button type="button" onClick={onClose} className="flex-1 py-2 bg-white border border-slate-200 text-gray-700 rounded font-semibold hover:bg-slate-50 transition-colors">Annuler</button>

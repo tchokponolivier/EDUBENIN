@@ -6,6 +6,8 @@ export interface User {
   name: string;
   role: UserRole;
   schoolId?: string; // Optional for Super Admin
+  phone?: string;
+  photoURL?: string;
 }
 
 export interface School {
@@ -20,7 +22,7 @@ export interface School {
     mtn?: string;
     celtiis?: string;
   };
-  createdAt: number;
+  createdAt?: number;
 }
 
 export interface Student {
@@ -28,8 +30,8 @@ export interface Student {
   matricule?: string;
   firstName: string;
   lastName: string;
-  parentId: string;
-  schoolId: string;
+  parentId?: string;
+  schoolId?: string;
   level: string; // e.g. Maternelle 1, Terminale D
   classId?: string;
   photo?: string;
@@ -41,6 +43,8 @@ export interface Student {
   lastYearAttended?: string;
   status?: "PASSING" | "REPEATING" | "EXCLUDED" | "DROPOUT" | "ACTIVE";
   academicYear?: string;
+  academic_year?: string;
+  school_id?: string;
   discountPercentage?: number;
   educmasterNumber?: string;
   gender?: "MALE" | "FEMALE";
@@ -60,7 +64,7 @@ export interface Student {
   canteenOptions?: string[];
   disciplinaryCommitment?: boolean;
   disciplinarySignature?: string;
-  createdAt: number;
+  createdAt?: number;
 }
 
 export interface SchoolSettings {
@@ -72,6 +76,7 @@ export interface SchoolSettings {
   logo: string;
   academicYear: string;
   enrollmentContractTemplate?: string;
+  directorSignature?: string;
 }
 
 export interface AcademicYear {
@@ -142,11 +147,13 @@ export interface Timetable {
 export interface Payment {
   id: string;
   studentId: string;
-  parentId: string;
+  parentId?: string;
   schoolId: string;
   amount: number;
-  date: number;
-  network: "Moov Bénin" | "MTN Bénin" | "Celtiis Bénin" | "CASH";
+  date?: number;
+  network?: "Moov Bénin" | "MTN Bénin" | "Celtiis Bénin" | "CASH";
+  paymentMethod?: string;
+  paymentDate?: string;
   status: "PENDING" | "COMPLETED" | "FAILED";
   reference: string;
   items?: { id?: string; name: string; amount: number; remaining?: number }[];
@@ -180,7 +187,9 @@ export interface Announcement {
   title: string;
   content: string;
   date: number;
-  authorName: string;
+  authorName?: string;
+  author?: string;
+  targetAudience?: string;
 }
 
 export const LEVELS = [

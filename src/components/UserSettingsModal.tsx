@@ -59,7 +59,8 @@ export function UserSettingsModal({ isOpen, onClose }: Props) {
       alert("Erreur lors de la mise à jour");
     } else {
       // update local user state
-      login({ ...user, name, phone });
+      // update local user state (refreshing page to reflect auth context is better or just let the session handle it)
+      if (typeof window !== 'undefined') window.location.reload();
       alert("Profil mis à jour");
       onClose();
     }

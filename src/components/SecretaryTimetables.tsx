@@ -74,7 +74,7 @@ export function SecretaryTimetables() {
        school_id: user.schoolId,
        name: courseName,
        level: courseLevel,
-       teacher_id: user.id // or proper teacher selection
+       teacher_id: courseTeacherId || null
     });
     
     if (!error) {
@@ -138,6 +138,10 @@ export function SecretaryTimetables() {
               <input required value={courseName} onChange={e => setCourseName(e.target.value)} placeholder="Nom de la matière" className="w-full px-2 py-1 border rounded" />
               <select value={courseLevel} onChange={e => setCourseLevel(e.target.value)} className="w-full px-2 py-1 border rounded">
                 {LEVELS.map(l => <option key={l} value={l}>{l}</option>)}
+              </select>
+              <select value={courseTeacherId} onChange={e => setCourseTeacherId(e.target.value)} className="w-full px-2 py-1 border rounded bg-white">
+                <option value="">Sélectionner un professeur (optionnel)</option>
+                {teachers.map(t => <option key={t.id} value={t.id}>{t.full_name || t.email}</option>)}
               </select>
               <button className="w-full bg-emerald-600 text-white py-1 rounded">Ajouter</button>
             </form>

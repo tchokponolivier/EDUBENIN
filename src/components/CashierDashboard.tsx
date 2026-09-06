@@ -11,16 +11,23 @@ export function CashierDashboard() {
   const [payments, setPayments] = useState<Payment[]>([]);
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [loading, setLoading] = useState(true);
+  const [academicYears, setAcademicYears] = useState<any[]>([]);
+  const [selectedYearId, setSelectedYearId] = useState<string>("ALL");
 
   useEffect(() => {
     const fetchData = async () => {
       if (!user?.schoolId) return;
       setLoading(true);
       
-      const [paymentsRes, expensesRes] = await Promise.all([
+      const [paymentsRes, expensesRes, yearsRes] = await Promise.all([
         supabase.from('payments').select('*').eq('school_id', user.schoolId),
-        supabase.from('expenses').select('*').eq('school_id', user.schoolId)
+        supabase.from('expenses').select('*').eq('school_id', user.schoolId),
+        supabase.from('academic_years').select('*').eq('school_id', user.schoolId)
       ]);
+      
+      if (yearsRes.data) {
+          setAcademicYears(yearsRes.data);
+      }
       
       if (paymentsRes.data) {
          setPayments(paymentsRes.data.map(d => ({
@@ -54,8 +61,29 @@ export function CashierDashboard() {
     fetchData();
   }, [user]);
 
-  const totalRevenue = useMemo(() => payments.reduce((acc, p) => acc + p.amount, 0), [payments]);
-  const totalExpenses = useMemo(() => expenses.reduce((acc, e) => acc + e.amount, 0), [expenses]);
+  const filteredPayments = useMemo(() => {
+      if (selectedYearId === "ALL") return payments;
+      const year = academicYears.find(y => y.id === selectedYearId);
+      if (!year) return payments;
+      const start = new Date(year.start_date).getTime();
+      const end = new Date(year.end_date).getTime();
+      return payments.filter(p => p.date >= start && p.date <= end);
+  }, [payments, selectedYearId, academicYears]);
+
+  const filteredExpenses = useMemo(() => {
+      if (selectedYearId === "ALL") return expenses;
+      const year = academicYears.find(y => y.id === selectedYearId);
+      if (!year) return expenses;
+      const start = new Date(year.start_date).getTime();
+      const end = new Date(year.end_date).getTime();
+      return expenses.filter(e => {
+         const t = new Date(e.expenseDate).getTime();
+         return t >= start && t <= end;
+      });
+  }, [expenses, selectedYearId, academicYears]);
+
+  const totalRevenue = useMemo(() => filteredPayments.reduce((acc, p) => acc + p.amount, 0), [filteredPayments]);
+  const totalExpenses = useMemo(() => filteredExpenses.reduce((acc, e) => acc + e.amount, 0), [filteredExpenses]);
   
   if (loading) {
     return <div className="p-8 text-center text-slate-500">Chargement du tableau de bord...</div>;

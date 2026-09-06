@@ -1,3 +1,5 @@
+import SignatureCanvas from "react-signature-canvas";
+import { useRef } from "react";
 import React, { useState, useEffect } from "react";
 import { Student, Payment, SchoolSettings, Announcement } from "../types";
 import { Users, GraduationCap, ArrowUpRight, Search, Settings, Megaphone, Trash2, Edit, Mail, Plus } from "lucide-react";
@@ -31,6 +33,8 @@ export function SchoolAdminDashboard() {
   const [announcementContent, setAnnouncementContent] = useState("");
   const [announcementTarget, setAnnouncementTarget] = useState("Parents");
   const [logoBase64, setLogoBase64] = useState("");
+  const [signatureBase64, setSignatureBase64] = useState("");
+  const sigCanvas = useRef<any>(null);
 
   useEffect(() => {
     const params = new URLSearchParams(location.search);
@@ -72,7 +76,8 @@ export function SchoolAdminDashboard() {
         motto: data.motto || "",
         logo: data.logo_url || "",
         academicYear: (extra as any).academicYear || "",
-        enrollmentContractTemplate: (extra as any).enrollmentContractTemplate || ""
+        enrollmentContractTemplate: (extra as any).enrollmentContractTemplate || "",
+        directorSignature: (extra as any).directorSignature || ""
       } as any);
     }
   };
@@ -154,6 +159,7 @@ export function SchoolAdminDashboard() {
       motto: formData.get("motto") as string,
       
       enrollmentContractTemplate: formData.get("enrollmentContractTemplate") as string,
+      directorSignature: signatureBase64 || settings.directorSignature || "",
       logo: logoBase64 || settings.logo,
       academicYear: settings.academicYear,
     };
@@ -170,7 +176,8 @@ export function SchoolAdminDashboard() {
        } else {
          localStorage.setItem('schoolSettings_extra_' + user.schoolId, JSON.stringify({
            academicYear: updates.academicYear,
-           enrollmentContractTemplate: updates.enrollmentContractTemplate
+           enrollmentContractTemplate: updates.enrollmentContractTemplate,
+           directorSignature: updates.directorSignature
          }));
          setSettings({ ...settings, ...updates });
          alert("Paramètres enregistrés avec succès.");
@@ -489,6 +496,35 @@ export function SchoolAdminDashboard() {
                   <option value="EUR">Euro (€)</option>
                   <option value="USD">Dollar US ($)</option>
                </select>
+             </div>
+
+             <div className="md:col-span-2">
+               <label className="block text-xs font-semibold text-gray-700 mb-1 uppercase tracking-wide">Signature du directeur</label>
+               <div className="flex flex-col sm:flex-row gap-4 items-start">
+                 <div className="border border-slate-300 rounded bg-slate-50 relative overflow-hidden" style={{ width: 300, height: 150 }}>
+                   <SignatureCanvas 
+                     ref={sigCanvas} 
+                     penColor="black"
+                     canvasProps={{width: 300, height: 150, className: 'sigCanvas'}} 
+                     onEnd={() => setSignatureBase64(sigCanvas.current.getTrimmedCanvas().toDataURL('image/png'))}
+                   />
+                 </div>
+                 <div className="flex flex-col gap-2">
+                   <button 
+                     type="button" 
+                     onClick={() => { sigCanvas.current?.clear(); setSignatureBase64(""); }}
+                     className="px-3 py-1.5 text-xs font-semibold border border-slate-300 rounded hover:bg-slate-100"
+                   >
+                     Effacer
+                   </button>
+                   {(settings as any)?.directorSignature && !signatureBase64 && (
+                     <div className="mt-2">
+                       <p className="text-[10px] text-slate-500 mb-1 uppercase">Signature Actuelle :</p>
+                       <img src={(settings as any).directorSignature} alt="Signature actuelle" className="h-16 object-contain border border-slate-200 bg-white" />
+                     </div>
+                   )}
+                 </div>
+               </div>
              </div>
 
              <div className="md:col-span-2">

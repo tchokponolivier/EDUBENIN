@@ -11,9 +11,9 @@ interface Props {
 export function UserSettingsModal({ isOpen, onClose }: Props) {
   const { user, login } = useAuth();
   const [name, setName] = useState(user?.name || "");
-  const [email, setEmail] = useState("");
+  const [email, setEmail] = useState(user?.email || "");
   const [phone, setPhone] = useState(user?.phone || "");
-  const [address, setAddress] = useState("");
+  const [address, setAddress] = useState(user?.email || "");
   const [loading, setLoading] = useState(false);
   const [avatar, setAvatar] = useState<string | null>(null);
   

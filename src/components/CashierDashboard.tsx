@@ -99,6 +99,15 @@ export function CashierDashboard() {
 
   return (
     <div className="space-y-6">
+      <div className="flex justify-end mb-4">
+        <div className="flex items-center gap-2">
+           <label className="text-xs font-bold text-gray-700 uppercase">Année Scolaire:</label>
+           <select value={selectedYearId} onChange={e => setSelectedYearId(e.target.value)} className="px-3 py-1.5 border border-slate-300 rounded text-sm outline-none focus:border-emerald-500">
+             <option value="ALL">Toutes les années</option>
+             {academicYears.map(y => <option key={y.id} value={y.id}>{y.name}</option>)}
+           </select>
+        </div>
+      </div>
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
           <div className="flex justify-between items-start">

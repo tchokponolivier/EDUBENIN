@@ -33,6 +33,7 @@ export function TeacherTimetable() {
            id: d.id,
            schoolId: d.school_id,
            courseId: d.course_id,
+           teacherId: d.teacher_id,
            dayOfWeek: d.day_of_week,
            startTime: d.start_time,
            endTime: d.end_time,
@@ -59,7 +60,11 @@ export function TeacherTimetable() {
          ))}
          {days.map((_, dIdx) => {
             const dayNum = dIdx + 1;
-            const tts = timetables.filter(t => t.dayOfWeek === dayNum).sort((a,b) => a.startTime.localeCompare(b.startTime));
+            const tts = timetables.filter(t => {
+                if (t.dayOfWeek !== dayNum) return false;
+                const crs = courses.find(c => c.id === t.courseId);
+                return crs?.teacherId === user?.id || t.teacherId === user?.id;
+            }).sort((a,b) => a.startTime.localeCompare(b.startTime));
             return (
                <div key={dIdx} className="space-y-2 p-2 bg-slate-50 min-h-[400px] border-x border-b rounded-b">
                   {tts.map(t => {

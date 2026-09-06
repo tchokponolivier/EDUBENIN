@@ -19,6 +19,7 @@ export function SecretaryTimetables() {
   const [ttStart, setTtStart] = useState("08:00");
   const [ttEnd, setTtEnd] = useState("10:00");
   const [ttRoom, setTtRoom] = useState("");
+  const [ttTeacherId, setTtTeacherId] = useState("");
 
   const [selectedLevelFilter, setSelectedLevelFilter] = useState(LEVELS[0]);
   const [teachers, setTeachers] = useState<any[]>([]);
@@ -53,6 +54,7 @@ export function SecretaryTimetables() {
          id: d.id,
          schoolId: d.school_id,
          courseId: d.course_id,
+         teacherId: d.teacher_id,
          dayOfWeek: d.day_of_week,
          startTime: d.start_time,
          endTime: d.end_time,
@@ -104,6 +106,7 @@ export function SecretaryTimetables() {
     const { error } = await supabase.from('timetables').insert({
        school_id: user.schoolId,
        course_id: ttCourseId,
+       teacher_id: ttTeacherId || null,
        day_of_week: ttDay,
        start_time: ttStart,
        end_time: ttEnd,
@@ -164,9 +167,17 @@ export function SecretaryTimetables() {
           </div>
           {showTimetableForm && (
             <form onSubmit={handleCreateTimetable} className="mb-4 space-y-2 p-3 bg-slate-50 border rounded text-sm">
-              <select required value={ttCourseId} onChange={e => setTtCourseId(e.target.value)} className="w-full px-2 py-1 border rounded">
+              <select required value={ttCourseId} onChange={e => {
+                  setTtCourseId(e.target.value);
+                  const course = courses.find(c => c.id === e.target.value);
+                  if (course?.teacherId) setTtTeacherId(course.teacherId);
+              }} className="w-full px-2 py-1 border rounded">
                 <option value="">Sélectionner un cours</option>
                 {courses.map(c => <option key={c.id} value={c.id}>{c.name} ({c.level})</option>)}
+              </select>
+              <select value={ttTeacherId} onChange={e => setTtTeacherId(e.target.value)} className="w-full px-2 py-1 border rounded bg-white">
+                <option value="">Sélectionner un professeur (optionnel)</option>
+                {teachers.map(t => <option key={t.id} value={t.id}>{t.full_name || t.email}</option>)}
               </select>
               <div className="flex gap-2">
                  <select value={ttDay} onChange={e => setTtDay(Number(e.target.value))} className="flex-1 px-2 py-1 border rounded">

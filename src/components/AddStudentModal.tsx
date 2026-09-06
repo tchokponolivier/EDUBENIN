@@ -81,6 +81,7 @@ export function AddStudentModal({ isOpen, onClose, onSuccess, initialData = null
   const [disciplinaryCommitment, setDisciplinaryCommitment] = useState(false);
   const [disciplinarySignature, setDisciplinarySignature] = useState("");
   const [settings, setSettings] = useState<any>(null);
+  const [predictedMatricule, setPredictedMatricule] = useState("");
   const editingChildId = initialData?.id;
 
   useEffect(() => {
@@ -98,6 +99,27 @@ export function AddStudentModal({ isOpen, onClose, onSuccess, initialData = null
       }
     }
   }, [isOpen, user]);
+
+  useEffect(() => {
+    if (academicYear && !initialData?.id) {
+      const fetchMatricule = async () => {
+         const { data: schools } = await supabase.from('schools').select('id').limit(1);
+         const insertSchoolId = user?.schoolId || (schools && schools.length > 0 ? schools[0].id : null);
+         
+         if (insertSchoolId) {
+             const countRes = await supabase.from('students').select('id', { count: 'exact' })
+                .eq('school_id', insertSchoolId)
+                .eq('academic_year', academicYear);
+             const studentCount = countRes.count || 0;
+             const yearPrefix = academicYear.substring(0, 4);
+             setPredictedMatricule(`MAT-${yearPrefix}-${studentCount + 1}`);
+         }
+      };
+      fetchMatricule();
+    } else if (initialData?.matricule) {
+      setPredictedMatricule(initialData.matricule);
+    }
+  }, [academicYear, user, initialData]);
 
   useEffect(() => {
     if (initialData) {
@@ -287,7 +309,9 @@ export function AddStudentModal({ isOpen, onClose, onSuccess, initialData = null
                 </div>
                 
                 <div>
-                 <label className="block text-xs font-semibold text-gray-700 mb-1 uppercase tracking-wide">Matricule</label><input type="text" readOnly value={`MAT-${academicYear || "XXX"}-...`} className="w-full px-3 py-2 border border-slate-200 bg-slate-100 text-slate-500 rounded text-sm outline-none cursor-not-allowed mb-4" /><label className="block text-xs font-semibold text-gray-700 mb-1 uppercase tracking-wide">Année Scolaire *</label>
+                 <label className="block text-xs font-semibold text-gray-700 mb-1 uppercase tracking-wide">Matricule</label>
+                 <input type="text" readOnly value={predictedMatricule || "Génération..."} className="w-full px-3 py-2 border border-slate-200 bg-slate-100 text-slate-500 rounded text-sm outline-none cursor-not-allowed mb-4 font-mono font-bold" />
+                 <label className="block text-xs font-semibold text-gray-700 mb-1 uppercase tracking-wide">Année Scolaire *</label>
                  <select required value={academicYear} onChange={e => setAcademicYear(e.target.value)} className="w-full px-3 py-2 border border-slate-300 rounded focus:ring-emerald-500 focus:border-emerald-500 outline-none text-sm bg-emerald-50 text-emerald-800 font-bold">
                    {academicYears.length === 0 && <option value="">Aucune année active</option>}
                    {academicYears.map(y => <option key={y.id} value={y.name}>{y.name}</option>)}

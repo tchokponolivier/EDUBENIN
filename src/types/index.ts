@@ -137,6 +137,7 @@ export interface Timetable {
   id: string;
   schoolId: string;
   courseId: string;
+  teacherId?: string;
   dayOfWeek: number; // 1=Lundi
   startTime: string;
   endTime: string;

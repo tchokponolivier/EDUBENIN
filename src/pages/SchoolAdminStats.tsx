@@ -237,10 +237,48 @@ export function SchoolAdminStats() {
                            <span className="text-slate-500">Statut:</span>
                            <span className="font-bold text-emerald-600">{selectedSynthStudent.student_type === 'NEW' ? 'Nouveau' : 'Ancien'}</span>
                         </div>
+                        <div className="flex justify-between">
+                           <span className="text-slate-500">Date et lieu de naissance:</span>
+                           <span className="font-bold text-right">{selectedSynthStudent.date_of_birth} à {selectedSynthStudent.place_of_birth}</span>
+                        </div>
+                        <div className="flex justify-between">
+                           <span className="text-slate-500">Nationalité / Religion:</span>
+                           <span className="font-bold text-right">{selectedSynthStudent.nationality} / {selectedSynthStudent.religion}</span>
+                        </div>
+                        <div className="flex justify-between">
+                           <span className="text-slate-500">École précédente:</span>
+                           <span className="font-bold">{selectedSynthStudent.previous_school || '-'}</span>
+                        </div>
+                        <div className="flex justify-between">
+                           <span className="text-slate-500">Remise sur scolarité:</span>
+                           <span className="font-bold text-orange-600">{selectedSynthStudent.discount_percentage || 0}%</span>
+                        </div>
+                     </div>
+                     
+                     <h3 className="text-lg font-bold text-gray-700 mt-6 mb-4 border-b pb-2">Contacts Famille</h3>
+                     <div className="space-y-3 text-sm">
+                        {selectedSynthStudent.father_name && (
+                           <div className="flex flex-col">
+                              <span className="text-slate-500">Père: {selectedSynthStudent.father_name}</span>
+                              <span className="font-bold">{selectedSynthStudent.father_contact || '-'}</span>
+                           </div>
+                        )}
+                        {selectedSynthStudent.mother_name && (
+                           <div className="flex flex-col">
+                              <span className="text-slate-500">Mère: {selectedSynthStudent.mother_name}</span>
+                              <span className="font-bold">{selectedSynthStudent.mother_contact || '-'}</span>
+                           </div>
+                        )}
+                        {selectedSynthStudent.guardian_name && (
+                           <div className="flex flex-col">
+                              <span className="text-slate-500">Tuteur: {selectedSynthStudent.guardian_name}</span>
+                              <span className="font-bold">{selectedSynthStudent.guardian_contact || '-'}</span>
+                           </div>
+                        )}
                      </div>
                   </div>
                   <div>
-                     <h3 className="text-lg font-bold text-gray-700 mb-4 border-b pb-2">Synthèse Globale</h3>
+                     <h3 className="text-lg font-bold text-gray-700 mb-4 border-b pb-2">Synthèse Globale & Performance</h3>
                      <div className="flex items-center justify-center h-32 bg-slate-50 rounded border border-slate-100 text-center p-4">
                         <p className="text-slate-500 text-sm">
                            Les bulletins de notes et historiques des paiements détaillés apparaîtront ici dès que les modules pédagogiques et financiers seront consolidés pour cet élève.

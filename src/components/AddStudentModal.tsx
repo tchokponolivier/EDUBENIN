@@ -61,7 +61,7 @@ export function AddStudentModal({ isOpen, onClose, onSuccess, initialData = null
   const [previousClass, setPreviousClass] = useState("");
   const [previousSchool, setPreviousSchool] = useState("");
   const [lastYearAttended, setLastYearAttended] = useState("");
-  const [status, setStatus] = useState<"PASSING" | "REPEATING" | "EXCLUDED">("PASSING");
+  const [enrollmentStatus, setEnrollmentStatus] = useState("ACTIVE");
   const [educmasterNumber, setEducmasterNumber] = useState("");
   const [gender, setGender] = useState<"MALE" | "FEMALE">("MALE");
   const [nationality, setNationality] = useState("Béninoise");
@@ -82,6 +82,9 @@ export function AddStudentModal({ isOpen, onClose, onSuccess, initialData = null
   const [disciplinarySignature, setDisciplinarySignature] = useState("");
   const [settings, setSettings] = useState<any>(null);
   const [predictedMatricule, setPredictedMatricule] = useState("");
+  const [discountOption, setDiscountOption] = useState("0");
+  const [customDiscount, setCustomDiscount] = useState("");
+  const [discountPercentage, setDiscountPercentage] = useState(0);
   const editingChildId = initialData?.id;
 
   useEffect(() => {
@@ -123,33 +126,42 @@ export function AddStudentModal({ isOpen, onClose, onSuccess, initialData = null
 
   useEffect(() => {
     if (initialData) {
-      setFirstName(initialData.first_name || "");
-      setLastName(initialData.last_name || "");
+      setFirstName(initialData.first_name || initialData.firstName || "");
+      setLastName(initialData.last_name || initialData.lastName || "");
       setLevel(initialData.level || LEVELS[0]);
-      if (initialData.academic_year) setAcademicYear(initialData.academic_year);
-      setDateOfBirth(initialData.date_of_birth || "");
-      setPlaceOfBirth(initialData.place_of_birth || "");
+      if (initialData.academic_year || initialData.academicYear) setAcademicYear(initialData.academic_year || initialData.academicYear);
+      setDateOfBirth(initialData.date_of_birth || initialData.dateOfBirth || "");
+      setPlaceOfBirth(initialData.place_of_birth || initialData.placeOfBirth || "");
       setGender(initialData.gender || "MALE");
-      setStudentType(initialData.student_type || "NEW");
-      setPreviousClass(initialData.previous_class || "");
-      setPreviousSchool(initialData.previous_school || "");
-      setLastYearAttended(initialData.last_year_attended || "");
-      setEducmasterNumber(initialData.educmaster_number || "");
+      setStudentType(initialData.student_type || initialData.studentType || "NEW");
+      setPreviousClass(initialData.previous_class || initialData.previousClass || "");
+      setPreviousSchool(initialData.previous_school || initialData.previousSchool || "");
+      setLastYearAttended(initialData.last_year_attended || initialData.lastYearAttended || "");
+      setEducmasterNumber(initialData.educmaster_number || initialData.educmasterNumber || "");
       setNationality(initialData.nationality || "Béninoise");
       setReligion(initialData.religion || "Christianisme");
-      setFatherName(initialData.father_name || "");
-      setFatherProfession(initialData.father_profession || "");
-      setFatherContact(initialData.father_contact || "");
-      setFatherAddress(initialData.father_address || "");
-      setMotherName(initialData.mother_name || "");
-      setMotherProfession(initialData.mother_profession || "");
-      setMotherContact(initialData.mother_contact || "");
-      setMotherAddress(initialData.mother_address || "");
-      setGuardianName(initialData.guardian_name || "");
-      setGuardianContact(initialData.guardian_contact || "");
-      setGuardianAddress(initialData.guardian_address || "");
-      setCanteenOptions(initialData.canteen_options ? initialData.canteen_options.split(", ") : []);
-      setDisciplinaryCommitment(initialData.disciplinary_commitment || false);
+      setEnrollmentStatus(initialData.status || "ACTIVE");
+      setFatherName(initialData.father_name || initialData.fatherName || "");
+      setFatherProfession(initialData.father_profession || initialData.fatherProfession || "");
+      setFatherContact(initialData.father_contact || initialData.fatherContact || "");
+      setFatherAddress(initialData.father_address || initialData.fatherAddress || "");
+      setMotherName(initialData.mother_name || initialData.motherName || "");
+      setMotherProfession(initialData.mother_profession || initialData.motherProfession || "");
+      setMotherContact(initialData.mother_contact || initialData.motherContact || "");
+      setMotherAddress(initialData.mother_address || initialData.motherAddress || "");
+      setGuardianName(initialData.guardian_name || initialData.guardianName || "");
+      setGuardianContact(initialData.guardian_contact || initialData.guardianContact || "");
+      setGuardianAddress(initialData.guardian_address || initialData.guardianAddress || "");
+      setCanteenOptions(initialData.canteen_options ? initialData.canteen_options.split(", ") : (initialData.canteenOptions ? initialData.canteenOptions.split(", ") : []));
+      setDisciplinaryCommitment(initialData.disciplinary_commitment || initialData.disciplinaryCommitment || false);
+      const disc = initialData.discount_percentage ?? initialData.discountPercentage ?? 0;
+      setDiscountPercentage(disc);
+      if ([0, 2, 5, 10, 15].includes(disc)) {
+          setDiscountOption(disc.toString());
+      } else {
+          setDiscountOption("AUTRES");
+          setCustomDiscount(disc.toString());
+      }
     }
   }, [initialData]);
 
@@ -183,7 +195,15 @@ export function AddStudentModal({ isOpen, onClose, onSuccess, initialData = null
     };
 
     if (initialData?.id) {
+      let finalDiscount = 0;
+      if (discountOption === "AUTRES") {
+          finalDiscount = Number(customDiscount) || 0;
+      } else {
+          finalDiscount = Number(discountOption) || 0;
+      }
       await supabase.from('students').update({
+        discount_percentage: finalDiscount,
+        status: enrollmentStatus,
         first_name: studentData.firstName,
         last_name: studentData.lastName,
         level: studentData.level,
@@ -227,10 +247,18 @@ export function AddStudentModal({ isOpen, onClose, onSuccess, initialData = null
          generatedMatricule = `MAT-${yearPrefix}-${studentCount + 1}`;
       }
       
+      let finalDiscount = 0;
+      if (discountOption === "AUTRES") {
+          finalDiscount = Number(customDiscount) || 0;
+      } else {
+          finalDiscount = Number(discountOption) || 0;
+      }
       const { error } = await supabase.from('students').insert({
         matricule: generatedMatricule,
         academic_year: academicYear,
+        discount_percentage: finalDiscount,
         parent_id: user?.role === 'PARENT' ? user.id : null,
+        status: enrollmentStatus,
         first_name: studentData.firstName,
         last_name: studentData.lastName,
         level: studentData.level,
@@ -308,15 +336,36 @@ export function AddStudentModal({ isOpen, onClose, onSuccess, initialData = null
                    </div>
                 </div>
                 
-                <div>
-                 <label className="block text-xs font-semibold text-gray-700 mb-1 uppercase tracking-wide">Matricule</label>
-                 <input type="text" readOnly value={predictedMatricule || "Génération..."} className="w-full px-3 py-2 border border-slate-200 bg-slate-100 text-slate-500 rounded text-sm outline-none cursor-not-allowed mb-4 font-mono font-bold" />
-                 <label className="block text-xs font-semibold text-gray-700 mb-1 uppercase tracking-wide">Année Scolaire *</label>
-                 <select required value={academicYear} onChange={e => setAcademicYear(e.target.value)} className="w-full px-3 py-2 border border-slate-300 rounded focus:ring-emerald-500 focus:border-emerald-500 outline-none text-sm bg-emerald-50 text-emerald-800 font-bold">
-                   {academicYears.length === 0 && <option value="">Aucune année active</option>}
-                   {academicYears.map(y => <option key={y.id} value={y.name}>{y.name}</option>)}
-                 </select>
-              </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                   <div>
+                     <label className="block text-xs font-semibold text-gray-700 mb-1 uppercase tracking-wide">Matricule</label>
+                     <input type="text" readOnly value={predictedMatricule || "Génération..."} className="w-full px-3 py-2 border border-slate-200 bg-slate-100 text-slate-500 rounded text-sm outline-none cursor-not-allowed font-mono font-bold" />
+                   </div>
+                   <div>
+                     <label className="block text-xs font-semibold text-gray-700 mb-1 uppercase tracking-wide">Année Scolaire *</label>
+                     <select required value={academicYear} onChange={e => setAcademicYear(e.target.value)} className="w-full px-3 py-2 border border-slate-300 rounded focus:ring-emerald-500 focus:border-emerald-500 outline-none text-sm bg-emerald-50 text-emerald-800 font-bold">
+                       {academicYears.length === 0 && <option value="">Aucune année active</option>}
+                       {academicYears.map(y => <option key={y.id} value={y.name}>{y.name}</option>)}
+                     </select>
+                   </div>
+                   <div>
+                     <label className="block text-xs font-semibold text-gray-700 mb-1 uppercase tracking-wide">Remise sur scolarité</label>
+                     <select value={discountOption} onChange={e => setDiscountOption(e.target.value)} className="w-full px-3 py-2 border border-slate-300 rounded focus:ring-emerald-500 outline-none text-sm">
+                       <option value="0">0%</option>
+                       <option value="2">2%</option>
+                       <option value="5">5%</option>
+                       <option value="10">10%</option>
+                       <option value="15">15%</option>
+                       <option value="AUTRES">AUTRES</option>
+                     </select>
+                   </div>
+                   {discountOption === "AUTRES" && (
+                     <div>
+                       <label className="block text-xs font-semibold text-gray-700 mb-1 uppercase tracking-wide">Taux de remise personnalisé (%)</label>
+                       <input type="number" min="0" max="100" required value={customDiscount} onChange={e => setCustomDiscount(e.target.value)} placeholder="Ex: 20" className="w-full px-3 py-2 border border-slate-300 rounded focus:ring-emerald-500 outline-none text-sm" />
+                     </div>
+                   )}
+                </div>
               <div>
                   <label className="block text-xs font-semibold text-gray-700 mb-1 uppercase tracking-wide">Statut Élève</label>
                   <select value={studentType} onChange={e => setStudentType(e.target.value as any)} className="w-full px-3 py-2 border border-slate-300 rounded text-sm focus:ring-emerald-500 focus:border-emerald-500 outline-none">
@@ -383,11 +432,13 @@ export function AddStudentModal({ isOpen, onClose, onSuccess, initialData = null
                   </select>
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold text-gray-700 mb-1 uppercase tracking-wide">Statut</label>
-                  <select value={status} onChange={e => setStatus(e.target.value as any)} className="w-full px-3 py-2 border border-slate-300 rounded text-sm focus:ring-emerald-500 focus:border-emerald-500 outline-none">
-                    <option value="PASSING">Passant</option>
-                    <option value="REPEATING">Redoublant</option>
-                    <option value="EXCLUDED">Exclu</option>
+                  <label className="block text-xs font-semibold text-gray-700 mb-1 uppercase tracking-wide">Statut de l'élève</label>
+                  <select value={enrollmentStatus} onChange={e => setEnrollmentStatus(e.target.value)} className="w-full px-3 py-2 border border-slate-300 rounded text-sm focus:ring-emerald-500 focus:border-emerald-500 outline-none">
+                     <option value="ACTIVE">Actif (Inscrit normalement)</option>
+                     <option value="DROPOUT">Abandon</option>
+                     <option value="EXCLUDED">Exclus</option>
+                     <option value="PASSING">Admis (Fin d'année)</option>
+                     <option value="REPEATING">Redoublant</option>
                   </select>
                 </div>
                 <div>

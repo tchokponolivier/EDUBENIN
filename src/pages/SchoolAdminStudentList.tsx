@@ -189,7 +189,7 @@ function ClassSection({ className, students, teachers }: { key?: string, classNa
           <tbody className="divide-y divide-slate-100">
             {students.map(s => (
               <tr key={s.id} className="hover:bg-slate-50 transition-colors">
-                <td className="px-6 py-3 text-sm font-mono text-slate-500">{s.id.substring(0,8).toUpperCase()}</td>
+                <td className="px-6 py-3 text-sm font-mono text-slate-500">{s.matricule || s.id.substring(0,8).toUpperCase()}</td>
                 <td className="px-6 py-3 text-sm font-bold text-gray-800 uppercase">{s.last_name}</td>
                 <td className="px-6 py-3 text-sm text-gray-700 capitalize">{s.first_name}</td>
                 <td className="px-6 py-3">

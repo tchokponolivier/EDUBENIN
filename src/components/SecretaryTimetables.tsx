@@ -218,10 +218,25 @@ export function SecretaryTimetables() {
                     {tts.map(t => {
                        const crs = courses.find(c => c.id === t.courseId);
                        return (
-                          <div key={t.id} className="bg-white p-2 rounded shadow-sm border-l-2 border-emerald-500 text-xs">
+                          <div key={t.id} className="bg-white p-2 rounded shadow-sm border-l-2 border-emerald-500 text-xs relative group">
                              <div className="font-bold text-gray-800">{crs?.name}</div>
                              <div className="text-slate-500 mt-1">{t.startTime} - {t.endTime}</div>
                              <div className="text-emerald-700 font-semibold mt-1 text-[10px]">Salle: {t.room}</div>
+                             <div className="text-blue-600 font-semibold mt-1 text-[10px] truncate">
+                               {(() => {
+                                  const tId = t.teacherId || crs?.teacherId;
+                                  const teacher = teachers.find(tea => tea.id === tId);
+                                  return teacher ? (teacher.full_name || teacher.email) : "Non assigné";
+                               })()}
+                             </div>
+                             <button onClick={async () => {
+                                 if (window.confirm("Supprimer ce créneau ?")) {
+                                     await supabase.from('timetables').delete().eq('id', t.id);
+                                     fetchData();
+                                 }
+                             }} className="hidden group-hover:block absolute top-1 right-1 text-red-500 bg-white rounded-full">
+                                <Trash2 size={12} />
+                             </button>
                           </div>
                        );
                     })}

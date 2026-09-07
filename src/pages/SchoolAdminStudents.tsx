@@ -28,7 +28,7 @@ export function SchoolAdminStudents() {
     const tab = params.get('tab');
     if (tab === "STUDENTS" || tab === "ABSENCES" || tab === "DOCUMENTS" || tab === "TIMETABLES") setActiveTab(tab);
   }, [location.search]);
-  const [students, setStudents] = useState<Student[]>([]);
+  const [students, setStudents] = useState<any[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedStudentIds, setSelectedStudentIds] = useState<string[]>([]);
   const [selectedClass, setSelectedClass] = useState<string | null>(null);
@@ -103,7 +103,7 @@ export function SchoolAdminStudents() {
   };
   
   // Modal states
-  const [showEditModal, setShowEditModal] = useState<Student | null>(null);
+  const [showEditModal, setShowEditModal] = useState<any | null>(null);
   
   useEffect(() => {
     const fetchStudents = async () => {
@@ -121,6 +121,7 @@ export function SchoolAdminStudents() {
           if (data && data.length > 0) {
             // Map DB fields to Student interface
             const mappedStudents = data.map(d => ({
+              ...d,
               id: d.id,
               firstName: d.first_name,
               lastName: d.last_name,
@@ -136,7 +137,7 @@ export function SchoolAdminStudents() {
               motherName: d.mother_name,
               guardianName: d.guardian_name,
               createdAt: new Date(d.created_at).getTime()
-            })) as Student[];
+            })) as any[];
             setStudents(mappedStudents);
             return;
           }
@@ -346,7 +347,7 @@ export function SchoolAdminStudents() {
                    </td>
                    <td className="px-4 py-3">
                      <div className="font-semibold text-gray-700">{student.lastName} {student.firstName}</div>
-                     <div className="text-[10px] text-slate-400 font-mono">ID: {student.id}</div>
+                     <div className="text-[10px] text-slate-400 font-mono">Matricule: {student.matricule || student.id.substring(0,8).toUpperCase()}</div>
                    </td>
                    <td className="px-4 py-3 text-slate-600">{student.level}</td>
                    <td className="px-4 py-3 text-slate-500 font-mono text-xs">
@@ -390,39 +391,7 @@ export function SchoolAdminStudents() {
       )}
 
       {showEditModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
-          <div className="bg-white rounded-xl shadow-xl w-full max-w-md animate-in zoom-in-95">
-            <div className="p-4 border-b border-slate-100 flex flex-col">
-               <h3 className="font-bold text-lg text-gray-700">Éditer {showEditModal.firstName}</h3>
-               <p className="text-xs text-slate-500">Mise à jour du statut ou de la remise</p>
-            </div>
-            <form onSubmit={handleSaveStudent} className="p-4 space-y-4">
-               <div>
-                  <label className="block text-xs font-semibold text-gray-700 mb-1 uppercase tracking-wide">Statut</label>
-                  <select required value={showEditModal.status || "ACTIVE"} onChange={e => setShowEditModal({...showEditModal, status: e.target.value as any})} className="w-full px-3 py-2 border border-slate-300 rounded text-sm focus:ring-emerald-500 focus:border-emerald-500 outline-none">
-                     <option value="ACTIVE">Actif (Inscrit normalement)</option>
-                     <option value="DROPOUT">Abandon</option>
-                     <option value="EXCLUDED">Exclus</option>
-                     <option value="PASSING">Admis (Fin d'année)</option>
-                     <option value="REPEATING">Redoublant</option>
-                  </select>
-                  {showEditModal.status === "EXCLUDED" && (
-                     <p className="text-[10px] text-red-600 mt-1 flex items-center gap-1"><AlertCircle size={10} /> L'élève sera marqué comme exclu de l'établissement.</p>
-                  )}
-               </div>
-               <div>
-                  <label className="block text-xs font-semibold text-gray-700 mb-1 uppercase tracking-wide">Remise sur scolarité (%)</label>
-                  <input required type="number" min="0" max="100" value={showEditModal.discountPercentage || 0} onChange={e => setShowEditModal({...showEditModal, discountPercentage: Number(e.target.value)})} className="w-full px-3 py-2 border border-slate-300 rounded text-sm outline-none" />
-                  <p className="text-[10px] text-slate-500 mt-1">Exemple: 10 pour 10% de réduction.</p>
-               </div>
-               
-               <div className="flex justify-end gap-3 mt-6">
-                 <button type="button" onClick={() => setShowEditModal(null)} className="px-4 py-2 text-xs font-bold text-slate-600 bg-slate-100 hover:bg-slate-200 rounded uppercase tracking-wider transition-colors">Annuler</button>
-                 <button type="submit" className="px-4 py-2 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 rounded shadow-sm uppercase tracking-wider transition-colors">Enregistrer</button>
-               </div>
-            </form>
-          </div>
-        </div>
+          <AddStudentModal isOpen={true} onClose={() => setShowEditModal(null)} onSuccess={() => { setShowEditModal(null); window.location.reload(); }} initialData={showEditModal} />
       )}
 
       {showExportModal && (

@@ -123,7 +123,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
         const { data: profile, error } = await supabase
           .from('profiles')
-          .select('role, full_name, school_id')
+          .select('role, full_name, school_id, avatar_url')
           .eq('id', sessionUser.id)
           .single();
 
@@ -139,6 +139,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
             name: profile.full_name || sessionUser.user_metadata?.full_name || sessionUser.email?.split("@")[0] || "User",
             role: profile.role as any,
             schoolId: profile.school_id,
+            avatar: profile.avatar_url,
           });
         } else {
           // Fallback if profile not created yet

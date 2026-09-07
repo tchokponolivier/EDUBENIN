@@ -20,8 +20,10 @@ export function SecretaryTimetables() {
   const [ttEnd, setTtEnd] = useState("10:00");
   const [ttRoom, setTtRoom] = useState("");
   const [ttTeacherId, setTtTeacherId] = useState("");
+  const [ttLevelFilter, setTtLevelFilter] = useState(LEVELS[0]);
 
   const [selectedLevelFilter, setSelectedLevelFilter] = useState(LEVELS[0]);
+  const [selectedTeacherView, setSelectedTeacherView] = useState("");
   const [teachers, setTeachers] = useState<any[]>([]);
   const [courseTeacherId, setCourseTeacherId] = useState("");
 
@@ -125,6 +127,10 @@ export function SecretaryTimetables() {
 
   const filteredTimetables = timetables.filter(t => {
      const c = courses.find(crs => crs.id === t.courseId);
+     if (selectedTeacherView) {
+         const tId = t.teacherId || c?.teacherId;
+         return tId === selectedTeacherView;
+     }
      return c?.level === selectedLevelFilter;
   });
 
@@ -167,13 +173,16 @@ export function SecretaryTimetables() {
           </div>
           {showTimetableForm && (
             <form onSubmit={handleCreateTimetable} className="mb-4 space-y-2 p-3 bg-slate-50 border rounded text-sm">
+              <select value={ttLevelFilter} onChange={e => { setTtLevelFilter(e.target.value); setTtCourseId(""); }} className="w-full px-2 py-1 border rounded bg-white font-bold text-emerald-700">
+                {LEVELS.map(l => <option key={l} value={l}>Classe: {l}</option>)}
+              </select>
               <select required value={ttCourseId} onChange={e => {
                   setTtCourseId(e.target.value);
                   const course = courses.find(c => c.id === e.target.value);
                   if (course?.teacherId) setTtTeacherId(course.teacherId);
               }} className="w-full px-2 py-1 border rounded">
                 <option value="">Sélectionner un cours</option>
-                {courses.map(c => <option key={c.id} value={c.id}>{c.name} ({c.level})</option>)}
+                {courses.filter(c => c.level === ttLevelFilter).map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
               </select>
               <select value={ttTeacherId} onChange={e => setTtTeacherId(e.target.value)} className="w-full px-2 py-1 border rounded bg-white">
                 <option value="">Sélectionner un professeur (optionnel)</option>
@@ -197,11 +206,17 @@ export function SecretaryTimetables() {
       </div>
 
       <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm overflow-x-auto">
-        <div className="flex justify-between items-center mb-6">
-           <h3 className="font-bold text-gray-700">Emploi du temps</h3>
-           <select value={selectedLevelFilter} onChange={e => setSelectedLevelFilter(e.target.value)} className="px-3 py-1 border rounded text-sm font-bold bg-slate-50">
-             {LEVELS.map(l => <option key={l} value={l}>{l}</option>)}
-           </select>
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
+           <h3 className="font-bold text-gray-700">Emploi du temps de la semaine</h3>
+           <div className="flex gap-2">
+             <select value={selectedLevelFilter} onChange={e => { setSelectedLevelFilter(e.target.value); setSelectedTeacherView(""); }} className="px-3 py-1 border rounded text-sm font-bold bg-slate-50 outline-none">
+               {LEVELS.map(l => <option key={l} value={l}>Classe: {l}</option>)}
+             </select>
+             <select value={selectedTeacherView} onChange={e => { setSelectedTeacherView(e.target.value); if(e.target.value) setSelectedLevelFilter(""); }} className="px-3 py-1 border rounded text-sm font-bold bg-slate-50 outline-none">
+               <option value="">Tous les professeurs</option>
+               {teachers.map(t => <option key={t.id} value={t.id}>Prof: {t.full_name || t.email}</option>)}
+             </select>
+           </div>
         </div>
         
         <div className="grid grid-cols-6 gap-2 min-w-[800px]">
@@ -220,6 +235,7 @@ export function SecretaryTimetables() {
                        return (
                           <div key={t.id} className="bg-white p-2 rounded shadow-sm border-l-2 border-emerald-500 text-xs relative group">
                              <div className="font-bold text-gray-800">{crs?.name}</div>
+                             <div className="text-slate-600 mt-0.5 text-[10px] font-semibold">{crs?.level}</div>
                              <div className="text-slate-500 mt-1">{t.startTime} - {t.endTime}</div>
                              <div className="text-emerald-700 font-semibold mt-1 text-[10px]">Salle: {t.room}</div>
                              <div className="text-blue-600 font-semibold mt-1 text-[10px] truncate">

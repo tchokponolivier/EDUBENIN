@@ -31,6 +31,7 @@ export function SchoolAdminStudents() {
   const [students, setStudents] = useState<any[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedStudentIds, setSelectedStudentIds] = useState<string[]>([]);
+  const [academicYears, setAcademicYears] = useState<{id: string, name: string}[]>([]);
   const [selectedClass, setSelectedClass] = useState<string | null>(null);
   
   const [showExportModal, setShowExportModal] = useState(false);
@@ -111,10 +112,13 @@ export function SchoolAdminStudents() {
         if (user?.schoolId) {
           // Try fetching from Supabase if user has a schoolId
           const { supabase } = await import('../lib/supabase');
-          const { data, error } = await supabase
-            .from('students')
-            .select('*')
-            .eq('school_id', user.schoolId);
+          const [studentsRes, yearsRes] = await Promise.all([
+             supabase.from('students').select('*').eq('school_id', user.schoolId),
+             supabase.from('academic_years').select('id, name').eq('school_id', user.schoolId)
+          ]);
+          const data = studentsRes.data;
+          const error = studentsRes.error;
+          if (yearsRes.data) setAcademicYears(yearsRes.data);
           
           if (error) throw error;
           
@@ -430,9 +434,8 @@ export function SchoolAdminStudents() {
                 <div>
                    <label className="block text-xs font-semibold text-gray-700 mb-1 uppercase tracking-wide">Filtre par Année Scolaire</label>
                    <select value={exportYear} onChange={e => setExportYear(e.target.value)} className="w-full px-3 py-2 border border-slate-300 rounded text-sm focus:ring-emerald-500 focus:border-emerald-500 outline-none">
-                      <option value="ALL">Toutes les années</option>
-                      <option value="2024-2025">2024-2025</option>
-                      <option value="2023-2024">2023-2024</option>
+                      <option value="ALL">Toutes les années actives</option>
+                      {academicYears.map(y => <option key={y.id} value={y.name}>{y.name}</option>)}
                    </select>
                 </div>
                 

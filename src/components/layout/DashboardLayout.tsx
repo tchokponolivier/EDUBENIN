@@ -172,8 +172,8 @@ export function DashboardLayout({ children }: { children: ReactNode }) {
         
         <div className="p-4 mt-auto border-t border-slate-700 bg-slate-950/50">
           <div className="flex items-center gap-3 mb-4">
-            <div className="w-10 h-10 rounded-full bg-slate-700 border border-slate-600 flex items-center justify-center font-bold text-white shrink-0">
-              {user.name.charAt(0)}
+            <div className="w-10 h-10 rounded-full bg-slate-700 border border-slate-600 flex items-center justify-center font-bold text-white shrink-0 overflow-hidden">
+              {user.avatar ? <img src={user.avatar} alt="Profile" className="w-full h-full object-cover" /> : user.name.charAt(0).toUpperCase()}
             </div>
             <div className="overflow-hidden flex-1">
               <p className="text-xs font-medium truncate text-white">{user.name}</p>

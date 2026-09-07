@@ -13,7 +13,7 @@ export function UserSettingsModal({ isOpen, onClose }: Props) {
   const [name, setName] = useState(user?.name || "");
   const [email, setEmail] = useState(user?.email || "");
   const [phone, setPhone] = useState(user?.phone || "");
-  const [address, setAddress] = useState(user?.email || "");
+  const [address, setAddress] = useState("");
   const [loading, setLoading] = useState(false);
   const [avatar, setAvatar] = useState<string | null>(null);
   
@@ -95,7 +95,7 @@ export function UserSettingsModal({ isOpen, onClose }: Props) {
              </div>
              <div>
                <label className="block text-xs font-bold text-gray-700 mb-1 uppercase tracking-wide">Adresse Email</label>
-               <input type="email" value={email} disabled readOnly className="w-full px-3 py-2 border border-slate-300 bg-slate-100 rounded text-slate-500 outline-none cursor-not-allowed" />
+               <input type="email" value={user.email} disabled readOnly className="w-full px-3 py-2 border border-slate-300 bg-slate-100 rounded text-slate-500 outline-none cursor-not-allowed" />
              </div>
           </div>
           <div className="mb-4">

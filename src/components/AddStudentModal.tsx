@@ -373,13 +373,15 @@ export function AddStudentModal({ isOpen, onClose, onSuccess, initialData = null
                     <option value="OLD">Ancien élève (Réinscription)</option>
                   </select>
                 </div>
-                <div>
-                  <label className="block text-xs font-semibold text-gray-700 mb-1 uppercase tracking-wide">Prénom</label>
-                  <input required value={firstName} onChange={e => setFirstName(e.target.value)} type="text" className="w-full px-3 py-2 border border-slate-300 rounded text-sm focus:ring-emerald-500 focus:border-emerald-500 outline-none" />
-                </div>
-                <div>
-                  <label className="block text-xs font-semibold text-gray-700 mb-1 uppercase tracking-wide">Nom</label>
-                  <input required value={lastName} onChange={e => setLastName(e.target.value)} type="text" className="w-full px-3 py-2 border border-slate-300 rounded text-sm focus:ring-emerald-500 focus:border-emerald-500 outline-none" />
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-semibold text-gray-700 mb-1 uppercase tracking-wide">Nom</label>
+                    <input required value={lastName} onChange={e => setLastName(e.target.value)} type="text" className="w-full px-3 py-2 border border-slate-300 rounded text-sm focus:ring-emerald-500 focus:border-emerald-500 outline-none" />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-gray-700 mb-1 uppercase tracking-wide">Prénom</label>
+                    <input required value={firstName} onChange={e => setFirstName(e.target.value)} type="text" className="w-full px-3 py-2 border border-slate-300 rounded text-sm focus:ring-emerald-500 focus:border-emerald-500 outline-none" />
+                  </div>
                 </div>
                 <div>
                   <label className="block text-xs font-semibold text-gray-700 mb-1 uppercase tracking-wide">Sexe</label>

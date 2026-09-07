@@ -8,6 +8,7 @@ export interface User {
   schoolId?: string; // Optional for Super Admin
   phone?: string;
   photoURL?: string;
+  avatar?: string;
 }
 
 export interface School {

@@ -436,7 +436,8 @@ export function SchoolAdminDashboard() {
                     </div>
                     <button onClick={async () => {
                        if(window.confirm("Retirer ce membre de l'école ?")) {
-                          await supabase.from('profiles').update({role: 'DELETED'}).eq('id', m.id);
+                          const { error } = await supabase.from('profiles').update({role: 'DELETED'}).eq('id', m.id);
+                          if (error) alert("Erreur lors de la suppression: " + error.message);
                           fetchSchoolMembers();
                        }
                     }} className="text-red-500 hover:text-red-700 text-xs font-bold uppercase p-2">Retirer</button>

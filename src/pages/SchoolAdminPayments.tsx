@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from "react";
 import { Payment, Student } from "../types";
 import { useAuth } from "../lib/auth";
 import { useLocation } from "react-router-dom";
-import { CreditCard, History, Search, MessageCircle, Printer, Plus, Trash2, CheckSquare, Square, X, Wallet, TrendingUp } from "lucide-react";
+import { CreditCard, History, Search, MessageCircle, Printer, Plus, Trash2, CheckSquare, Square, X, Wallet, TrendingUp, CheckCircle } from "lucide-react";
 import { supabase } from "../lib/supabase";
 import { CashierExpenses } from "../components/CashierExpenses";
 import { CashierDashboard } from "../components/CashierDashboard";
@@ -127,6 +127,8 @@ export function SchoolAdminPayments() {
   const [trancheAmounts, setTrancheAmounts] = useState<Record<string, string>>({});
   const [customItems, setCustomItems] = useState<{name: string; amount: string}[]>([{name: "", amount: ""}]);
   const [paymentMethod, setPaymentMethod] = useState<"ESPÈCES" | "MTN Bénin" | "Moov Bénin" | "Celtiis Bénin">("ESPÈCES");
+  const [nextPaymentDate, setNextPaymentDate] = useState("");
+  const [showConfirmModal, setShowConfirmModal] = useState(false);
 
   useEffect(() => {
     fetchData();
@@ -240,17 +242,20 @@ export function SchoolAdminPayments() {
   }, [payments, selectedStudentId]);
 
   const currentPaymentItemsTemplate = useMemo(() => {
-    const items: { id?: string; name: string; amount: number }[] = [];
+    const items: { id?: string; name: string; amount: number, remaining?: number }[] = [];
     selectedFeeIds.forEach(id => {
       const tranche = levelTranches.find(tr => tr.id === id);
       if (tranche) {
          const amountToPay = Number(trancheAmounts[tranche.id]) || 0;
-         if (amountToPay > 0) items.push({ id, name: `Scolarité - ${tranche.name}`, amount: amountToPay });
+         if (amountToPay > 0) {
+            const trancheRemaining = Math.max(0, tranche.amount - (paidAmountsPerFee[tranche.id] || 0)) - amountToPay;
+            items.push({ id, name: `Scolarité - ${tranche.name}`, amount: amountToPay, remaining: trancheRemaining });
+         }
       } else {
         const fee = availableFees.find(f => f.id === id);
         if (fee) {
           const amountToPay = Math.max(0, fee.amount - (paidAmountsPerFee[fee.id] || 0));
-          if (amountToPay > 0) items.push({ id, name: fee.name, amount: amountToPay });
+          if (amountToPay > 0) items.push({ id, name: fee.name, amount: amountToPay, remaining: 0 });
         }
       }
     });
@@ -264,6 +269,10 @@ export function SchoolAdminPayments() {
     return items;
   }, [selectedFeeIds, availableFees, levelTranches, trancheAmounts, paidAmountsPerFee, ]);
 
+  const hasPartialPayment = useMemo(() => {
+    return currentPaymentItemsTemplate.some(item => item.remaining && item.remaining > 0);
+  }, [currentPaymentItemsTemplate]);
+
   const totalAmount = useMemo(() => currentPaymentItemsTemplate.reduce((acc, curr) => acc + curr.amount, 0), [currentPaymentItemsTemplate]);
 
   const isMomo = paymentMethod !== "ESPÈCES";
@@ -272,6 +281,15 @@ export function SchoolAdminPayments() {
 
   const handleManualPayment = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!selectedStudent || totalAmount <= 0) return;
+    if (hasPartialPayment && !nextPaymentDate) {
+      alert("Veuillez indiquer la date du prochain règlement pour le reste à payer.");
+      return;
+    }
+    setShowConfirmModal(true);
+  };
+  
+  const confirmPayment = async () => {
     if (!selectedStudent || totalAmount <= 0) return;
     const reference = 'PAY-' + Date.now();
     
@@ -283,7 +301,7 @@ export function SchoolAdminPayments() {
        network: paymentMethod,
        status: 'PENDING',
        reference: reference,
-       items: items as any
+       next_payment_date: (hasPartialPayment && nextPaymentDate) ? nextPaymentDate : null
     }).select().single();
 
     if (error) {
@@ -580,170 +598,188 @@ export function SchoolAdminPayments() {
       {activeTab === "SALARIES" && <CashierSalaries />}
       {activeTab === "DASHBOARD" && <CashierDashboard />}
 
-      {showPayModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
-          <div className="bg-white rounded-xl shadow-xl w-full max-w-md animate-in zoom-in-95">
-            <div className="p-4 border-b border-slate-100">
-               <h3 className="font-bold text-lg text-gray-700">Encaisser un paiement</h3>
+            {showPayModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm overflow-y-auto">
+        <div className="bg-white rounded-xl shadow-xl w-full max-w-4xl my-8 grid grid-cols-1 lg:grid-cols-3 gap-0 overflow-hidden animate-in fade-in slide-in-from-top-4">
+          <div className="lg:col-span-2 p-6 flex flex-col bg-white">
+            <div className="flex justify-between items-center mb-6">
+              <h3 className="font-bold text-gray-700">Encaisser un paiement</h3>
+              <button onClick={() => setShowPayModal(false)} className="text-slate-400 hover:text-slate-600 bg-slate-50 hover:bg-slate-100 p-2 rounded-full transition-colors"><X size={20}/></button>
             </div>
-            <form onSubmit={handleManualPayment} className="p-4 space-y-4 max-h-[70vh] overflow-y-auto">
-               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-xs font-semibold text-gray-700 mb-1 uppercase tracking-wide">Année Scolaire</label>
-                    <select value={payFilterYear || ""} onChange={e => { setPayFilterYear(e.target.value); setSelectedStudentId(""); }} className="w-full px-3 py-2 border border-slate-300 rounded text-sm bg-white">
-                       <option value="">Toutes les années</option>
-                       {Array.from(new Set(students.map(s => s.academic_year).filter(Boolean))).map(y => <option key={y as string} value={y as string}>{y}</option>)}
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block text-xs font-semibold text-gray-700 mb-1 uppercase tracking-wide">Classe</label>
-                    <select value={payFilterLevel || ""} onChange={e => { setPayFilterLevel(e.target.value); setSelectedStudentId(""); }} className="w-full px-3 py-2 border border-slate-300 rounded text-sm bg-white">
-                       <option value="">Toutes les classes</option>
-                       {Array.from(new Set(students.map(s => s.level).filter(Boolean))).map(l => <option key={l as string} value={l as string}>{l}</option>)}
-                    </select>
-                  </div>
-               </div>
-               <div>
-                  <label className="block text-xs font-semibold text-gray-700 mb-1 uppercase tracking-wide">Élève</label>
-                  <select required value={selectedStudentId} onChange={e => {
-                     setSelectedStudentId(e.target.value);
-                     setSelectedFeeIds([]);
-                     setTrancheAmounts({});
-                     setCustomItems([{name: "", amount: ""}]);
-                  }} className="w-full px-3 py-2 border border-slate-300 rounded text-sm focus:ring-emerald-500 focus:border-emerald-500 outline-none">
-                     <option value="">Sélectionner un élève...</option>
-                     {students.filter(s => (!payFilterYear || s.academic_year === payFilterYear) && (!payFilterLevel || s.level === payFilterLevel)).map(s => <option key={s.id} value={s.id}>{s.lastName} {s.firstName} ({s.level})</option>)}
-                  </select>
-               </div>
-               
-               {selectedStudent && (
-                 <>
-                   <div className="space-y-2">
-                     <h4 className="text-xs font-bold text-gray-700 uppercase tracking-wider">Moyen de paiement</h4>
-                     <select value={paymentMethod} onChange={e => setPaymentMethod(e.target.value as any)} className="w-full px-3 py-2 border border-slate-300 rounded text-sm focus:ring-emerald-500 focus:border-emerald-500 outline-none">
-                        <option value="ESPÈCES">Espèces (Caisse)</option>
-                        <option value="MTN Bénin">MTN Money</option>
-                        <option value="Moov Bénin">Moov Money</option>
-                        <option value="Celtiis Bénin">Celtiis Pay</option>
-                     </select>
-                   </div>
-
-                   <div className="space-y-2 pt-2">
-                     <h4 className="text-xs font-bold text-gray-700 uppercase tracking-wider">Frais Applicables</h4>
-                     {availableFees.filter(f => (f.amount - (paidAmountsPerFee[f.id] || 0)) > 0).map(fee => {
-                       const amountLeft = fee.amount - (paidAmountsPerFee[fee.id] || 0);
-                       const isSelected = selectedFeeIds.includes(fee.id);
-                       return (
-                         <div key={fee.id} className={`flex items-center gap-3 p-3 rounded-lg border transition-colors cursor-pointer ${isSelected ? 'bg-emerald-50 border-emerald-200' : 'bg-white border-slate-200 hover:border-slate-300'}`} onClick={() => handleFeeToggle(fee.id, !isSelected)}>
-                           <div className={`w-5 h-5 flex items-center justify-center rounded ${isSelected ? 'bg-emerald-500 text-white' : 'border-2 border-slate-300 text-transparent'}`}>
-                              <CheckSquare size={14} className={isSelected ? 'text-white' : 'text-transparent hidden'} />
-                           </div>
-                           <div className="flex-1">
-                             <div className="text-sm font-semibold text-gray-700">{fee.name}</div>
-                           </div>
-                           <div className="text-right">
-                             <div className="font-bold font-mono text-gray-700">{amountLeft.toLocaleString()} F</div>
-                             {paidAmountsPerFee[fee.id] > 0 && <div className="text-[10px] text-slate-500">Reste à payer</div>}
-                           </div>
-                         </div>
-                       );
-                     })}
+            <form onSubmit={handleManualPayment} className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="md:col-span-2">
+              <label className="block text-xs font-semibold text-gray-700 mb-1 uppercase tracking-wide">Élève</label>
+              <select required value={selectedStudentId} onChange={e => setSelectedStudentId(e.target.value)} className="w-full px-3 py-2 border border-slate-300 rounded text-sm focus:ring-emerald-500 focus:border-emerald-500 outline-none">
+                 <option value="">Sélectionnez un élève...</option>
+                 {students.map(c => <option key={c.id} value={c.id}>{c.lastName} {c.firstName} ({c.level})</option>)}
+              </select>
+            </div>
+            
+            {selectedStudent && (
+              <div className="md:col-span-2 bg-slate-50 p-4 rounded border border-slate-200">
+                 <h4 className="text-xs font-bold uppercase text-gray-700 mb-3 tracking-wide">Éléments à Payer</h4>
+                 <div className="space-y-3">
+                   
+                   {/* Options de Scolarité */}
+                   <div className="pt-2 pb-3 mb-3 border-b border-slate-200 flex flex-col gap-3">
+                     <p className="text-[10px] font-bold text-slate-500 uppercase">Scolarité par tranches</p>
                      
                      {levelTranches.map(tranche => {
-                       const amountLeft = Math.max(0, tranche.amount - (paidAmountsPerFee[tranche.id] || 0));
-                       if (amountLeft <= 0) return null;
-                       const isSelected = selectedFeeIds.includes(tranche.id);
-                       const maxPay = amountLeft;
-                       
+                       const paid = paidAmountsPerFee[tranche.id] || 0;
+                       const remaining = Math.max(0, tranche.amount - paid);
+                       const isPaidOut = remaining <= 0;
                        return (
-                         <div key={tranche.id} className={`flex flex-col gap-2 p-3 rounded-lg border transition-colors ${isSelected ? 'bg-emerald-50 border-emerald-200' : 'bg-white border-slate-200'} `}>
-                           <div className="flex items-center gap-3 cursor-pointer" onClick={() => {
-                               handleFeeToggle(tranche.id, !isSelected);
-                               if (!isSelected) {
-                                  setTrancheAmounts(prev => ({...prev, [tranche.id]: maxPay.toString()}));
-                               }
-                           }}>
-                             <div className={`w-5 h-5 flex items-center justify-center rounded ${isSelected ? 'bg-emerald-500 text-white' : 'border-2 border-slate-300 text-transparent'}`}>
-                                <CheckSquare size={14} className={isSelected ? 'text-white' : 'text-transparent hidden'} />
-                             </div>
-                             <div className="flex-1">
-                               <div className="text-sm font-semibold text-gray-700">Scolarité - {tranche.name}</div>
-                               <div className="text-xs text-slate-500">À solder avant {tranche.limit}</div>
-                             </div>
-                             <div className="text-right">
-                               <div className="font-bold font-mono text-gray-700">Max: {maxPay.toLocaleString()} F</div>
-                               <div className="text-[10px] uppercase text-emerald-600 font-bold">Personnalisable</div>
-                             </div>
-                           </div>
-                           {isSelected && (
-                             <div className="pl-8 pt-2">
-                               <label className="block text-xs font-semibold text-gray-700 mb-1">Montant à régler (FCFA)</label>
-                               <input type="number" min="1" max={maxPay} required value={trancheAmounts[tranche.id] || ""} onChange={e => {
-                                 let val = e.target.value;
-                                 if (Number(val) > maxPay) val = maxPay.toString();
-                                 setTrancheAmounts(prev => ({...prev, [tranche.id]: val}));
-                               }} className="w-full px-3 py-1.5 border border-slate-300 rounded text-sm outline-none bg-white font-mono" />
-                             </div>
+                       <div key={tranche.id} className={`flex items-center justify-between gap-3 ${isPaidOut ? 'opacity-50' : ''}`}>
+                         <label className="flex items-center gap-2 cursor-pointer flex-1">
+                           <input 
+                             type="checkbox" 
+                             disabled={isPaidOut}
+                             checked={selectedFeeIds.includes(tranche.id) && !isPaidOut} 
+                             onChange={e => handleFeeToggle(tranche.id, e.target.checked)} 
+                             className="w-3.5 h-3.5 rounded text-emerald-600 focus:ring-emerald-500 border-slate-300 disabled:opacity-50" 
+                           />
+                           <span className="text-sm font-medium text-gray-700">
+                             {tranche.name} <span className="text-[10px] text-red-500 ml-1">(Max: {tranche.limit})</span>
+                           </span>
+                         </label>
+                         <div className="flex items-center gap-2">
+                           {selectedFeeIds.includes(tranche.id) && !isPaidOut && (
+                             <input 
+                               type="number" 
+                               required 
+                               max={remaining}
+                               placeholder="Montant"
+                               value={trancheAmounts[tranche.id] || ""} 
+                               onChange={e => {
+                                 const val = Number(e.target.value);
+                                 if (val > remaining) {
+                                   setTrancheAmounts(prev => ({ ...prev, [tranche.id]: remaining.toString() }));
+                                 } else {
+                                   setTrancheAmounts(prev => ({ ...prev, [tranche.id]: e.target.value }));
+                                 }
+                               }} 
+                               className="w-28 px-2 py-1 border border-slate-300 rounded text-sm outline-none text-right" 
+                             />
                            )}
+                           <span className="text-xs font-bold text-slate-600 min-w-16 whitespace-nowrap text-right">
+                             {isPaidOut ? "Payé" : `Reste: ${remaining.toLocaleString()} / ${tranche.amount.toLocaleString()}F`}
+                           </span>
                          </div>
-                       );
-                     })}
+                       </div>
+                     )})}
                    </div>
 
-                   <div className="pt-4 border-t border-slate-100">
-                     <div className="flex items-center justify-between mb-2">
-                       <h4 className="text-xs font-bold text-gray-700 uppercase tracking-wider">Frais Personnalisés</h4>
-                       <button type="button" onClick={addCustomItem} className="flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider text-emerald-600 hover:text-gray-700 bg-emerald-50 hover:bg-emerald-100 px-2 py-1 rounded transition-colors">
-                         <Plus size={12} /> Ajouter
-                       </button>
-                     </div>
-                     <div className="space-y-3">
-                       {customItems.map((item, idx) => (
-                         <div key={idx} className="flex gap-2 items-start">
-                           <div className="flex-1 space-y-2">
-                             <input type="text" value={item.name} onChange={e => {
-                               const newItems = [...customItems];
-                               newItems[idx].name = e.target.value;
-                               setCustomItems(newItems);
-                             }} placeholder="Désignation (ex: Inscription Annexe)" className="w-full px-3 py-2 border border-slate-300 rounded text-sm outline-none" />
-                           </div>
-                           <div className="w-32 space-y-2">
-                             <input type="number" min="1" value={item.amount} onChange={e => {
-                               const newItems = [...customItems];
-                               newItems[idx].amount = e.target.value;
-                               setCustomItems(newItems);
-                             }} placeholder="Montant" className="w-full px-3 py-2 border border-slate-300 rounded text-sm font-mono outline-none" />
-                           </div>
-                           <button type="button" onClick={() => removeCustomItem(idx)} className="p-2 text-red-500 hover:bg-red-50 rounded mt-0.5">
-                             <Trash2 size={16} />
-                           </button>
-                         </div>
-                       ))}
-                       {customItems.length === 0 && (
-                         <div className="text-xs text-slate-500 italic text-center py-2">Aucun frais personnalisé.</div>
-                       )}
-                     </div>
-                   </div>
-                   
-                   <div className="p-4 bg-emerald-50 border border-emerald-100 rounded-lg flex items-center justify-between">
-                     <span className="text-sm font-bold text-gray-700 uppercase">Total à Encaisser {isMomo && '(+ 1% Frais)'}</span>
-                     <span className="text-lg font-black font-mono text-gray-700">{totalAmountWithFee.toLocaleString()} F</span>
-                   </div>
-                   
-                   <div className="text-[10px] text-gray-700 font-medium text-center italic">
-                      {isMomo ? "Les frais de transaction de 1% sont appliqués aux paiements par Mobile Money." : "Les paiements en espèces (Caisse Administration) n'incluent pas les 1% de frais d'opérateur."}
-                   </div>
-                 </>
-               )}
-               
-               <div className="flex justify-end gap-3 mt-6">
-                 <button type="button" onClick={() => setShowPayModal(false)} className="px-4 py-2 text-xs font-bold text-slate-600 bg-slate-100 hover:bg-slate-200 rounded uppercase tracking-wider transition-colors">Annuler</button>
-                 <button type="submit" disabled={!selectedStudent || totalAmount <= 0} className="px-4 py-2 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed rounded shadow-sm uppercase tracking-wider transition-colors">Valider</button>
+                   {/* Autres Frais calculés dynamiquement */}
+                   {availableFees.map(fee => {
+                     const paid = paidAmountsPerFee[fee.id] || 0;
+                     const remaining = Math.max(0, fee.amount - paid);
+                     const isPaidOut = remaining <= 0;
+                     return (
+                     <label key={fee.id} className={`flex items-center justify-between gap-3 ${isPaidOut ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}>
+                        <div className="flex items-center gap-2">
+                          <input 
+                            type="checkbox" 
+                            disabled={isPaidOut}
+                            checked={selectedFeeIds.includes(fee.id) && !isPaidOut}
+                            onChange={e => handleFeeToggle(fee.id, e.target.checked)}
+                            className="w-3.5 h-3.5 rounded text-emerald-600 focus:ring-emerald-500 border-slate-300 disabled:opacity-50" 
+                          />
+                          <span className="text-sm font-medium text-gray-700">{fee.name}</span>
+                        </div>
+                        <span className="text-sm font-bold text-gray-700">
+                          {isPaidOut ? "Payé" : (paid > 0 ? `Reste: ${remaining.toLocaleString()}F (Total: ${fee.amount.toLocaleString()}F)` : `${fee.amount.toLocaleString()} F`)}
+                        </span>
+                     </label>
+                   )})}
+                 </div>
+              </div>
+            )}
+
+            <div className="md:col-span-2">
+               <div className="flex justify-between items-center bg-emerald-50 px-4 py-3 border border-emerald-100 rounded-lg mb-4">
+                 <span className="text-sm font-bold text-gray-700 uppercase tracking-wide">Total à payer {isMomo && '(dont 1% frais)'}</span>
+                 <span className="font-mono text-xl font-black text-emerald-600">{totalAmountWithFee.toLocaleString()} FCFA</span>
                </div>
-            </form>
+            </div>
+
+            <div>
+               <label className="block text-xs font-semibold text-gray-700 mb-1 uppercase tracking-wide">Réseau / Moyen</label>
+               <select required value={paymentMethod} onChange={e => setPaymentMethod(e.target.value as any)} className="w-full px-3 py-2 border border-slate-300 rounded text-sm focus:ring-emerald-500 focus:border-emerald-500 outline-none">
+                 <option value="ESPÈCES">Espèces (Caisse)</option>
+                 <option value="MTN Bénin">MTN Mobile Money</option>
+                 <option value="Moov Bénin">Moov Money</option>
+                 <option value="Celtiis Bénin">Celtiis Cash</option>
+               </select>
+            </div>
+            
+            {hasPartialPayment && (
+               <div>
+                  <label className="block text-xs font-semibold text-gray-700 mb-1 uppercase tracking-wide">Prochain règlement</label>
+                  <input type="date" required value={nextPaymentDate} onChange={e => setNextPaymentDate(e.target.value)} className="w-full px-3 py-2 border border-slate-300 rounded text-sm focus:ring-emerald-500 focus:border-emerald-500 outline-none" min={new Date().toISOString().split('T')[0]} />
+               </div>
+            )}
+
+            <div className="md:col-span-2 flex justify-end gap-3 mt-2">
+              <button type="button" onClick={() => setShowPayModal(false)} className="px-4 py-2 text-xs font-bold text-slate-600 hover:bg-slate-100 rounded uppercase tracking-wider transition-colors">Annuler</button>
+              <button type="submit" disabled={totalAmount <= 0} className="px-4 py-2 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 rounded shadow-sm uppercase tracking-wider transition-colors disabled:opacity-50">Continuer</button>
+            </div>
+          </form>
+          </div>
+          <div className="hidden lg:block relative bg-slate-900 overflow-hidden h-full">
+            <img src="https://images.unsplash.com/photo-1523050854058-8df90110c9f1?auto=format&fit=crop&q=80&w=800" alt="Prospectus EduBénin Paiement" className="w-full h-full object-cover opacity-60" />
+            <div className="absolute inset-0 bg-gradient-to-t from-slate-900/90 via-slate-900/40 to-transparent flex flex-col justify-end p-8 text-white">
+              <span className="text-[10px] font-bold uppercase tracking-widest text-emerald-400 mb-2">Scolarité</span>
+              <h3 className="text-2xl font-bold mb-2">Gestion des paiements</h3>
+              <p className="text-sm text-slate-300">Enregistrez les versements et encaissez les frais de scolarité via Mobile Money ou Espèces. Les paiements seront envoyés en vérification.</p>
+            </div>
+          </div>
+        </div>
+        </div>
+      )}
+
+      {showConfirmModal && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
+          <div className="bg-white rounded-xl shadow-xl border border-slate-200 w-full max-w-md p-6 animate-in zoom-in-95 fade-in">
+            <div className="text-center mb-6">
+               <div className="w-16 h-16 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <CheckCircle size={32} />
+               </div>
+               <h3 className="text-xl font-bold text-gray-700">Confirmer l'encaissement</h3>
+               <p className="text-slate-500 text-xs mt-2">Veuillez vérifier les informations avant de valider.</p>
+            </div>
+            
+            <div className="bg-slate-50 p-4 rounded border border-slate-100 space-y-3 mb-6">
+               <div className="flex justify-between text-sm">
+                 <span className="text-slate-500 font-medium uppercase text-[10px] tracking-wide">Élève</span>
+                 <span className="font-bold text-gray-700">{selectedStudent?.firstName} {selectedStudent?.lastName}</span>
+               </div>
+               <div className="border-t border-slate-200"></div>
+               <div className="flex justify-between text-sm">
+                 <span className="text-slate-500 font-medium uppercase text-[10px] tracking-wide">Moyen de paiement</span>
+                 <span className="font-bold text-gray-700">{paymentMethod}</span>
+               </div>
+               <div className="border-t border-slate-200"></div>
+               <div className="flex justify-between text-sm">
+                 <span className="text-slate-500 font-medium uppercase text-[10px] tracking-wide">Éléments</span>
+                 <span className="font-bold text-gray-700 text-right max-w-[200px] truncate">{currentPaymentItemsTemplate.map(i => i.name).join(", ")}</span>
+               </div>
+               <div className="border-t border-slate-200"></div>
+               <div className="flex justify-between items-center text-sm bg-emerald-100/50 p-2 rounded">
+                 <span className="text-emerald-800 font-bold uppercase text-[10px] tracking-wide">Montant Total</span>
+                 <span className="font-black font-mono text-emerald-700 text-lg">{totalAmountWithFee.toLocaleString()} F</span>
+               </div>
+            </div>
+
+            <div className="flex gap-3">
+              <button onClick={() => setShowConfirmModal(false)} className="flex-1 py-3 text-sm font-bold text-slate-600 bg-slate-100 hover:bg-slate-200 rounded uppercase tracking-wider transition-colors">Retour</button>
+              <button onClick={confirmPayment} className="flex-1 py-3 text-sm font-bold text-white bg-emerald-600 hover:bg-emerald-700 rounded shadow-sm uppercase tracking-wider transition-colors flex items-center justify-center gap-2">
+                 <CheckCircle size={16} /> Valider
+              </button>
+            </div>
           </div>
         </div>
       )}
+
       {whatsappPromptInfo && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
           <div className="bg-white rounded-xl shadow-xl w-full max-w-sm animate-in zoom-in-95 overflow-hidden">

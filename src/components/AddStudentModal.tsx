@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../lib/auth";
-import { X, Save, UserPlus, Camera, FileText, Calendar } from "lucide-react";
+import { X, Save, UserPlus, Camera, FileText, Calendar, CheckCircle } from "lucide-react";
 import { LEVELS } from "../types";
 
 export function AddStudentModal({ isOpen, onClose, onSuccess, initialData = null }: { isOpen: boolean, onClose: () => void, onSuccess: () => void, initialData?: any }) {
@@ -62,6 +62,7 @@ export function AddStudentModal({ isOpen, onClose, onSuccess, initialData = null
   const [previousSchool, setPreviousSchool] = useState("");
   const [lastYearAttended, setLastYearAttended] = useState("");
   const [enrollmentStatus, setEnrollmentStatus] = useState("PASSING");
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [showPaymentPrompt, setShowPaymentPrompt] = useState(false);
   const [savedStudentId, setSavedStudentId] = useState<string | null>(null);
   const [showOldStudentModal, setShowOldStudentModal] = useState(false);
@@ -191,7 +192,8 @@ export function AddStudentModal({ isOpen, onClose, onSuccess, initialData = null
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!user) return;
+    if (!user || isSubmitting) return;
+    setIsSubmitting(true);
 
     let finalStudentType = studentType;
     let finalLastYear = lastYearAttended;
@@ -313,18 +315,116 @@ export function AddStudentModal({ isOpen, onClose, onSuccess, initialData = null
       });
       if (error) {
          alert("Erreur lors de l'inscription: " + error.message);
+         setIsSubmitting(false);
          return;
       }
     }
     
-    alert("Opération effectuée avec succès !");
-    onSuccess();
-    onClose();
+    setIsSubmitting(false);
+    setSavedStudentId(initialData ? initialData.id : "NEW_STUDENT");
+    setShowPaymentPrompt(true);
   };
 
   const isPrimarySchool = (lv: string) => {
     return lv.startsWith("Maternelle") || lv.startsWith("CI") || lv.startsWith("CP") || lv.startsWith("CE") || lv.startsWith("CM");
   };
+
+  if (showOldStudentModal) {
+      const filteredOldStudents = oldStudents.filter(s => 
+          (!oldStudentYearFilter || s.academic_year === oldStudentYearFilter) &&
+          (!oldStudentClassFilter || s.level === oldStudentClassFilter)
+      );
+      return (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
+           <div className="bg-white rounded-xl shadow-xl w-full max-w-2xl flex flex-col max-h-[85vh]">
+              <div className="p-4 border-b flex justify-between items-center bg-slate-50">
+                 <h3 className="font-bold text-gray-700">Rechercher un ancien élève</h3>
+                 <button onClick={() => { setShowOldStudentModal(false); setStudentType('NEW'); }} className="text-slate-400 hover:text-slate-600"><X size={20}/></button>
+              </div>
+              <div className="p-4 flex gap-4 bg-white border-b">
+                 <div className="flex-1">
+                    <label className="text-xs font-bold text-slate-500 uppercase">Année</label>
+                    <select value={oldStudentYearFilter} onChange={e => setOldStudentYearFilter(e.target.value)} className="w-full p-2 border rounded">
+                       <option value="">Toutes</option>
+                       {Array.from(new Set(oldStudents.map(s => s.academic_year).filter(Boolean))).map(y => <option key={y as string} value={y as string}>{y}</option>)}
+                    </select>
+                 </div>
+                 <div className="flex-1">
+                    <label className="text-xs font-bold text-slate-500 uppercase">Classe</label>
+                    <select value={oldStudentClassFilter} onChange={e => setOldStudentClassFilter(e.target.value)} className="w-full p-2 border rounded">
+                       <option value="">Toutes</option>
+                       {Array.from(new Set(oldStudents.map(s => s.level).filter(Boolean))).map(c => <option key={c as string} value={c as string}>{c}</option>)}
+                    </select>
+                 </div>
+              </div>
+              <div className="flex-1 overflow-y-auto p-4 bg-slate-50">
+                 {isFetchingOld ? (
+                    <p className="text-center text-slate-500">Recherche...</p>
+                 ) : oldStudents.length === 0 ? (
+                    <p className="text-center text-slate-500 py-8 font-semibold">Aucun ancien élève disponible pour les années antérieures.</p>
+                 ) : (
+                    <div className="space-y-2">
+                       {filteredOldStudents.map(s => (
+                          <div key={s.id} onClick={() => {
+                              setFirstName(s.first_name || "");
+                              setLastName(s.last_name || "");
+                              setDateOfBirth(s.date_of_birth || "");
+                              setPlaceOfBirth(s.place_of_birth || "");
+                              setGender(s.gender || "MALE");
+                              setNationality(s.nationality || "Béninoise");
+                              setReligion(s.religion || "Christianisme");
+                              setFatherName(s.father_name || "");
+                              setMotherName(s.mother_name || "");
+                              setFatherProfession(s.father_profession || "");
+                              setMotherProfession(s.mother_profession || "");
+                              setFatherContact(s.father_contact || "");
+                              setMotherContact(s.mother_contact || "");
+                              setFatherAddress(s.father_address || "");
+                              setMotherAddress(s.mother_address || "");
+                              setGuardianName(s.guardian_name || "");
+                              setGuardianContact(s.guardian_contact || "");
+                              setGuardianAddress(s.guardian_address || "");
+                              setEducmasterNumber(s.educmaster_number || "");
+                              setPreviousClass(s.level || "");
+                              setLastYearAttended(s.academic_year || "");
+                              setShowOldStudentModal(false);
+                          }} className="p-3 bg-white border border-slate-200 rounded cursor-pointer hover:border-emerald-500 hover:shadow-sm flex justify-between items-center">
+                             <div>
+                                <p className="font-bold text-gray-800">{s.last_name} {s.first_name}</p>
+                                <p className="text-xs text-slate-500">Classe: {s.level} | Année: {s.academic_year}</p>
+                             </div>
+                             <div className="px-3 py-1 bg-emerald-50 text-emerald-600 rounded text-xs font-bold">Sélectionner</div>
+                          </div>
+                       ))}
+                       {filteredOldStudents.length === 0 && <p className="text-center text-slate-500">Aucun élève ne correspond aux filtres.</p>}
+                    </div>
+                 )}
+              </div>
+              <div className="p-4 border-t flex justify-end bg-white">
+                 <button onClick={() => { setShowOldStudentModal(false); setStudentType('NEW'); }} className="px-4 py-2 border rounded font-semibold text-gray-600 hover:bg-slate-50">Annuler</button>
+              </div>
+           </div>
+        </div>
+      );
+  }
+
+  if (showPaymentPrompt) {
+     return (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
+           <div className="bg-white rounded-xl shadow-xl w-full max-w-sm p-6 text-center">
+              <div className="w-12 h-12 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto mb-4">
+                 <CheckCircle size={24} />
+              </div>
+              <h3 className="font-bold text-gray-800 text-lg mb-2">Enregistrement Réussi</h3>
+              <p className="text-sm text-slate-500 mb-6">L'élève a été enregistré avec succès. Voulez-vous procéder à l'encaissement de la scolarité maintenant ?</p>
+              <div className="flex gap-3 justify-center">
+                 <button onClick={() => { onSuccess(); onClose(); }} className="px-4 py-2 border border-slate-200 text-gray-600 rounded-lg hover:bg-slate-50 font-semibold text-sm transition-colors">Non, plus tard</button>
+                 <button onClick={() => { window.location.href = '/school-admin/payments?tab=PAYMENTS'; }} className="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 font-semibold text-sm transition-colors">Oui, encaisser</button>
+              </div>
+           </div>
+        </div>
+     )
+  }
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm overflow-y-auto">

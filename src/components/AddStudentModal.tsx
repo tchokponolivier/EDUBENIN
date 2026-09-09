@@ -64,6 +64,26 @@ export function AddStudentModal({ isOpen, onClose, onSuccess, initialData = null
   const [enrollmentStatus, setEnrollmentStatus] = useState("PASSING");
   const [showPaymentPrompt, setShowPaymentPrompt] = useState(false);
   const [savedStudentId, setSavedStudentId] = useState<string | null>(null);
+  const [showOldStudentModal, setShowOldStudentModal] = useState(false);
+  const [oldStudents, setOldStudents] = useState<any[]>([]);
+  const [oldStudentYearFilter, setOldStudentYearFilter] = useState("");
+  const [oldStudentClassFilter, setOldStudentClassFilter] = useState("");
+  const [isFetchingOld, setIsFetchingOld] = useState(false);
+
+  const fetchOldStudents = async () => {
+     if (!user?.schoolId) return;
+     setIsFetchingOld(true);
+     try {
+        const { data } = await supabase.from('students').select('*').eq('school_id', user.schoolId).neq('academic_year', academicYear);
+        if (data && data.length > 0) {
+           setOldStudents(data);
+        } else {
+           setOldStudents([]);
+        }
+     } catch(e) {}
+     setIsFetchingOld(false);
+  };
+
   const [educmasterNumber, setEducmasterNumber] = useState("");
   const [gender, setGender] = useState<"MALE" | "FEMALE">("MALE");
   const [nationality, setNationality] = useState("Béninoise");
@@ -371,7 +391,14 @@ export function AddStudentModal({ isOpen, onClose, onSuccess, initialData = null
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <label className="block text-xs font-semibold text-gray-700 mb-1 uppercase tracking-wide">Statut Élève</label>
-                    <select value={studentType} onChange={e => setStudentType(e.target.value as any)} className="w-full px-3 py-2 border border-slate-300 rounded text-sm focus:ring-emerald-500 focus:border-emerald-500 outline-none">
+                    <select value={studentType} onChange={e => {
+                        const val = e.target.value as any;
+                        setStudentType(val);
+                        if (val === 'OLD' && !initialData) {
+                           fetchOldStudents();
+                           setShowOldStudentModal(true);
+                        }
+                    }} className="w-full px-3 py-2 border border-slate-300 rounded text-sm focus:ring-emerald-500 focus:border-emerald-500 outline-none">
                       <option value="NEW">Nouvel élève</option>
                       <option value="OLD">Ancien élève (Réinscription)</option>
                     </select>

@@ -1,10 +1,12 @@
 
 import React, { useState, useEffect } from "react";
 import { supabase } from "../lib/supabase";
-import { School, Building, Users, User, AlertCircle, Plus, Edit2, Trash2, Mail, X, CheckCircle, Search, Shield } from "lucide-react";
+import { School, Building, Users, User, AlertCircle, Plus, Edit2, Trash2, Mail, X, CheckCircle, Search, Shield, Activity, DollarSign, GraduationCap, BarChart } from "lucide-react";
+import { BarChart as RechartsBarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 
 export function SuperAdminDashboard() {
-  const [activeTab, setActiveTab] = useState<"SCHOOLS" | "USERS">("SCHOOLS");
+  const [activeTab, setActiveTab] = useState<"DASHBOARD" | "SCHOOLS" | "USERS">("DASHBOARD");
+  const [globalStats, setGlobalStats] = useState({ totalStudents: 0, totalPayments: 0, schoolStats: [] as any[] });
   const [schools, setSchools] = useState<any[]>([]);
   const [profiles, setProfiles] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -32,10 +34,29 @@ export function SuperAdminDashboard() {
   const fetchData = async () => {
     setLoading(true);
     try {
-      const [schoolsRes, profilesRes] = await Promise.all([
+      const [schoolsRes, profilesRes, studentsRes, paymentsRes] = await Promise.all([
         supabase.from('schools').select('*, profiles(id, email, role, full_name)').order('created_at', { ascending: false }),
-        supabase.from('profiles').select('*, schools(name)').order('created_at', { ascending: false })
+        supabase.from('profiles').select('*, schools(name)').order('created_at', { ascending: false }),
+        supabase.from('students').select('id, school_id', { count: 'exact' }),
+        supabase.from('payments').select('amount, school_id')
       ]);
+      
+      const totalStudents = studentsRes.data?.length || 0;
+      const totalPayments = (paymentsRes.data || []).reduce((acc, curr) => acc + (curr.amount || 0), 0);
+      
+      // Calculate revenue per school for chart
+      const revenueBySchool: Record<string, number> = {};
+      (paymentsRes.data || []).forEach(p => {
+         if (p.school_id) {
+            revenueBySchool[p.school_id] = (revenueBySchool[p.school_id] || 0) + (p.amount || 0);
+         }
+      });
+      const schoolStats = (schoolsRes.data || []).map(s => ({
+         name: s.name,
+         Revenue: revenueBySchool[s.id] || 0
+      })).sort((a,b) => b.Revenue - a.Revenue).slice(0, 10);
+      
+      setGlobalStats({ totalStudents, totalPayments, schoolStats });
       
       if (schoolsRes.error) throw schoolsRes.error;
       if (profilesRes.error) throw profilesRes.error;
@@ -149,6 +170,68 @@ export function SuperAdminDashboard() {
         </button>
       </div>
 
+      {activeTab === "DASHBOARD" && (
+        <div className="space-y-6 animate-in fade-in">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
+              <div className="flex justify-between items-start">
+                <div>
+                  <p className="text-xs font-bold text-slate-500 uppercase tracking-wide">Total Écoles</p>
+                  <h3 className="text-2xl font-black text-gray-800 mt-1">{schools.length}</h3>
+                </div>
+                <div className="p-3 bg-blue-50 text-blue-600 rounded-lg"><Building size={24}/></div>
+              </div>
+            </div>
+            <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
+              <div className="flex justify-between items-start">
+                <div>
+                  <p className="text-xs font-bold text-slate-500 uppercase tracking-wide">Total Utilisateurs</p>
+                  <h3 className="text-2xl font-black text-gray-800 mt-1">{profiles.length}</h3>
+                </div>
+                <div className="p-3 bg-indigo-50 text-indigo-600 rounded-lg"><Users size={24}/></div>
+              </div>
+            </div>
+            <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
+              <div className="flex justify-between items-start">
+                <div>
+                  <p className="text-xs font-bold text-slate-500 uppercase tracking-wide">Élèves Inscrits</p>
+                  <h3 className="text-2xl font-black text-gray-800 mt-1">{globalStats.totalStudents}</h3>
+                </div>
+                <div className="p-3 bg-emerald-50 text-emerald-600 rounded-lg"><GraduationCap size={24}/></div>
+              </div>
+            </div>
+            <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
+              <div className="flex justify-between items-start">
+                <div>
+                  <p className="text-xs font-bold text-slate-500 uppercase tracking-wide">Volume Transactions</p>
+                  <h3 className="text-2xl font-black text-gray-800 mt-1">{globalStats.totalPayments.toLocaleString()} F</h3>
+                </div>
+                <div className="p-3 bg-amber-50 text-amber-600 rounded-lg"><DollarSign size={24}/></div>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
+            <h3 className="text-lg font-bold text-gray-800 mb-6 flex items-center gap-2"><BarChart className="text-emerald-600" /> Top Revenus par École</h3>
+            <div className="h-80 w-full">
+              <ResponsiveContainer width="100%" height="100%">
+                <RechartsBarChart data={globalStats.schoolStats} margin={{ top: 10, right: 10, left: 20, bottom: 20 }}>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
+                  <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: '#64748b' }} />
+                  <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: '#64748b' }} tickFormatter={(val) => `${val / 1000}k`} />
+                  <Tooltip 
+                     cursor={{ fill: '#f8fafc' }} 
+                     contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
+                     formatter={(value) => [`${Number(value).toLocaleString()} FCFA`, 'Revenus']}
+                  />
+                  <Bar dataKey="Revenue" fill="#10b981" radius={[4, 4, 0, 0]} barSize={40} />
+                </RechartsBarChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+        </div>
+      )}
+      
       {activeTab === "SCHOOLS" && (
         <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
           <div className="p-4 border-b border-slate-100 flex justify-between items-center bg-slate-50">

@@ -683,7 +683,7 @@ const childName = child ? `${child.lastName} ${child.firstName}` : "Inconnu";
                   <option key={y} value={y.toString()}>{y}</option>
                 ))}
               </select>
-              <div className="flex p-1 bg-slate-100 rounded overflow-x-auto">
+              <div className="flex p-1 bg-slate-100 overflow-x-auto whitespace-nowrap hide-scrollbar rounded overflow-x-auto">
                  <button onClick={() => setDateFilter('ALL')} className={`px-3 py-1 rounded text-[10px] font-bold uppercase tracking-wider transition-colors ${dateFilter === 'ALL' ? 'bg-white shadow-sm text-gray-700' : 'text-slate-500 hover:text-gray-700'}`}>Tous</button>
                  <button onClick={() => setDateFilter('DAY')} className={`px-3 py-1 rounded text-[10px] font-bold uppercase tracking-wider transition-colors ${dateFilter === 'DAY' ? 'bg-white shadow-sm text-gray-700' : 'text-slate-500 hover:text-gray-700'}`}>Jour</button>
                  <button onClick={() => setDateFilter('WEEK')} className={`px-3 py-1 rounded text-[10px] font-bold uppercase tracking-wider transition-colors ${dateFilter === 'WEEK' ? 'bg-white shadow-sm text-gray-700' : 'text-slate-500 hover:text-gray-700'}`}>Sem</button>

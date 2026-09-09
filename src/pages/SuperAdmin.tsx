@@ -394,6 +394,9 @@ export function SuperAdminDashboard() {
                   <option value="SECRETARY">Secrétaire</option>
                   <option value="CASHIER">Caissier(ère)</option>
                   <option value="TEACHER">Professeur</option>
+                  <option value="PARENT">Parent</option>
+                  <option value="DIRECTOR_OF_STUDIES">Directeur des Études</option>
+                  <option value="SUPERVISOR">Surveillant</option>
                 </select>
               </div>
               <div className="pt-4 flex gap-3">

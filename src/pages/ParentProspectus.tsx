@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useAuth } from "../lib/auth";
-import { FileText, Download, Edit2, Check, Upload, Save, X } from "lucide-react";
+import { FileText, Download, Edit2, Check, Upload, Save, X, Plus, Trash2, Eye } from "lucide-react";
 import { supabase } from "../lib/supabase";
 
 export function ParentProspectus() {
@@ -8,17 +8,12 @@ export function ParentProspectus() {
   const [imageUrl, setImageUrl] = useState("https://images.unsplash.com/photo-1523050854058-8df90110c9f1?auto=format&fit=crop&q=80&w=2400");
   const [bottomImageUrl, setBottomImageUrl] = useState("");
   const [isEditing, setIsEditing] = useState(false);
+  const [previewMode, setPreviewMode] = useState(false);
   
-  const [texts, setTexts] = useState({
-    title: "Construisons l'Avenir",
-    subtitle: "Une éducation de qualité, un encadrement rigoureux et des infrastructures modernes pour garantir la réussite de vos enfants.",
-    valuesTitle: "Nos Valeurs",
-    values: "• Excellence académique\n• Rigueur et discipline\n• Épanouissement personnel\n• Citoyenneté et leadership",
-    infoTitle: "Informations Pratiques",
-    info: "**Horaires :** 08h00 - 17h00\n**Cantine :** Disponible (sur inscription)\n**Activités :** Sport, Arts, Clubs scientiques"
-  });
-
-  const [fees, setFees] = useState<any[]>([]);
+  const [sections, setSections] = useState<any[]>([
+     { type: "TEXT", title: "Nos Valeurs", content: "• Excellence académique\n• Rigueur" },
+     { type: "TEXT", title: "Informations Pratiques", content: "**Horaires :** 08h00 - 17h00\n**Cantine :** Disponible" }
+  ]);
 
   const canEdit = user?.role === 'SCHOOL_ADMIN' || user?.role === 'CASHIER';
 
@@ -30,29 +25,15 @@ export function ParentProspectus() {
           const parsed = JSON.parse(data.description);
           setImageUrl(parsed.imageUrl || imageUrl);
           setBottomImageUrl(parsed.bottomImageUrl || "");
-          setTexts(parsed.texts || texts);
+          if (parsed.sections) setSections(parsed.sections);
         } catch(e) {}
       }
     });
-
-    // Fetch fees
-    supabase.from('fee_config').select('*').eq('school_id', user.schoolId).then(({ data }) => {
-      if (data) {
-        // Group by level
-        const grouped = data.reduce((acc, curr) => {
-          if (!acc[curr.level]) acc[curr.level] = { level: curr.level, total: 0 };
-          acc[curr.level].total += curr.amount;
-          return acc;
-        }, {} as Record<string, any>);
-        setFees(Object.values(grouped));
-      }
-    });
-
   }, [user?.schoolId]);
 
   const handleSave = () => {
     if (user?.schoolId) {
-      const payload = JSON.stringify({ imageUrl, bottomImageUrl, texts });
+      const payload = JSON.stringify({ imageUrl, bottomImageUrl, sections });
       supabase.from('fee_config').select('id').eq('school_id', user.schoolId).eq('level', 'PROSPECTUS_DATA').single().then(({data}) => {
         if (data) {
           supabase.from('fee_config').update({ description: payload }).eq('id', data.id).then(() => {});
@@ -62,6 +43,7 @@ export function ParentProspectus() {
       });
     }
     setIsEditing(false);
+    setPreviewMode(false);
   };
 
   const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>, isBottom: boolean) => {
@@ -69,39 +51,51 @@ export function ParentProspectus() {
     if (file) {
       const reader = new FileReader();
       reader.onloadend = () => {
-        const img = new Image();
-        img.onload = () => {
-            const canvas = document.createElement('canvas');
-            const MAX_WIDTH = 1200;
-            const MAX_HEIGHT = 1200;
-            let width = img.width;
-            let height = img.height;
-            
-            if (width > height) {
-                if (width > MAX_WIDTH) {
-                    height = height * (MAX_WIDTH / width);
-                    width = MAX_WIDTH;
-                }
-            } else {
-                if (height > MAX_HEIGHT) {
-                    width = width * (MAX_HEIGHT / height);
-                    height = MAX_HEIGHT;
-                }
-            }
-            canvas.width = width;
-            canvas.height = height;
-            const ctx = canvas.getContext('2d');
-            if(ctx) {
-                ctx.drawImage(img, 0, 0, width, height);
-                const resized = canvas.toDataURL('image/jpeg', 0.7);
-                if (isBottom) setBottomImageUrl(resized);
-                else setImageUrl(resized);
-            }
-        };
-        img.src = reader.result as string;
+        if (isBottom) setBottomImageUrl(reader.result as string);
+        else setImageUrl(reader.result as string);
       };
       reader.readAsDataURL(file);
     }
+  };
+
+  const addSection = (type: "TEXT" | "TABLE") => {
+     if (type === "TEXT") {
+        setSections([...sections, { type: "TEXT", title: "Nouveau Titre", content: "Contenu..." }]);
+     } else {
+        setSections([...sections, { type: "TABLE", title: "Nouveau Tableau", headers: ["Colonne 1", "Colonne 2"], rows: [["Valeur 1", "Valeur 2"]] }]);
+     }
+  };
+
+  const updateSection = (index: number, key: string, value: any) => {
+     const newSections = [...sections];
+     newSections[index][key] = value;
+     setSections(newSections);
+  };
+
+  const deleteSection = (index: number) => {
+     setSections(sections.filter((_, i) => i !== index));
+  };
+
+  const updateTable = (secIndex: number, rowIndex: number, colIndex: number, value: string) => {
+     const newSections = [...sections];
+     newSections[secIndex].rows[rowIndex][colIndex] = value;
+     setSections(newSections);
+  };
+  const updateHeader = (secIndex: number, colIndex: number, value: string) => {
+     const newSections = [...sections];
+     newSections[secIndex].headers[colIndex] = value;
+     setSections(newSections);
+  };
+  const addRow = (secIndex: number) => {
+     const newSections = [...sections];
+     newSections[secIndex].rows.push(new Array(newSections[secIndex].headers.length).fill(""));
+     setSections(newSections);
+  };
+  const addCol = (secIndex: number) => {
+     const newSections = [...sections];
+     newSections[secIndex].headers.push("Nouvelle Col");
+     newSections[secIndex].rows.forEach((r: any) => r.push(""));
+     setSections(newSections);
   };
 
   if (!user) return null;
@@ -113,7 +107,12 @@ export function ParentProspectus() {
           <h1 className="text-3xl font-bold text-gray-700 mb-2">Prospectus de l'école</h1>
           <p className="text-slate-500">Découvrez la vision, les activités et les conditions de notre établissement.</p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
+          {canEdit && isEditing && (
+            <button onClick={() => setPreviewMode(!previewMode)} className="flex items-center gap-2 px-4 py-2 bg-slate-200 text-slate-700 rounded font-bold uppercase tracking-wider text-xs hover:bg-slate-300 transition shadow-sm">
+               <Eye size={16} /> {previewMode ? "Retour Édition" : "Aperçu"}
+            </button>
+          )}
           {canEdit && (
             <button 
               onClick={() => isEditing ? handleSave() : setIsEditing(true)}
@@ -123,8 +122,7 @@ export function ParentProspectus() {
             </button>
           )}
           <button onClick={() => window.print()} className="flex items-center gap-2 px-4 py-2 bg-slate-600 text-white rounded font-bold uppercase tracking-wider text-xs hover:bg-slate-700 transition shadow-sm">
-            <Download size={16} />
-            Imprimer / PDF
+            <Download size={16} /> Imprimer / PDF
           </button>
         </div>
       </div>
@@ -134,108 +132,90 @@ export function ParentProspectus() {
         {/* Top Image */}
         <div className="aspect-[21/9] w-full bg-slate-100 flex flex-col items-center justify-center relative overflow-hidden group">
            <img src={imageUrl} alt="Prospectus" className="w-full h-full object-cover" />
-           {isEditing && (
+           {isEditing && !previewMode && (
              <>
              <button onClick={() => document.getElementById("main-img-upload")?.click()} className="absolute top-4 right-4 flex items-center gap-2 px-4 py-2 bg-white/90 text-gray-800 rounded font-bold uppercase tracking-wider text-xs hover:bg-white transition cursor-pointer shadow-sm z-10">
-                <Upload size={16} /> Changer l'image principale
+                <Upload size={16} /> Changer l'image
              </button>
              <input id="main-img-upload" type="file" className="hidden" accept="image/*" onChange={(e) => handlePhotoUpload(e, false)} />
              </>
            )}
-           <div className="absolute inset-0 bg-gradient-to-t from-slate-900/80 to-transparent flex items-end p-8">
-             <div className="text-white w-full">
-               {isEditing ? (
-                 <>
-                   <input 
-                     value={texts.title} 
-                     onChange={e => setTexts({...texts, title: e.target.value})} 
-                     className="bg-black/50 text-3xl font-black uppercase tracking-wider mb-2 w-full p-2 rounded" 
-                   />
-                   <textarea 
-                     value={texts.subtitle} 
-                     onChange={e => setTexts({...texts, subtitle: e.target.value})} 
-                     className="bg-black/50 text-slate-200 max-w-xl leading-relaxed w-full p-2 rounded resize-none" 
-                   />
-                 </>
-               ) : (
-                 <>
-                   <h2 className="text-3xl font-black uppercase tracking-wider mb-2">{texts.title}</h2>
-                   <p className="text-slate-200 max-w-xl leading-relaxed">{texts.subtitle}</p>
-                 </>
-               )}
-             </div>
-           </div>
         </div>
 
-        {/* Texts */}
-        <div className="p-8 grid grid-cols-1 md:grid-cols-2 gap-8">
-          <div>
-             {isEditing ? (
-               <input value={texts.valuesTitle} onChange={e => setTexts({...texts, valuesTitle: e.target.value})} className="text-lg font-bold text-gray-700 mb-4 w-full border p-2 rounded" />
-             ) : (
-               <h3 className="text-lg font-bold text-gray-700 mb-4 flex items-center gap-2"><FileText size={18} className="text-emerald-600" /> {texts.valuesTitle}</h3>
-             )}
-             
-             {isEditing ? (
-               <textarea value={texts.values} onChange={e => setTexts({...texts, values: e.target.value})} className="w-full h-40 border p-2 rounded text-sm text-slate-600" />
-             ) : (
-               <ul className="space-y-2 text-sm text-slate-600 whitespace-pre-line">
-                 {texts.values}
-               </ul>
-             )}
-          </div>
-          <div>
-             {isEditing ? (
-               <input value={texts.infoTitle} onChange={e => setTexts({...texts, infoTitle: e.target.value})} className="text-lg font-bold text-gray-700 mb-4 w-full border p-2 rounded" />
-             ) : (
-               <h3 className="text-lg font-bold text-gray-700 mb-4 flex items-center gap-2"><FileText size={18} className="text-emerald-600" /> {texts.infoTitle}</h3>
-             )}
-             
-             {isEditing ? (
-               <textarea value={texts.info} onChange={e => setTexts({...texts, info: e.target.value})} className="w-full h-40 border p-2 rounded text-sm text-slate-600" />
-             ) : (
-               <div className="space-y-2 text-sm text-slate-600 whitespace-pre-line">
-                 {texts.info.split('\n').map((line, i) => (
-                   <p key={i} dangerouslySetInnerHTML={{ __html: line.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>') }} />
-                 ))}
-               </div>
-             )}
-          </div>
-        </div>
+        {/* Dynamic Sections */}
+        <div className="p-8 space-y-8">
+           {sections.map((sec, i) => (
+              <div key={i} className={`relative ${isEditing && !previewMode ? 'p-4 border border-dashed border-slate-300 rounded-lg' : ''}`}>
+                 {isEditing && !previewMode && (
+                    <button onClick={() => deleteSection(i)} className="absolute top-2 right-2 text-red-500 hover:text-red-700 p-1 bg-white rounded shadow-sm"><Trash2 size={16}/></button>
+                 )}
+                 {isEditing && !previewMode ? (
+                    <input value={sec.title} onChange={e => updateSection(i, 'title', e.target.value)} className="text-xl font-bold text-gray-700 mb-4 w-full border p-2 rounded" placeholder="Titre de la section..." />
+                 ) : (
+                    sec.title && <h3 className="text-xl font-bold text-gray-700 mb-4 flex items-center gap-2"><FileText size={20} className="text-emerald-600" /> {sec.title}</h3>
+                 )}
 
-        {/* Fees Table */}
-        <div className="p-8 border-t border-slate-100">
-           <h3 className="text-lg font-bold text-gray-700 mb-4 flex items-center gap-2">Frais de Scolarité (Total Annuel)</h3>
-           {fees.length > 0 ? (
-             <div className="overflow-x-auto">
-               <table className="w-full text-left border-collapse">
-                 <thead>
-                   <tr className="bg-slate-50 border-y border-slate-200">
-                     <th className="p-3 text-xs font-bold text-slate-500 uppercase">Niveau / Classe</th>
-                     <th className="p-3 text-xs font-bold text-slate-500 uppercase text-right">Montant Total (FCFA)</th>
-                   </tr>
-                 </thead>
-                 <tbody>
-                   {fees.map((f, i) => (
-                     <tr key={i} className="border-b border-slate-100">
-                       <td className="p-3 text-sm font-medium text-gray-700">{f.level}</td>
-                       <td className="p-3 text-sm font-bold text-emerald-600 text-right">{f.total.toLocaleString()} FCFA</td>
-                     </tr>
-                   ))}
-                 </tbody>
-               </table>
-             </div>
-           ) : (
-             <p className="text-sm text-slate-500 italic">Aucun frais configuré pour le moment.</p>
+                 {sec.type === "TEXT" && (
+                    isEditing && !previewMode ? (
+                       <textarea value={sec.content} onChange={e => updateSection(i, 'content', e.target.value)} className="w-full h-32 border p-2 rounded text-sm text-slate-600" placeholder="Contenu (le markdown gras est supporté avec **texte**)..." />
+                    ) : (
+                       <div className="space-y-2 text-sm text-slate-600 whitespace-pre-line">
+                         {sec.content.split('\n').map((line: string, idx: number) => (
+                           <p key={idx} dangerouslySetInnerHTML={{ __html: line.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>') }} />
+                         ))}
+                       </div>
+                    )
+                 )}
+
+                 {sec.type === "TABLE" && (
+                    <div className="overflow-x-auto">
+                       <table className="w-full text-left border-collapse">
+                          <thead>
+                             <tr className="bg-slate-50 border-y border-slate-200">
+                                {sec.headers.map((h: string, colIdx: number) => (
+                                   <th key={colIdx} className="p-3 text-xs font-bold text-slate-500 uppercase">
+                                      {isEditing && !previewMode ? <input value={h} onChange={e => updateHeader(i, colIdx, e.target.value)} className="w-full bg-transparent border-b outline-none" /> : h}
+                                   </th>
+                                ))}
+                             </tr>
+                          </thead>
+                          <tbody>
+                             {sec.rows.map((row: string[], rowIdx: number) => (
+                                <tr key={rowIdx} className="border-b border-slate-100">
+                                   {row.map((cell: string, colIdx: number) => (
+                                      <td key={colIdx} className="p-3 text-sm font-medium text-gray-700">
+                                         {isEditing && !previewMode ? <input value={cell} onChange={e => updateTable(i, rowIdx, colIdx, e.target.value)} className="w-full border p-1 rounded" /> : cell}
+                                      </td>
+                                   ))}
+                                </tr>
+                             ))}
+                          </tbody>
+                       </table>
+                       {isEditing && !previewMode && (
+                          <div className="flex gap-2 mt-2">
+                             <button onClick={() => addRow(i)} className="px-3 py-1 bg-slate-100 text-xs font-bold rounded hover:bg-slate-200">Ajouter Ligne</button>
+                             <button onClick={() => addCol(i)} className="px-3 py-1 bg-slate-100 text-xs font-bold rounded hover:bg-slate-200">Ajouter Colonne</button>
+                          </div>
+                       )}
+                    </div>
+                 )}
+              </div>
+           ))}
+
+           {isEditing && !previewMode && (
+              <div className="flex gap-4 pt-4 border-t border-slate-200 justify-center">
+                 <button onClick={() => addSection('TEXT')} className="px-4 py-2 bg-slate-100 text-slate-700 rounded font-bold uppercase text-xs flex items-center gap-2 hover:bg-slate-200"><Plus size={16}/> Texte</button>
+                 <button onClick={() => addSection('TABLE')} className="px-4 py-2 bg-slate-100 text-slate-700 rounded font-bold uppercase text-xs flex items-center gap-2 hover:bg-slate-200"><Plus size={16}/> Tableau</button>
+              </div>
            )}
         </div>
 
         {/* Bottom Image */}
         <div className="p-8 border-t border-slate-100 bg-slate-50 relative min-h-[200px] flex flex-col items-center justify-center">
-           {isEditing && (
+           {isEditing && !previewMode && (
              <>
              <label htmlFor="bottom-img-upload" className="absolute top-4 right-4 z-10 flex items-center gap-2 px-4 py-2 bg-white text-gray-800 rounded font-bold uppercase tracking-wider text-xs border border-slate-200 hover:bg-slate-50 transition cursor-pointer shadow-sm">
-                <Upload size={16} /> Ajouter/Changer image du bas
+                <Upload size={16} /> {bottomImageUrl ? "Changer" : "Ajouter"} image bas
              </label>
              <input id="bottom-img-upload" type="file" className="hidden" accept="image/*" onChange={(e) => handlePhotoUpload(e, true)} />
              </>
@@ -243,15 +223,14 @@ export function ParentProspectus() {
            {bottomImageUrl ? (
              <img src={bottomImageUrl} alt="Bottom Prospectus" className="w-full max-h-96 object-contain rounded-lg shadow-sm" />
            ) : (
-             isEditing && <p className="text-slate-400 text-sm">Aucune image en bas</p>
+             isEditing && !previewMode && <p className="text-slate-400 text-sm">Aucune image en bas</p>
            )}
-           {isEditing && bottomImageUrl && (
+           {isEditing && !previewMode && bottomImageUrl && (
              <button onClick={() => setBottomImageUrl("")} className="absolute top-4 left-4 flex items-center gap-2 px-3 py-1.5 bg-red-100 text-red-600 rounded text-xs font-bold uppercase hover:bg-red-200 transition">
                <X size={14} /> Supprimer
              </button>
            )}
         </div>
-
       </div>
     </div>
   );

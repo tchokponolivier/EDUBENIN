@@ -195,11 +195,10 @@ export function DashboardLayout({ children }: { children: ReactNode }) {
 
       {/* Main content */}
       <main className="flex-1 flex flex-col min-w-0">
-        <header className="h-16 bg-white border-b border-slate-200 px-4 md:px-8 flex items-center justify-between shrink-0">
-          <div className="flex items-center gap-4">
-            <h2 className="text-xl font-bold text-gray-700 hidden md:block">{schoolName || "Vue d'ensemble du Système"}</h2>
-            <h2 className="text-xl font-bold text-gray-700 md:hidden">{schoolName ? schoolName.substring(0, 15) + (schoolName.length > 15 ? '...' : '') : "EduBénin"}</h2>
-            <span className="hidden md:inline-block px-3 py-1 bg-emerald-100 text-emerald-800 rounded-full text-xs font-bold uppercase tracking-wider shadow-sm">Année Scolaire {academicYear}</span>
+        <header className="h-16 bg-white border-b border-slate-200 px-4 md:px-8 flex items-center justify-between shrink-0 gap-2">
+          <div className="flex items-center gap-2 md:gap-4 overflow-hidden">
+            <h2 className="text-xl font-bold text-gray-700 truncate">{schoolName || "Vue d'ensemble du Système"}</h2>
+            <span className="shrink-0 px-2 md:px-3 py-1 bg-emerald-100 text-emerald-800 rounded-full text-[10px] md:text-xs font-bold uppercase tracking-wider shadow-sm">Année {academicYear}</span>
           </div>
           <div className="flex items-center gap-2 md:gap-4">
             <div className="hidden md:flex items-center gap-2 px-3 py-1.5 bg-slate-100 rounded text-xs font-medium">

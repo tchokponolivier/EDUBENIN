@@ -116,6 +116,8 @@ export function SchoolAdminPayments() {
   
   // Modal states
   const [showPayModal, setShowPayModal] = useState(false);
+  const [payFilterYear, setPayFilterYear] = useState("");
+  const [payFilterLevel, setPayFilterLevel] = useState("");
   const [whatsappPromptInfo, setWhatsappPromptInfo] = useState<{payment: Payment, student: Student} | null>(null);
   const [whatsappInputPhone, setWhatsappInputPhone] = useState("");
   const [selectedStudentId, setSelectedStudentId] = useState("");
@@ -268,11 +270,31 @@ export function SchoolAdminPayments() {
   const transactionFee = isMomo ? Math.ceil(totalAmount * 0.01) : 0;
   const totalAmountWithFee = totalAmount + transactionFee;
 
-  const handleManualPayment = (e: React.FormEvent) => {
+  const handleManualPayment = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedStudent || totalAmount <= 0) return;
-    const newPayment: any = { id: Date.now().toString(), amount: totalAmount, date: Date.now(), reference: 'PAY-' + Date.now() };
-    setPayments(prev => [newPayment, ...prev]);
+    const reference = 'PAY-' + Date.now();
+    
+    const items = currentPaymentItemsTemplate.map(i => ({ name: i.name, amount: i.amount }));
+    const { data: inserted, error } = await supabase.from('payments').insert({
+       school_id: selectedStudent.school_id,
+       student_id: selectedStudent.id,
+       amount: totalAmount,
+       network: paymentMethod,
+       status: 'PENDING',
+       reference: reference,
+       items: items as any
+    }).select().single();
+
+    if (error) {
+       alert("Erreur lors de l'enregistrement: " + error.message);
+       return;
+    }
+
+    alert("Le paiement a été soumis et envoyé dans la section VERIFICATIONS pour validation.");
+    
+    fetchData(); // Reload dashboard data
+
     setShowPayModal(false);
     setSelectedStudentId("");
     setSelectedFeeIds([]);
@@ -281,14 +303,11 @@ export function SchoolAdminPayments() {
     setPaymentMethod("ESPÈCES");
     
     if (isMomo) {
-      if (window.confirm("Paiement initié avec succès. Voulez-vous lancer le code USSD sur cet appareil pour valider la transaction ?")) {
+      if (window.confirm("Paiement enregistré pour vérification. Voulez-vous lancer le code USSD sur cet appareil pour valider la transaction via téléphone ?")) {
           const ussdCode = `*880*41*681199*${totalAmountWithFee}#`;
           window.location.href = `tel:${ussdCode.replace('#', '%23')}`;
       }
     }
-    
-    // Automatically propose sending WhatsApp receipt
-    sendWhatsAppReceipt(newPayment, selectedStudent);
   };
 
   const handleFeeToggle = (id: string, isChecked: boolean) => {
@@ -433,36 +452,36 @@ export function SchoolAdminPayments() {
           <p className="text-xs text-slate-500 mt-1">Supervisez et enregistrez les transactions depuis la caisse</p>
         </div>
         
-        <div className="flex p-1 bg-slate-100 rounded-lg shrink-0 overflow-x-auto max-w-full">
+        <div className="flex p-1 bg-slate-100 overflow-x-auto whitespace-nowrap hide-scrollbar rounded-lg shrink-0 overflow-x-auto max-w-full">
           
           <button 
             onClick={() => setActiveTab("VERIFICATION")} 
-            className={`px-4 py-2 rounded text-xs font-bold uppercase tracking-wider transition-colors ${activeTab === "VERIFICATION" ? "bg-white shadow-sm text-gray-700" : "text-slate-500 hover:text-gray-700"}`}
+            className={`px-4 py-2 rounded text-xs whitespace-nowrap shrink-0 font-bold uppercase tracking-wider transition-colors ${activeTab === "VERIFICATION" ? "bg-white shadow-sm text-gray-700" : "text-slate-500 hover:text-gray-700"}`}
           >
             Vérifications
           </button>
           <button 
             onClick={() => setActiveTab("PAYMENTS")} 
  
-            className={`px-4 py-2 rounded text-xs font-bold uppercase tracking-wider transition-colors ${activeTab === "PAYMENTS" ? "bg-white shadow-sm text-gray-700" : "text-slate-500 hover:text-gray-700"}`}
+            className={`px-4 py-2 rounded text-xs whitespace-nowrap shrink-0 font-bold uppercase tracking-wider transition-colors ${activeTab === "PAYMENTS" ? "bg-white shadow-sm text-gray-700" : "text-slate-500 hover:text-gray-700"}`}
           >
             Encaissements
           </button>
           <button 
             onClick={() => setActiveTab("EXPENSES")} 
-            className={`px-4 py-2 rounded text-xs font-bold uppercase tracking-wider transition-colors ${activeTab === "EXPENSES" ? "bg-white shadow-sm text-gray-700" : "text-slate-500 hover:text-gray-700"}`}
+            className={`px-4 py-2 rounded text-xs whitespace-nowrap shrink-0 font-bold uppercase tracking-wider transition-colors ${activeTab === "EXPENSES" ? "bg-white shadow-sm text-gray-700" : "text-slate-500 hover:text-gray-700"}`}
           >
             Dépenses
           </button>
           <button 
             onClick={() => setActiveTab("SALARIES")} 
-            className={`px-4 py-2 rounded text-xs font-bold uppercase tracking-wider transition-colors ${activeTab === "SALARIES" ? "bg-white shadow-sm text-gray-700" : "text-slate-500 hover:text-gray-700"}`}
+            className={`px-4 py-2 rounded text-xs whitespace-nowrap shrink-0 font-bold uppercase tracking-wider transition-colors ${activeTab === "SALARIES" ? "bg-white shadow-sm text-gray-700" : "text-slate-500 hover:text-gray-700"}`}
           >
             Salaires
           </button>
           <button 
             onClick={() => setActiveTab("DASHBOARD")} 
-            className={`px-4 py-2 rounded text-xs font-bold uppercase tracking-wider transition-colors ${activeTab === "DASHBOARD" ? "bg-white shadow-sm text-gray-700" : "text-slate-500 hover:text-gray-700"}`}
+            className={`px-4 py-2 rounded text-xs whitespace-nowrap shrink-0 font-bold uppercase tracking-wider transition-colors ${activeTab === "DASHBOARD" ? "bg-white shadow-sm text-gray-700" : "text-slate-500 hover:text-gray-700"}`}
           >
             Tableau de Bord
           </button>
@@ -568,6 +587,22 @@ export function SchoolAdminPayments() {
                <h3 className="font-bold text-lg text-gray-700">Encaisser un paiement</h3>
             </div>
             <form onSubmit={handleManualPayment} className="p-4 space-y-4 max-h-[70vh] overflow-y-auto">
+               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-semibold text-gray-700 mb-1 uppercase tracking-wide">Année Scolaire</label>
+                    <select value={payFilterYear || ""} onChange={e => { setPayFilterYear(e.target.value); setSelectedStudentId(""); }} className="w-full px-3 py-2 border border-slate-300 rounded text-sm bg-white">
+                       <option value="">Toutes les années</option>
+                       {Array.from(new Set(students.map(s => s.academic_year).filter(Boolean))).map(y => <option key={y as string} value={y as string}>{y}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-gray-700 mb-1 uppercase tracking-wide">Classe</label>
+                    <select value={payFilterLevel || ""} onChange={e => { setPayFilterLevel(e.target.value); setSelectedStudentId(""); }} className="w-full px-3 py-2 border border-slate-300 rounded text-sm bg-white">
+                       <option value="">Toutes les classes</option>
+                       {Array.from(new Set(students.map(s => s.level).filter(Boolean))).map(l => <option key={l as string} value={l as string}>{l}</option>)}
+                    </select>
+                  </div>
+               </div>
                <div>
                   <label className="block text-xs font-semibold text-gray-700 mb-1 uppercase tracking-wide">Élève</label>
                   <select required value={selectedStudentId} onChange={e => {
@@ -577,7 +612,7 @@ export function SchoolAdminPayments() {
                      setCustomItems([{name: "", amount: ""}]);
                   }} className="w-full px-3 py-2 border border-slate-300 rounded text-sm focus:ring-emerald-500 focus:border-emerald-500 outline-none">
                      <option value="">Sélectionner un élève...</option>
-                     {students.map(s => <option key={s.id} value={s.id}>{s.lastName} {s.firstName} ({s.level})</option>)}
+                     {students.filter(s => (!payFilterYear || s.academic_year === payFilterYear) && (!payFilterLevel || s.level === payFilterLevel)).map(s => <option key={s.id} value={s.id}>{s.lastName} {s.firstName} ({s.level})</option>)}
                   </select>
                </div>
                

@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { supabase } from "../lib/supabase";
 import { Expense } from "../types";
 import { useAuth } from "../lib/auth";
-import { Plus, Receipt } from "lucide-react";
+import { ArrowDownToLine, Receipt, Plus, Edit2, Trash2 } from "lucide-react";
 
 export function CashierExpenses() {
   const { user } = useAuth();
@@ -176,7 +176,7 @@ export function CashierExpenses() {
         </form>
       )}
 
-      <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+      <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-x-auto">
         <table className="w-full text-left border-collapse">
           <thead className="bg-slate-50 text-[10px] uppercase text-slate-500 font-bold border-b border-slate-100">
             <tr>
@@ -206,9 +206,13 @@ export function CashierExpenses() {
                   )}
                 </td>
                 <td className="px-6 py-4 text-sm font-bold text-red-600 text-right">- {exp.amount.toLocaleString()}</td>
-                <td className="px-6 py-4 text-sm text-right space-x-2">
-                    <button onClick={() => handleEdit(exp)} className="text-emerald-600 font-bold hover:underline">Éditer</button>
-                    <button onClick={() => handleDelete(exp.id)} className="text-red-600 font-bold hover:underline">Supprimer</button>
+                <td className="px-6 py-4 text-sm text-right space-x-2 flex items-center justify-end h-full mt-2">
+                    <button onClick={() => handleEdit(exp)} className="text-emerald-600 p-1 bg-emerald-50 rounded hover:bg-emerald-100 transition-colors" title="Éditer">
+                        <Edit2 size={16} />
+                    </button>
+                    <button onClick={() => handleDelete(exp.id)} className="text-red-600 p-1 bg-red-50 rounded hover:bg-red-100 transition-colors" title="Supprimer">
+                        <Trash2 size={16} />
+                    </button>
                 </td>
               </tr>
             ))}

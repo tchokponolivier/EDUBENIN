@@ -61,7 +61,9 @@ export function AddStudentModal({ isOpen, onClose, onSuccess, initialData = null
   const [previousClass, setPreviousClass] = useState("");
   const [previousSchool, setPreviousSchool] = useState("");
   const [lastYearAttended, setLastYearAttended] = useState("");
-  const [enrollmentStatus, setEnrollmentStatus] = useState("ACTIVE");
+  const [enrollmentStatus, setEnrollmentStatus] = useState("PASSING");
+  const [showPaymentPrompt, setShowPaymentPrompt] = useState(false);
+  const [savedStudentId, setSavedStudentId] = useState<string | null>(null);
   const [educmasterNumber, setEducmasterNumber] = useState("");
   const [gender, setGender] = useState<"MALE" | "FEMALE">("MALE");
   const [nationality, setNationality] = useState("Béninoise");
@@ -366,12 +368,21 @@ export function AddStudentModal({ isOpen, onClose, onSuccess, initialData = null
                      </div>
                    )}
                 </div>
-              <div>
-                  <label className="block text-xs font-semibold text-gray-700 mb-1 uppercase tracking-wide">Statut Élève</label>
-                  <select value={studentType} onChange={e => setStudentType(e.target.value as any)} className="w-full px-3 py-2 border border-slate-300 rounded text-sm focus:ring-emerald-500 focus:border-emerald-500 outline-none">
-                    <option value="NEW">Nouvel élève</option>
-                    <option value="OLD">Ancien élève (Réinscription)</option>
-                  </select>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-semibold text-gray-700 mb-1 uppercase tracking-wide">Statut Élève</label>
+                    <select value={studentType} onChange={e => setStudentType(e.target.value as any)} className="w-full px-3 py-2 border border-slate-300 rounded text-sm focus:ring-emerald-500 focus:border-emerald-500 outline-none">
+                      <option value="NEW">Nouvel élève</option>
+                      <option value="OLD">Ancien élève (Réinscription)</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-gray-700 mb-1 uppercase tracking-wide">STATUT SCOLAIRE</label>
+                    <select value={enrollmentStatus} onChange={e => setEnrollmentStatus(e.target.value)} className="w-full px-3 py-2 border border-slate-300 rounded text-sm focus:ring-emerald-500 focus:border-emerald-500 outline-none font-semibold text-emerald-700">
+                       <option value="PASSING">Passant</option>
+                       <option value="REPEATING">Redoublant</option>
+                    </select>
+                  </div>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
@@ -433,16 +444,7 @@ export function AddStudentModal({ isOpen, onClose, onSuccess, initialData = null
                     {LEVELS.map(l => <option key={l} value={l}>{l}</option>)}
                   </select>
                 </div>
-                <div>
-                  <label className="block text-xs font-semibold text-gray-700 mb-1 uppercase tracking-wide">Statut de l'élève</label>
-                  <select value={enrollmentStatus} onChange={e => setEnrollmentStatus(e.target.value)} className="w-full px-3 py-2 border border-slate-300 rounded text-sm focus:ring-emerald-500 focus:border-emerald-500 outline-none">
-                     <option value="ACTIVE">Actif (Inscrit normalement)</option>
-                     <option value="DROPOUT">Abandon</option>
-                     <option value="EXCLUDED">Exclus</option>
-                     <option value="PASSING">Admis (Fin d'année)</option>
-                     <option value="REPEATING">Redoublant</option>
-                  </select>
-                </div>
+
                 <div>
                   <label className="block text-xs font-semibold text-gray-700 mb-1 uppercase tracking-wide">N° EducMaster</label>
                   <input value={educmasterNumber} onChange={e => setEducmasterNumber(e.target.value)} type="text" placeholder="Optionnel" className="w-full px-3 py-2 border border-slate-300 rounded text-sm focus:ring-emerald-500 focus:border-emerald-500 outline-none placeholder-slate-300" />

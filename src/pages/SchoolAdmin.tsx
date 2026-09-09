@@ -131,6 +131,13 @@ export function SchoolAdminDashboard() {
     if (!user?.schoolId) return;
     setIsInviting(true);
     try {
+      const { data: existing } = await supabase.from('invitations')
+         .select('id').eq('email', inviteEmail.trim().toLowerCase())
+         .eq('school_id', user.schoolId).maybeSingle();
+      if (existing) {
+         await supabase.from('invitations').delete().eq('id', existing.id);
+      }
+      
       const { error } = await supabase.from('invitations').insert([{
         school_id: user.schoolId,
         email: inviteEmail.trim().toLowerCase(),
@@ -181,6 +188,7 @@ export function SchoolAdminDashboard() {
          }));
          setSettings({ ...settings, ...updates });
          alert("Paramètres enregistrés avec succès.");
+         window.location.reload();
        }
     });
 
@@ -237,34 +245,34 @@ export function SchoolAdminDashboard() {
           <h1 className="text-xl font-bold text-gray-700">Administration Ecole</h1>
           <p className="text-xs text-slate-500 mt-1">Supervisez l'évolution des inscriptions et paramètres</p>
         </div>
-        <div className="flex p-1 bg-slate-100 rounded-lg shrink-0 overflow-x-auto max-w-full">
+        <div className="flex p-1 bg-slate-100 overflow-x-auto whitespace-nowrap hide-scrollbar rounded-lg shrink-0 overflow-x-auto max-w-full">
           <button 
             onClick={() => setActiveTab("DASHBOARD")} 
-            className={`px-4 py-2 rounded text-xs font-bold uppercase tracking-wider transition-colors ${activeTab === "DASHBOARD" ? "bg-white shadow-sm text-gray-700" : "text-slate-500 hover:text-gray-700"}`}
+            className={`px-4 py-2 rounded text-xs whitespace-nowrap shrink-0 font-bold uppercase tracking-wider transition-colors ${activeTab === "DASHBOARD" ? "bg-white shadow-sm text-gray-700" : "text-slate-500 hover:text-gray-700"}`}
           >
             Vue d'ensemble
           </button>
           <button 
             onClick={() => setActiveTab("MEMBERS")} 
-            className={`px-4 py-2 rounded text-xs font-bold uppercase tracking-wider transition-colors ${activeTab === "MEMBERS" ? "bg-white shadow-sm text-gray-700" : "text-slate-500 hover:text-gray-700"}`}
+            className={`px-4 py-2 rounded text-xs whitespace-nowrap shrink-0 font-bold uppercase tracking-wider transition-colors ${activeTab === "MEMBERS" ? "bg-white shadow-sm text-gray-700" : "text-slate-500 hover:text-gray-700"}`}
           >
             Membres & Invitations
           </button>
           <button 
             onClick={() => setActiveTab("ACADEMIC")} 
-            className={`px-4 py-2 rounded text-xs font-bold uppercase tracking-wider transition-colors ${activeTab === "ACADEMIC" ? "bg-white shadow-sm text-gray-700" : "text-slate-500 hover:text-gray-700"}`}
+            className={`px-4 py-2 rounded text-xs whitespace-nowrap shrink-0 font-bold uppercase tracking-wider transition-colors ${activeTab === "ACADEMIC" ? "bg-white shadow-sm text-gray-700" : "text-slate-500 hover:text-gray-700"}`}
           >
             Années & Classes
           </button>
           <button 
             onClick={() => setActiveTab("FEES")} 
-            className={`px-4 py-2 rounded text-xs font-bold uppercase tracking-wider transition-colors ${activeTab === "FEES" ? "bg-white shadow-sm text-gray-700" : "text-slate-500 hover:text-gray-700"}`}
+            className={`px-4 py-2 rounded text-xs whitespace-nowrap shrink-0 font-bold uppercase tracking-wider transition-colors ${activeTab === "FEES" ? "bg-white shadow-sm text-gray-700" : "text-slate-500 hover:text-gray-700"}`}
           >
             Frais de scolarité
           </button>
           <button 
             onClick={() => setActiveTab("ANNOUNCEMENTS")} 
-            className={`px-4 py-2 rounded text-xs font-bold uppercase tracking-wider transition-colors ${activeTab === "ANNOUNCEMENTS" ? "bg-white shadow-sm text-gray-700" : "text-slate-500 hover:text-gray-700"}`}
+            className={`px-4 py-2 rounded text-xs whitespace-nowrap shrink-0 font-bold uppercase tracking-wider transition-colors ${activeTab === "ANNOUNCEMENTS" ? "bg-white shadow-sm text-gray-700" : "text-slate-500 hover:text-gray-700"}`}
           >
             <span className="flex items-center gap-2"><Megaphone size={14} /> Annonces</span>
           </button>
@@ -416,11 +424,11 @@ export function SchoolAdminDashboard() {
                  <option value="SUPERVISOR">Surveillants</option>
               </select>
             </div>
-            {schoolMembers.filter(m => memberFilter === "ALL" || m.role === memberFilter).length === 0 ? (
+            {schoolMembers.filter(m => m.role !== 'DELETED' && (memberFilter === "ALL" || m.role === memberFilter)).length === 0 ? (
               <div className="p-8 text-center text-slate-500">Aucun membre dans cette catégorie.</div>
             ) : (
               <ul className="divide-y divide-gray-100">
-                {schoolMembers.filter(m => memberFilter === "ALL" || m.role === memberFilter).map(m => (
+                {schoolMembers.filter(m => m.role !== 'DELETED' && (memberFilter === "ALL" || m.role === memberFilter)).map(m => (
                   <li key={m.id} className="p-4 px-6 flex items-center justify-between hover:bg-slate-50 transition-colors">
                     <div>
                       <p className="font-medium text-gray-800">{m.full_name || m.email}</p>
@@ -428,7 +436,7 @@ export function SchoolAdminDashboard() {
                     </div>
                     <button onClick={async () => {
                        if(window.confirm("Retirer ce membre de l'école ?")) {
-                          await supabase.from('profiles').update({school_id: null, role: 'PARENT'}).eq('id', m.id);
+                          await supabase.from('profiles').update({role: 'DELETED'}).eq('id', m.id);
                           fetchSchoolMembers();
                        }
                     }} className="text-red-500 hover:text-red-700 text-xs font-bold uppercase p-2">Retirer</button>
@@ -437,6 +445,30 @@ export function SchoolAdminDashboard() {
               </ul>
             )}
           </div>
+          <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden mb-6">
+            <h3 className="px-6 py-4 border-b border-gray-100 font-bold text-gray-700 bg-slate-50">Membres supprimés</h3>
+            {schoolMembers.filter(m => m.role === 'DELETED').length === 0 ? (
+              <div className="p-8 text-center text-slate-500">Aucun membre supprimé.</div>
+            ) : (
+              <ul className="divide-y divide-gray-100">
+                {schoolMembers.filter(m => m.role === 'DELETED').map(m => (
+                  <li key={m.id} className="p-4 px-6 flex items-center justify-between hover:bg-slate-50 transition-colors">
+                    <div>
+                      <p className="font-medium text-gray-400 line-through">{m.full_name || m.email}</p>
+                      <p className="text-xs text-red-500 mt-1 font-semibold">SUPPRIMÉ</p>
+                    </div>
+                    <button onClick={async () => {
+                       if(window.confirm("Restaurer ce membre en tant que parent (il n'aura plus d'accès administratif) ?")) {
+                          await supabase.from('profiles').update({role: 'PARENT'}).eq('id', m.id);
+                          fetchSchoolMembers();
+                       }
+                    }} className="text-emerald-500 hover:text-emerald-700 text-xs font-bold uppercase p-2">Restaurer</button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+
           <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
             <h3 className="px-6 py-4 border-b border-gray-100 font-bold text-gray-700 bg-slate-50">Invitations en attente</h3>
             {invitations.length === 0 ? (

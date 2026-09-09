@@ -128,6 +128,7 @@ export function SchoolAdminStudentList() {
                 className={className} 
                 students={filteredStudents.filter(s => s.level === className)} 
                 teachers={getTeachersForClass(className)}
+                 onUpdateStatus={async (id, status) => { await supabase.from('students').update({ status }).eq('id', id); fetchData(); }}
               />
             ))
           ) : (
@@ -135,6 +136,7 @@ export function SchoolAdminStudentList() {
               className={selectedClass} 
               students={filteredStudents} 
               teachers={getTeachersForClass(selectedClass)}
+               onUpdateStatus={async (id, status) => { await supabase.from('students').update({ status }).eq('id', id); fetchData(); }}
             />
           )}
           {filteredStudents.length === 0 && (
@@ -149,7 +151,7 @@ export function SchoolAdminStudentList() {
   );
 }
 
-function ClassSection({ className, students, teachers }: { key?: string, className: string, students: any[], teachers: any[] }) {
+function ClassSection({ className, students, teachers, onUpdateStatus }: { key?: string, className: string, students: any[], teachers: any[], onUpdateStatus: (id: string, status: string) => void }) {
   if (students.length === 0) return null;
 
   return (
@@ -183,7 +185,7 @@ function ClassSection({ className, students, teachers }: { key?: string, classNa
               <th className="px-6 py-3">Matricule</th>
               <th className="px-6 py-3">Nom</th>
               <th className="px-6 py-3">Prénoms</th>
-              <th className="px-6 py-3">Statut</th>
+              <th className="px-6 py-3">Statut Scolaire</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
@@ -193,11 +195,22 @@ function ClassSection({ className, students, teachers }: { key?: string, classNa
                 <td className="px-6 py-3 text-sm font-bold text-gray-800 uppercase">{s.last_name}</td>
                 <td className="px-6 py-3 text-sm text-gray-700 capitalize">{s.first_name}</td>
                 <td className="px-6 py-3">
-                  <span className={`text-[10px] font-bold uppercase px-2 py-1 rounded ${
-                    s.status === 'ACTIVE' ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'
-                  }`}>
-                    {s.status === 'ACTIVE' ? 'Inscrit' : 'Inactif'}
-                  </span>
+                  <select 
+                    value={s.status || 'PASSING'} 
+                    onChange={(e) => onUpdateStatus(s.id, e.target.value)}
+                    className={`text-[10px] font-bold uppercase px-2 py-1 rounded border-none outline-none cursor-pointer ${
+                      s.status === 'PASSING' ? 'bg-emerald-100 text-emerald-700' : 
+                      s.status === 'REPEATING' ? 'bg-amber-100 text-amber-700' : 
+                      s.status === 'EXCLUDED' ? 'bg-red-100 text-red-700' : 
+                      'bg-slate-100 text-slate-700'
+                    }`}
+                  >
+                    <option value="PASSING">Passant</option>
+                    <option value="REPEATING">Redoublant</option>
+                    <option value="EXCLUDED">Exclus</option>
+                    <option value="ACTIVE">Actif</option>
+                    <option value="INACTIVE">Inactif</option>
+                  </select>
                 </td>
               </tr>
             ))}

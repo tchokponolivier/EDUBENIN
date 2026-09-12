@@ -297,6 +297,7 @@ export function SchoolAdminPayments() {
     const { data: inserted, error } = await supabase.from('payments').insert({
        school_id: selectedStudent.school_id,
        student_id: selectedStudent.id,
+       parent_id: selectedStudent.parent_id || selectedStudent.parentId || null,
        amount: totalAmount,
        network: paymentMethod,
        status: 'PENDING',

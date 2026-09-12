@@ -600,8 +600,8 @@ export function SchoolAdminPayments() {
 
             {showPayModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm overflow-y-auto">
-        <div className="bg-white rounded-xl shadow-xl w-full max-w-4xl my-8 grid grid-cols-1 lg:grid-cols-3 gap-0 overflow-hidden animate-in fade-in slide-in-from-top-4">
-          <div className="lg:col-span-2 p-6 flex flex-col bg-white">
+        <div className="bg-white rounded-xl shadow-xl w-full max-w-2xl my-8 overflow-hidden animate-in fade-in slide-in-from-top-4 flex flex-col max-h-[90vh]">
+          <div className="p-6 flex flex-col bg-white overflow-y-auto">
             <div className="flex justify-between items-center mb-6">
               <h3 className="font-bold text-gray-700">Encaisser un paiement</h3>
               <button onClick={() => setShowPayModal(false)} className="text-slate-400 hover:text-slate-600 bg-slate-50 hover:bg-slate-100 p-2 rounded-full transition-colors"><X size={20}/></button>
@@ -724,14 +724,6 @@ export function SchoolAdminPayments() {
               <button type="submit" disabled={totalAmount <= 0} className="px-4 py-2 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 rounded shadow-sm uppercase tracking-wider transition-colors disabled:opacity-50">Continuer</button>
             </div>
           </form>
-          </div>
-          <div className="hidden lg:block relative bg-slate-900 overflow-hidden h-full">
-            <img src="https://images.unsplash.com/photo-1523050854058-8df90110c9f1?auto=format&fit=crop&q=80&w=800" alt="Prospectus EduBénin Paiement" className="w-full h-full object-cover opacity-60" />
-            <div className="absolute inset-0 bg-gradient-to-t from-slate-900/90 via-slate-900/40 to-transparent flex flex-col justify-end p-8 text-white">
-              <span className="text-[10px] font-bold uppercase tracking-widest text-emerald-400 mb-2">Scolarité</span>
-              <h3 className="text-2xl font-bold mb-2">Gestion des paiements</h3>
-              <p className="text-sm text-slate-300">Enregistrez les versements et encaissez les frais de scolarité via Mobile Money ou Espèces. Les paiements seront envoyés en vérification.</p>
-            </div>
           </div>
         </div>
         </div>

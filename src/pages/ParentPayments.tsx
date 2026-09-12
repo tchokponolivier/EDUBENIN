@@ -357,7 +357,8 @@ const confirmPayment = async () => {
        amount: totalAmountWithFee,
        status: 'PENDING',
        network: network,
-       reference: reference
+       reference: reference,
+       next_payment_date: (hasPartialPayment && nextPaymentDate) ? nextPaymentDate : null
     }).select().single();
     
     if (error) {
@@ -474,8 +475,8 @@ const childName = child ? `${child.lastName} ${child.firstName}` : "Inconnu";
       </div>
 
       {showPayModal && (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 animate-in fade-in slide-in-from-top-4">
-          <div className="lg:col-span-2 bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
+        <div className="flex justify-center animate-in fade-in slide-in-from-top-4">
+          <div className="w-full max-w-2xl bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
             <h3 className="font-bold text-gray-700 mb-4">Paiement Mobile Money</h3>
             <form onSubmit={handlePaymentSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="md:col-span-2">
@@ -594,14 +595,6 @@ const childName = child ? `${child.lastName} ${child.firstName}` : "Inconnu";
               <button type="submit" disabled={totalAmount <= 0} className="px-4 py-2 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 rounded shadow-sm uppercase tracking-wider transition-colors disabled:opacity-50">Continuer</button>
             </div>
           </form>
-        </div>
-        <div className="hidden lg:block relative rounded-xl border border-slate-200 overflow-hidden shadow-sm h-full max-h-[400px]">
-          <img src="https://images.unsplash.com/photo-1523050854058-8df90110c9f1?auto=format&fit=crop&q=80&w=800" alt="Prospectus EduBénin Paiement" className="w-full h-full object-cover" />
-          <div className="absolute inset-0 bg-gradient-to-t from-slate-900/90 via-slate-900/20 to-transparent flex flex-col justify-end p-6 text-white">
-            <span className="text-[10px] font-bold uppercase tracking-widest text-emerald-400 mb-2">Scolarité</span>
-            <h3 className="text-xl font-bold mb-2">Facilitez-vous la vie</h3>
-            <p className="text-sm text-slate-300">Réglez les frais de scolarité de vos enfants en toute sécurité depuis votre téléphone via Mobile Money.</p>
-          </div>
         </div>
       </div>
       )}

@@ -721,7 +721,10 @@ const childName = child ? `${child.lastName} ${child.firstName}` : "Inconnu";
                         {new Date(payment.date).toLocaleDateString()}
                       </td>
                       <td className="px-4 py-3 text-slate-400 font-mono text-[10px] uppercase">{payment.reference}</td>
-                      <td className="px-4 py-3 font-semibold text-gray-700 text-xs">{childName}</td>
+                      <td className="px-4 py-3">
+                        <p className="font-semibold text-gray-700 text-xs">{childName}</p>
+                        <p className="text-[10px] text-slate-500 mt-0.5">{child?.level || '-'} <span className="ml-1 px-1 bg-emerald-50 text-emerald-600 rounded font-semibold">{child?.academicYear || child?.academic_year || 'Année inconnue'}</span></p>
+                      </td>
                       <td className="px-4 py-3">
                          <span className="flex items-center gap-2 text-xs">
                            <span className={`w-2 h-2 rounded-full ${networkDotColor}`}></span>

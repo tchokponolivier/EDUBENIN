@@ -30,6 +30,7 @@ export function SchoolAdminFees() {
   const [level, setLevel] = useState(LEVELS[0]);
   const [feeType, setFeeType] = useState<string>("INSCRIPTION");
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [formYear, setFormYear] = useState("");
   const [academicYear, setAcademicYear] = useState("");
   const [amount, setAmount] = useState("");
   const [academicYears, setAcademicYears] = useState<{id: string, name: string}[]>([]);
@@ -83,7 +84,8 @@ export function SchoolAdminFees() {
        const res = await supabase.from('fee_config').update({
          level,
          fee_type: feeType,
-         amount: Number(amount)
+         amount: Number(amount),
+         academic_year: formYear
        }).eq('id', editingId);
        error = res.error;
     } else {
@@ -91,7 +93,8 @@ export function SchoolAdminFees() {
          school_id: user.schoolId,
          level,
          fee_type: feeType,
-         amount: Number(amount)
+         amount: Number(amount),
+         academic_year: formYear
        });
        error = res.error;
     }
@@ -178,7 +181,14 @@ export function SchoolAdminFees() {
         </div>
       </div>
       {showForm && (
-        <form onSubmit={handleCreate} className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm grid grid-cols-1 md:grid-cols-4 gap-4 items-end animate-in fade-in slide-in-from-top-4">
+        <form onSubmit={handleCreate} className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm grid grid-cols-1 md:grid-cols-5 gap-4 items-end animate-in fade-in slide-in-from-top-4">
+          <div>
+            <label className="block text-xs font-semibold text-gray-700 mb-1">Année Scolaire</label>
+            <select required value={formYear} onChange={e => setFormYear(e.target.value)} className="w-full px-3 py-2 border border-slate-300 focus:border-emerald-500 outline-none rounded text-sm">
+              <option value="" disabled>Sélectionner l'année</option>
+              {academicYears.map(y => <option key={y.id} value={y.name}>{y.name}</option>)}
+            </select>
+          </div>
           <div>
             <label className="block text-xs font-semibold text-gray-700 mb-1">Niveau / Classe</label>
             <select value={level} onChange={e => setLevel(e.target.value)} className="w-full px-3 py-2 border border-slate-300 focus:border-emerald-500 outline-none rounded text-sm">
@@ -208,6 +218,7 @@ export function SchoolAdminFees() {
         <table className="w-full text-left border-collapse">
           <thead className="bg-slate-50 text-[10px] uppercase text-slate-500 font-bold border-b border-slate-100">
             <tr>
+              <th className="px-6 py-4">Année</th>
               <th className="px-6 py-4">Niveau / Classe</th>
               <th className="px-6 py-4">Type de Frais</th>
               <th className="px-6 py-4 text-right">Montant (FCFA)</th>
@@ -217,6 +228,9 @@ export function SchoolAdminFees() {
           <tbody className="divide-y divide-slate-100">
             {displayedFees.map(fee => (
               <tr key={fee.id} className="hover:bg-slate-50">
+                <td className="px-6 py-4 text-sm text-gray-600 font-medium">
+                   {fee.academic_year || '-'}
+                </td>
                 <td className="px-6 py-4 font-medium text-gray-700 text-sm">
                    {fee.level === 'ALL' ? 'Tous les niveaux' : fee.level}
                 </td>
@@ -231,13 +245,14 @@ export function SchoolAdminFees() {
                      setLevel(fee.level);
                      setFeeType(fee.feeType);
                      setAmount(fee.amount.toString());
+                     if (fee.academic_year) setFormYear(fee.academic_year);
                      setShowForm(true);
                      setEditingId(fee.id);
-                   }} className="text-blue-500 hover:text-blue-700 text-xs font-bold uppercase tracking-wider mr-3">
-                     Éditer
+                   }} className="p-1.5 text-blue-500 hover:text-blue-700 hover:bg-blue-50 rounded transition-colors mr-2" title="Éditer">
+                     <Edit2 size={16} />
                    </button>
-                   <button onClick={() => handleDelete(fee.id)} className="text-red-500 hover:text-red-700 text-xs font-bold uppercase tracking-wider">
-                     Supprimer
+                   <button onClick={() => handleDelete(fee.id)} className="p-1.5 text-red-500 hover:text-red-700 hover:bg-red-50 rounded transition-colors" title="Supprimer">
+                     <Trash2 size={16} />
                    </button>
                 </td>
               </tr>

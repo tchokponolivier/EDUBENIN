@@ -125,7 +125,7 @@ export function ParentDashboard() {
           guardianName: s.guardian_name,
           guardianContact: s.guardian_contact,
           guardianAddress: s.guardian_address,
-          canteenOptions: s.canteen_options ? s.canteen_options.split(', ') : [],
+          canteenOptions: Array.isArray(s.canteen_options) ? s.canteen_options : (typeof s.canteen_options === 'string' ? s.canteen_options.split(', ') : []),
           disciplinaryCommitment: s.disciplinary_commitment,
           disciplinarySignature: s.disciplinary_signature,
           photo: s.photo || "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=150&h=150&fit=crop"

@@ -91,6 +91,7 @@ const getTranchesForLevel = (level: string) => {
 export function ParentPayments() {
   const { user } = useAuth();
   const [children, setChildren] = useState<Student[]>([]);
+  const [academicYears, setAcademicYears] = useState<{name: string}[]>([]);
   const [allPayments, setAllPayments] = useState<Payment[]>([]);
   const [filteredPayments, setFilteredPayments] = useState<Payment[]>([]);
   const [settings, setSettings] = useState<SchoolSettings | null>(null);
@@ -672,9 +673,7 @@ const childName = child ? `${child.lastName} ${child.firstName}` : "Inconnu";
               </select>
               <select value={filterYear} onChange={e => setFilterYear(e.target.value)} className="px-3 py-1.5 border border-slate-200 rounded text-xs text-gray-700 outline-none">
                 <option value="ALL">Toutes les années</option>
-                {Array.from(new Set(allPayments.map(p => new Date(p.date).getFullYear()))).sort().reverse().map(y => (
-                  <option key={y} value={y.toString()}>{y}</option>
-                ))}
+                {academicYears.map(y => <option key={y.name} value={y.name}>{y.name}</option>)}
               </select>
               <div className="flex p-1 bg-slate-100 overflow-x-auto whitespace-nowrap hide-scrollbar rounded overflow-x-auto">
                  <button onClick={() => setDateFilter('ALL')} className={`px-3 py-1 rounded text-[10px] font-bold uppercase tracking-wider transition-colors ${dateFilter === 'ALL' ? 'bg-white shadow-sm text-gray-700' : 'text-slate-500 hover:text-gray-700'}`}>Tous</button>

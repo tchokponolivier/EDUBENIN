@@ -175,7 +175,8 @@ export function AddStudentModal({ isOpen, onClose, onSuccess, initialData = null
       setGuardianName(initialData.guardian_name || initialData.guardianName || "");
       setGuardianContact(initialData.guardian_contact || initialData.guardianContact || "");
       setGuardianAddress(initialData.guardian_address || initialData.guardianAddress || "");
-      setCanteenOptions(initialData.canteen_options ? (typeof initialData.canteen_options === 'string' ? initialData.canteen_options.split(", ") : initialData.canteen_options) : (initialData.canteenOptions ? (typeof initialData.canteenOptions === 'string' ? initialData.canteenOptions.split(", ") : initialData.canteenOptions) : []));
+      const extractArray = (val: any) => Array.isArray(val) ? val : (typeof val === 'string' ? val.split(", ") : []);
+      setCanteenOptions(initialData.canteen_options ? extractArray(initialData.canteen_options) : extractArray(initialData.canteenOptions));
       setDisciplinaryCommitment(initialData.disciplinary_commitment || initialData.disciplinaryCommitment || false);
       const disc = initialData.discount_percentage ?? initialData.discountPercentage ?? 0;
       setDiscountPercentage(disc);

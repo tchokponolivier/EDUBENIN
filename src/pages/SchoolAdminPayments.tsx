@@ -292,9 +292,14 @@ export function SchoolAdminPayments() {
       alert("Veuillez indiquer la date du prochain règlement pour le reste à payer.");
       return;
     }
+    setShowConfirmModal(true);
+  };
+
+  const confirmPayment = async () => {
+    if (!selectedStudent || totalAmount <= 0) return;
     
     const reference = 'PAY-' + Date.now();
-    const items = currentPaymentItemsTemplate.map(i => ({ name: i.name, amount: i.amount }));
+    const items = currentPaymentItemsTemplate.map(i => ({ id: i.id, name: i.name, amount: i.amount }));
     const { data: inserted, error } = await supabase.from('payments').insert({
        school_id: selectedStudent.school_id,
        student_id: selectedStudent.id,
@@ -303,7 +308,7 @@ export function SchoolAdminPayments() {
        network: paymentMethod,
        status: 'COMPLETED',
        reference: reference,
-       items: items, // Added items back
+       items: items,
        next_payment_date: (hasPartialPayment && nextPaymentDate) ? nextPaymentDate : null
     }).select().single();
 
@@ -311,11 +316,10 @@ export function SchoolAdminPayments() {
        alert("Erreur lors de l'enregistrement: " + error.message);
        return;
     }
-
     alert("Paiement enregistré avec succès.");
     
     fetchData(); // Reload dashboard data
-
+    setShowConfirmModal(false);
     setShowPayModal(false);
     setSelectedStudentId("");
     setSelectedFeeIds([]);
@@ -330,7 +334,6 @@ export function SchoolAdminPayments() {
       }
     }
   };
-
   const handleFeeToggle = (id: string, isChecked: boolean) => {
     if (isChecked) setSelectedFeeIds(prev => [...prev, id]);
     else setSelectedFeeIds(prev => prev.filter(f => f !== id));
@@ -730,6 +733,27 @@ export function SchoolAdminPayments() {
         </div>
       )}
 
+            {showConfirmModal && (
+              <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
+                <div className="bg-white rounded-xl shadow-xl w-full max-w-md animate-in zoom-in-95 overflow-hidden">
+                  <div className="p-4 border-b border-slate-100">
+                    <h3 className="font-bold text-gray-700">Confirmer l'encaissement</h3>
+                  </div>
+                  <div className="p-6">
+                    <p className="text-sm text-slate-600 mb-4">Confirmez-vous l'encaissement de ce montant total ?</p>
+                    <div className="bg-emerald-50 text-emerald-700 p-4 rounded-lg flex justify-between items-center font-bold text-lg border border-emerald-100">
+                      <span>Total</span>
+                      <span>{totalAmountWithFee.toLocaleString()} FCFA</span>
+                    </div>
+                    {isMomo && <p className="text-xs text-orange-600 mt-2">*Inclut 1% de frais de transaction réseau.</p>}
+                  </div>
+                  <div className="p-4 border-t border-slate-100 flex justify-end gap-3 bg-slate-50">
+                    <button onClick={() => setShowConfirmModal(false)} className="px-4 py-2 text-slate-600 font-bold hover:bg-slate-200 rounded transition-colors text-sm">Annuler</button>
+                    <button onClick={confirmPayment} className="px-6 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded transition-colors text-sm">Oui, encaisser</button>
+                  </div>
+                </div>
+              </div>
+            )}
             {whatsappPromptInfo && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
           <div className="bg-white rounded-xl shadow-xl w-full max-w-sm animate-in zoom-in-95 overflow-hidden">

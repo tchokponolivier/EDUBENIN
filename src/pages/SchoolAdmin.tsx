@@ -162,7 +162,7 @@ export function SchoolAdminDashboard() {
     const updates = {
       name: formData.get("name") as string,
       address: formData.get("address") as string,
-      contact: formData.get("contact") as string,
+      contact: (formData.get("countryCode") as string) + " " + (formData.get("contactNumber") as string),
       motto: formData.get("motto") as string,
       
       enrollmentContractTemplate: formData.get("enrollmentContractTemplate") as string,
@@ -518,8 +518,27 @@ export function SchoolAdminDashboard() {
                <input name="address" defaultValue={settings?.address || ""} required type="text" className="w-full px-4 py-2 border border-slate-300 rounded text-sm focus:ring-emerald-500 focus:border-emerald-500 outline-none" />
              </div>
              <div>
-               <label className="block text-xs font-semibold text-gray-700 mb-1 uppercase tracking-wide">Contacts (Tél / Email)</label>
-               <input name="contact" defaultValue={settings?.contact || ""} required type="text" className="w-full px-4 py-2 border border-slate-300 rounded text-sm focus:ring-emerald-500 focus:border-emerald-500 outline-none" />
+               <label className="block text-xs font-semibold text-gray-700 mb-1 uppercase tracking-wide">Contact</label>
+               <div className="flex gap-2">
+                 <select name="countryCode" className="px-2 py-2 border border-slate-300 rounded text-sm focus:ring-emerald-500 outline-none bg-white w-24">
+                   <option value="🇧🇯 +229">🇧🇯 +229</option>
+                   <option value="🇹🇬 +228">🇹🇬 +228</option>
+                   <option value="🇨🇮 +225">🇨🇮 +225</option>
+                   <option value="🇸🇳 +221">🇸🇳 +221</option>
+                   <option value="🇲🇱 +223">🇲🇱 +223</option>
+                   <option value="🇧🇫 +226">🇧🇫 +226</option>
+                   <option value="🇳🇪 +227">🇳🇪 +227</option>
+                   <option value="🇨🇬 +242">🇨🇬 +242</option>
+                   <option value="🇨🇩 +243">🇨🇩 +243</option>
+                   <option value="🇨🇲 +237">🇨🇲 +237</option>
+                   <option value="🇬🇦 +241">🇬🇦 +241</option>
+                   <option value="🇫🇷 +33">🇫🇷 +33</option>
+                   <option value="🇺🇸 +1">🇺🇸 +1</option>
+                   <option value="🇨🇦 +1">🇨🇦 +1</option>
+                   <option value="🇬🇧 +44">🇬🇧 +44</option>
+                 </select>
+                 <input name="contactNumber" defaultValue={(settings?.contact || "").replace(/^(?:\S+\s+\+\d+\s+)?/, '')} placeholder="Numéro de téléphone" required type="text" className="flex-1 px-4 py-2 border border-slate-300 rounded text-sm focus:ring-emerald-500 focus:border-emerald-500 outline-none" />
+               </div>
              </div>
              <div>
                <label className="block text-xs font-semibold text-gray-700 mb-1 uppercase tracking-wide">Devise (Monnaie)</label>

@@ -100,6 +100,8 @@ export function SchoolAdminPayments() {
     if (tab === "PAYMENTS" || tab === "EXPENSES" || tab === "SALARIES" || tab === "DASHBOARD") return tab;
     return "PAYMENTS";
   });
+  const [academicYears, setAcademicYears] = useState<{name: string}[]>([]);
+  const [settings, setSettings] = useState<any>(null);
 
   // Sync state if URL changes
   React.useEffect(() => {
@@ -139,10 +141,14 @@ export function SchoolAdminPayments() {
     if (!user?.schoolId) return;
     
     try {
-      const [studentsRes, paymentsRes] = await Promise.all([
+      const [studentsRes, paymentsRes, yearsRes, settingsRes] = await Promise.all([
         supabase.from('students').select('*').eq('school_id', user.schoolId),
-        supabase.from('payments').select('*').eq('school_id', user.schoolId)
+        supabase.from('payments').select('*').eq('school_id', user.schoolId),
+        supabase.from('academic_years').select('name').eq('school_id', user.schoolId).order('created_at', { ascending: false }),
+        supabase.from('schools').select('*').eq('id', user.schoolId).single()
       ]);
+      if (yearsRes.data) setAcademicYears(yearsRes.data);
+      if (settingsRes.data) setSettings(settingsRes.data);
       
       if (studentsRes.data) {
         setStudents(studentsRes.data.map(d => ({...d, createdAt: d.created_at, firstName: d.first_name, lastName: d.last_name, parentId: d.parent_id, schoolId: d.school_id, studentType: d.studentType, educmasterNumber: d.educmasterNumber, gender: d.gender})) as any);
@@ -286,22 +292,18 @@ export function SchoolAdminPayments() {
       alert("Veuillez indiquer la date du prochain règlement pour le reste à payer.");
       return;
     }
-    setShowConfirmModal(true);
-  };
-  
-  const confirmPayment = async () => {
-    if (!selectedStudent || totalAmount <= 0) return;
-    const reference = 'PAY-' + Date.now();
     
+    const reference = 'PAY-' + Date.now();
     const items = currentPaymentItemsTemplate.map(i => ({ name: i.name, amount: i.amount }));
     const { data: inserted, error } = await supabase.from('payments').insert({
        school_id: selectedStudent.school_id,
        student_id: selectedStudent.id,
-       parent_id: selectedStudent.parent_id || selectedStudent.parentId || null,
+       parent_id: selectedStudent.parentId || null,
        amount: totalAmount,
        network: paymentMethod,
-       status: 'PENDING',
+       status: 'COMPLETED',
        reference: reference,
+       items: items, // Added items back
        next_payment_date: (hasPartialPayment && nextPaymentDate) ? nextPaymentDate : null
     }).select().single();
 
@@ -310,7 +312,7 @@ export function SchoolAdminPayments() {
        return;
     }
 
-    alert("Le paiement a été soumis et envoyé dans la section VERIFICATIONS pour validation.");
+    alert("Paiement enregistré avec succès.");
     
     fetchData(); // Reload dashboard data
 
@@ -339,7 +341,7 @@ export function SchoolAdminPayments() {
 
   const executeWhatsAppReceipt = (phone: string, payment: Payment, student: Student) => {
     const formattedPhone = phone.replace(/\D/g, '');
-    const settings: any = { name: "École" };
+    
     const dateStr = payment.date && !isNaN(new Date(payment.date).getTime()) ? new Date(payment.date).toLocaleDateString() : '-';
     
     // items text
@@ -357,7 +359,7 @@ export function SchoolAdminPayments() {
   };
 
   const printReceipt = (payment: Payment, student: Student) => {
-    const settings: any = { name: "École" };
+    
     const dateStr = payment.date && !isNaN(new Date(payment.date).getTime()) ? new Date(payment.date).toLocaleDateString() : '-';
     
     const w = window.open('', '_blank');
@@ -377,7 +379,9 @@ export function SchoolAdminPayments() {
       </style></head><body>
         <div class="header">
           <div>
-            <h1>${settings?.name || "L'École"}</h1>
+            
+            ${settings?.logo ? `<img src="${settings.logo}" style="max-height: 60px; object-fit: contain; margin-bottom: 10px;" />` : ''}
+            <h1 style="margin-top: 0;">${settings?.name || "L'École"}</h1>
             <p style="margin:0;color:#64748b;">${settings?.address || ""}</p>
             <p style="margin:0;color:#64748b;">${settings?.contact || ""}</p>
           </div>
@@ -524,21 +528,14 @@ export function SchoolAdminPayments() {
            <div className="flex flex-wrap items-center gap-2">
              <select value={filterYear} onChange={e => setFilterYear(e.target.value)} className="px-3 py-1.5 border border-slate-200 rounded-md text-xs focus:ring-emerald-500 outline-none">
                <option value="ALL">Toutes les années</option>
-               <option value="2024-2025">2024-2025</option>
-               <option value="2023-2024">2023-2024</option>
+               {academicYears.map(y => <option key={y.name} value={y.name}>{y.name}</option>)}
              </select>
-             <select value={filterType} onChange={e => setFilterType(e.target.value)} className="px-3 py-1.5 border border-slate-200 rounded-md text-xs focus:ring-emerald-500 outline-none">
-               <option value="ALL">Tous les types</option>
-               <option value="Scolarité">Scolarité</option>
-               <option value="Inscription">Inscription</option>
-               <option value="Cantine">Cantine</option>
-             </select>
+
              <select value={filterClass} onChange={e => setFilterClass(e.target.value)} className="px-3 py-1.5 border border-slate-200 rounded-md text-xs focus:ring-emerald-500 outline-none">
                <option value="ALL">Toutes les classes</option>
-               <option value="6ème">6ème</option>
-               <option value="5ème">5ème</option>
-               <option value="4ème">4ème</option>
-               <option value="3ème">3ème</option>
+               {Array.from(new Set(students.map(s => s.level))).filter(Boolean).map(level => (
+                 <option key={level} value={level}>{level}</option>
+               ))}
              </select>
              <div className="relative">
                <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
@@ -571,7 +568,10 @@ export function SchoolAdminPayments() {
                    <tr key={payment.id} className="hover:bg-slate-50 transition-colors">
                      <td className="px-4 py-3 text-xs">{payment.date && !isNaN(new Date(payment.date).getTime()) ? new Date(payment.date).toLocaleDateString() : '-'}</td>
                      <td className="px-4 py-3 font-mono text-[10px] text-slate-400">{payment.reference}</td>
-                     <td className="px-4 py-3 text-xs font-semibold">{studentName}</td>
+                     <td className="px-4 py-3">
+    <p className="text-xs font-semibold text-gray-700">{studentName}</p>
+    <p className="text-[10px] text-slate-500 mt-0.5">{student?.level || '-'} <span className="ml-1 px-1 bg-emerald-50 text-emerald-600 rounded font-semibold">{student?.academicYear || student?.academic_year || 'Année inconnue'}</span></p>
+  </td>
                      <td className="px-4 py-3 font-mono text-xs font-bold text-right">{payment.amount.toLocaleString()} F</td>
                      <td className="px-4 py-3 text-right">
                        {student && (
@@ -730,50 +730,7 @@ export function SchoolAdminPayments() {
         </div>
       )}
 
-      {showConfirmModal && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
-          <div className="bg-white rounded-xl shadow-xl border border-slate-200 w-full max-w-md p-6 animate-in zoom-in-95 fade-in">
-            <div className="text-center mb-6">
-               <div className="w-16 h-16 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <CheckCircle size={32} />
-               </div>
-               <h3 className="text-xl font-bold text-gray-700">Confirmer l'encaissement</h3>
-               <p className="text-slate-500 text-xs mt-2">Veuillez vérifier les informations avant de valider.</p>
-            </div>
-            
-            <div className="bg-slate-50 p-4 rounded border border-slate-100 space-y-3 mb-6">
-               <div className="flex justify-between text-sm">
-                 <span className="text-slate-500 font-medium uppercase text-[10px] tracking-wide">Élève</span>
-                 <span className="font-bold text-gray-700">{selectedStudent?.firstName} {selectedStudent?.lastName}</span>
-               </div>
-               <div className="border-t border-slate-200"></div>
-               <div className="flex justify-between text-sm">
-                 <span className="text-slate-500 font-medium uppercase text-[10px] tracking-wide">Moyen de paiement</span>
-                 <span className="font-bold text-gray-700">{paymentMethod}</span>
-               </div>
-               <div className="border-t border-slate-200"></div>
-               <div className="flex justify-between text-sm">
-                 <span className="text-slate-500 font-medium uppercase text-[10px] tracking-wide">Éléments</span>
-                 <span className="font-bold text-gray-700 text-right max-w-[200px] truncate">{currentPaymentItemsTemplate.map(i => i.name).join(", ")}</span>
-               </div>
-               <div className="border-t border-slate-200"></div>
-               <div className="flex justify-between items-center text-sm bg-emerald-100/50 p-2 rounded">
-                 <span className="text-emerald-800 font-bold uppercase text-[10px] tracking-wide">Montant Total</span>
-                 <span className="font-black font-mono text-emerald-700 text-lg">{totalAmountWithFee.toLocaleString()} F</span>
-               </div>
-            </div>
-
-            <div className="flex gap-3">
-              <button onClick={() => setShowConfirmModal(false)} className="flex-1 py-3 text-sm font-bold text-slate-600 bg-slate-100 hover:bg-slate-200 rounded uppercase tracking-wider transition-colors">Retour</button>
-              <button onClick={confirmPayment} className="flex-1 py-3 text-sm font-bold text-white bg-emerald-600 hover:bg-emerald-700 rounded shadow-sm uppercase tracking-wider transition-colors flex items-center justify-center gap-2">
-                 <CheckCircle size={16} /> Valider
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {whatsappPromptInfo && (
+            {whatsappPromptInfo && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
           <div className="bg-white rounded-xl shadow-xl w-full max-w-sm animate-in zoom-in-95 overflow-hidden">
             <div className="p-4 border-b border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-4">

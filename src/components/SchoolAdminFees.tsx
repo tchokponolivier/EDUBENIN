@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { supabase } from "../lib/supabase";
 import { FeeConfig, LEVELS } from "../types";
 import { useAuth } from "../lib/auth";
-import { DollarSign, Plus, Settings } from "lucide-react";
+import { DollarSign, Plus, Settings, Trash2, Edit2 } from "lucide-react";
 
 const OPTIONAL_FEE_TYPES: Record<string, string> = {
   CANTEEN: "Cantine",
@@ -30,6 +30,7 @@ export function SchoolAdminFees() {
   const [level, setLevel] = useState(LEVELS[0]);
   const [feeType, setFeeType] = useState<string>("INSCRIPTION");
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [academicYear, setAcademicYear] = useState("");
   const [amount, setAmount] = useState("");
   const [academicYears, setAcademicYears] = useState<{id: string, name: string}[]>([]);
   const [filterLevel, setFilterLevel] = useState("ALL");

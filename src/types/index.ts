@@ -94,6 +94,7 @@ export interface FeeConfig {
   id: string;
   schoolId: string;
   level: string;
+  academicYear?: string;
   feeType: "INSCRIPTION" | "MONTHLY" | "TD" | "TRANSPORT" | "CANTEEN" | "OTHER" | "BOOKS" | "ID_CARD" | "UNIFORMS" | "EVALUATION" | "BOOK_KITS";
   amount: number;
   createdAt: number;

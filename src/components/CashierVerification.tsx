@@ -16,7 +16,7 @@ export function CashierVerification() {
       setLoading(true);
       const { data, error } = await supabase
         .from('payments')
-        .select('*, students(first_name, last_name, level)')
+        .select('*, students(first_name, last_name, level, academic_year)')
         .eq('school_id', user.schoolId)
         .eq('status', 'PENDING')
         .order('created_at', { ascending: false });
@@ -98,7 +98,7 @@ export function CashierVerification() {
                   </td>
                   <td className="p-3">
                      <p className="text-xs font-bold text-gray-700">{p.students?.first_name} {p.students?.last_name}</p>
-                     <p className="text-[10px] text-slate-500">{p.students?.level}</p>
+                     <p className="text-[10px] text-slate-500">{p.students?.level} • {p.students?.academic_year || 'Année inconnue'}</p>
                   </td>
                   <td className="p-3">
                      <span className="px-2 py-1 bg-slate-100 text-slate-700 text-[10px] font-bold rounded">

@@ -15,6 +15,7 @@ export function SchoolAdminTeachers() {
   const [editingSubject, setEditingSubject] = useState("");
   const [filterClass, setFilterClass] = useState("ALL");
   const [filterYear, setFilterYear] = useState("ALL");
+  const [filterSubject, setFilterSubject] = useState("ALL");
   const [academicYears, setAcademicYears] = useState<any[]>([]);
   const [editingTeacher, setEditingTeacher] = useState<any>(null);
   const [editingClasses, setEditingClasses] = useState<string[]>([]);
@@ -140,6 +141,14 @@ export function SchoolAdminTeachers() {
              <option value="Primaire">Primaire (toutes)</option>
              <option value="Collège">Collège (toutes)</option>
              <option value="Lycée">Lycée (toutes)</option>
+             {LEVELS.map(l => <option key={l} value={l}>{l}</option>)}
+           </select>
+        </div>
+        <div className="flex-1 min-w-[200px]">
+           <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Matière</label>
+           <select value={filterSubject} onChange={e => setFilterSubject(e.target.value)} className="w-full px-3 py-2 border border-slate-300 rounded text-sm focus:ring-emerald-500 outline-none bg-white">
+             <option value="ALL">Toutes les matières</option>
+             {Array.from(new Set(courses.map(c => c.name))).map((s: any) => <option key={s} value={s}>{s}</option>)}
            </select>
         </div>
       </div>
@@ -156,9 +165,13 @@ export function SchoolAdminTeachers() {
           const tc = courses.filter(c => c.teacher_id === t.id);
           if (filterClass !== "ALL") {
              if (filterClass === "Maternelle" && !tc.some(c => c.level.includes('Maternelle'))) return false;
-             if (filterClass === "Primaire" && !tc.some(c => ['CI','CP','CE1','CE2','CM1','CM2'].includes(c.level))) return false;
-             if (filterClass === "Collège" && !tc.some(c => ['6ème','5ème','4ème','3ème'].includes(c.level))) return false;
-             if (filterClass === "Lycée" && !tc.some(c => c.level.includes('2nde') || c.level.includes('1ère') || c.level.includes('Terminale'))) return false;
+             else if (filterClass === "Primaire" && !tc.some(c => ['CI','CP','CE1','CE2','CM1','CM2'].includes(c.level))) return false;
+             else if (filterClass === "Collège" && !tc.some(c => ['6ème','5ème','4ème','3ème'].includes(c.level))) return false;
+             else if (filterClass === "Lycée" && !tc.some(c => c.level.includes('2nde') || c.level.includes('1ère') || c.level.includes('Terminale'))) return false;
+             else if (!["Maternelle","Primaire","Collège","Lycée"].includes(filterClass) && !tc.some(c => c.level === filterClass)) return false;
+          }
+          if (filterSubject !== "ALL") {
+             if (!tc.some(c => c.name === filterSubject)) return false;
           }
           if (filterYear !== "ALL") {
              // For now we assume the courses don't have academic_year, but if they do we filter here.

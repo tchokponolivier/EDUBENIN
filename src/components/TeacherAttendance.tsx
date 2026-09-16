@@ -13,11 +13,12 @@ export function TeacherAttendance() {
   const [date, setDate] = useState<string>(new Date().toISOString().split('T')[0]);
   const [history, setHistory] = useState<any[]>([]);
   const [showPreview, setShowPreview] = useState(false);
+  const [viewHistory, setViewHistory] = useState<any>(null);
 
   useEffect(() => {
     const fetchHistory = async () => {
        if (!user?.id) return;
-       const { data } = await supabase.from('attendance').select('date, type, student_id, students(level)').eq('reported_by', user.name || "Professeur").order('date', { ascending: false }).limit(50);
+       const { data } = await supabase.from('attendance').select('date, type, student_id, students(level, first_name, last_name)').eq('reported_by', user.name || "Professeur").order('date', { ascending: false }).limit(200);
        if (data) {
           // Group by date and class
           const historyMap = new Map();
@@ -25,8 +26,13 @@ export function TeacherAttendance() {
              const d = item.date.split('T')[0];
              const c = Array.isArray(item.students) ? (item.students as any)[0]?.level : (item.students as any)?.level || 'Inconnue';
              const key = d + '_' + c;
-             if (!historyMap.has(key)) historyMap.set(key, { date: d, class: c, absentCount: 0 });
+             if (!historyMap.has(key)) historyMap.set(key, { date: d, class: c, absentCount: 0, details: [] });
              historyMap.get(key).absentCount += 1;
+             historyMap.get(key).details.push({
+                type: item.type,
+                firstName: Array.isArray(item.students) ? (item.students as any)[0]?.first_name : (item.students as any)?.first_name,
+                lastName: Array.isArray(item.students) ? (item.students as any)[0]?.last_name : (item.students as any)?.last_name
+             });
           });
           setHistory(Array.from(historyMap.values()));
        }
@@ -230,7 +236,7 @@ export function TeacherAttendance() {
             <h4 className="font-bold text-gray-700 mb-4">Historique des appels récents</h4>
             <div className="space-y-2">
                {history.map((h, i) => (
-                  <div key={i} className="flex justify-between items-center p-3 bg-slate-50 border border-slate-100 rounded text-sm">
+                  <div key={i} onClick={() => setViewHistory(h)} className="flex justify-between items-center p-3 bg-slate-50 hover:bg-slate-100 border border-slate-100 rounded text-sm cursor-pointer transition">
                      <div>
                         <span className="font-bold text-gray-700">{h.class}</span>
                         <span className="text-slate-500 ml-2">- {new Date(h.date).toLocaleDateString()}</span>
@@ -242,6 +248,35 @@ export function TeacherAttendance() {
                ))}
             </div>
          </div>
+      )}
+      {viewHistory && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-lg overflow-hidden animate-in zoom-in-95 max-h-[90vh] flex flex-col">
+            <div className="p-4 border-b border-slate-100 flex justify-between items-center bg-slate-50">
+               <h3 className="font-bold text-gray-700">Détails de l'appel</h3>
+               <button onClick={() => setViewHistory(null)} className="text-slate-400 hover:text-slate-600"><X size={18} /></button>
+            </div>
+            <div className="p-4 overflow-y-auto">
+               <p className="text-sm font-semibold text-slate-600 mb-4">Classe : {viewHistory.class} - Date : {new Date(viewHistory.date).toLocaleDateString()}</p>
+               <div className="space-y-2">
+                  {viewHistory.details && viewHistory.details.length > 0 ? (
+                     viewHistory.details.map((d: any, idx: number) => (
+                        <div key={idx} className="flex justify-between items-center p-2 rounded border border-slate-100 text-sm">
+                           <span className="font-medium text-gray-700">{d.lastName || ''} {d.firstName || ''}</span>
+                           <span className={`px-2 py-1 rounded text-xs font-bold ${d.type === 'ABSENT' ? 'bg-red-100 text-red-600' : 'bg-amber-100 text-amber-600'}`}>
+                              {d.type === 'ABSENT' ? 'ABSENT' : 'RETARD'}
+                           </span>
+                        </div>
+                     ))
+                  ) : (
+                     <div className="p-4 bg-emerald-50 text-emerald-600 text-center rounded border border-emerald-100 text-sm font-semibold">
+                       Tous les élèves étaient présents ce jour-là (aucun signalement).
+                     </div>
+                  )}
+               </div>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

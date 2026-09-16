@@ -35,10 +35,16 @@ export function TeacherDashboard() {
 
   useEffect(() => {
     const fetchData = async () => {
-      if (!user?.schoolId) return;
+      if (!user?.schoolId || !user?.id) return;
       const { data } = await supabase.from('students').select('*').eq('school_id', user.schoolId);
       if (data) {
         setStudents(data.map(d => ({...d, createdAt: d.created_at, firstName: d.first_name, lastName: d.last_name, parentId: d.parent_id, schoolId: d.school_id, studentType: d.studentType, educmasterNumber: d.educmasterNumber, gender: d.gender})) as any);
+      }
+      const { data: cData } = await supabase.from('courses').select('*').eq('teacher_id', user.id);
+      if (cData) {
+         setMyCourses(cData);
+         const levels = [...new Set(cData.map((c: any) => c.level))];
+         setMyClasses(levels as string[]);
       }
     };
     fetchData();
@@ -68,15 +74,47 @@ export function TeacherDashboard() {
     });
 };
 
-const handleGradeChange = (studentId: string, subjectId: string, value: string) => {
-    setGrades(prev => ({
-      ...prev,
-      [studentId]: {
-        ...(prev[studentId] || {}),
-        [subjectId]: value
-      }
-    }));
-  };
+const handleGradeChange = (studentId: string, courseId: string, type: 'int1'|'int2'|'dev1'|'dev2', value: string) => {
+    setGrades((prev: any) => {
+        const studentGrades = prev[studentId] || {};
+        const courseGrades = studentGrades[courseId] || { int1: '', int2: '', dev1: '', dev2: '', avg: '', app: '' };
+        const newCourseGrades = { ...courseGrades, [type]: value };
+        
+        // Auto calculate average
+        const n1 = parseFloat(newCourseGrades.int1);
+        const n2 = parseFloat(newCourseGrades.int2);
+        const n3 = parseFloat(newCourseGrades.dev1);
+        const n4 = parseFloat(newCourseGrades.dev2);
+        let sum = 0; let count = 0;
+        if (!isNaN(n1)) { sum += n1; count++; }
+        if (!isNaN(n2)) { sum += n2; count++; }
+        if (!isNaN(n3)) { sum += n3; count++; }
+        if (!isNaN(n4)) { sum += n4; count++; }
+        
+        if (count > 0) {
+            newCourseGrades.avg = (sum / count).toFixed(2);
+            const avg = parseFloat(newCourseGrades.avg);
+            if (avg >= 18) newCourseGrades.app = 'Excellent';
+            else if (avg >= 16) newCourseGrades.app = 'Très Bien';
+            else if (avg >= 14) newCourseGrades.app = 'Bien';
+            else if (avg >= 12) newCourseGrades.app = 'Assez Bien';
+            else if (avg >= 10) newCourseGrades.app = 'Passable';
+            else if (avg >= 8) newCourseGrades.app = 'Insuffisant';
+            else newCourseGrades.app = 'Faible';
+        } else {
+            newCourseGrades.avg = '';
+            newCourseGrades.app = '';
+        }
+        
+        return {
+            ...prev,
+            [studentId]: {
+                ...studentGrades,
+                [courseId]: newCourseGrades
+            }
+        };
+    });
+};
 
   
 
@@ -225,13 +263,15 @@ const handleGradeChange = (studentId: string, subjectId: string, value: string) 
             <div className="w-full lg:w-72 bg-slate-50 p-4 rounded-lg border border-slate-200 flex flex-col justify-between">
                <div>
                  <h4 className="font-bold text-gray-700 mb-2">Période</h4>
-                 <input 
-                    type="text" 
+                 <select 
                     value={period} 
                     onChange={e => setPeriod(e.target.value)} 
-                    className="w-full px-3 py-2 border border-slate-300 rounded text-sm focus:ring-emerald-500 focus:border-emerald-500 outline-none mb-4" 
-                    placeholder="Ex: 1er Trimestre" 
-                 />
+                    className="w-full px-3 py-2 border border-slate-300 rounded text-sm focus:ring-emerald-500 focus:border-emerald-500 outline-none bg-white mb-4" 
+                 >
+                    <option value="1er Trimestre">1er Trimestre</option>
+                    <option value="2ème Trimestre">2ème Trimestre</option>
+                    <option value="3ème Trimestre">3ème Trimestre</option>
+                 </select>
                </div>
                <div className="space-y-2">
                  <button onClick={handleSaveGrades} className="w-full flex items-center justify-center gap-2 px-3 py-2 bg-emerald-600 text-white rounded text-sm font-bold uppercase tracking-wider hover:bg-emerald-700 transition shadow-sm">
@@ -289,32 +329,42 @@ const handleGradeChange = (studentId: string, subjectId: string, value: string) 
                            {student.lastName} {student.firstName}
                          </td>
                          
-                         {subjects.map(s => (
-                           <td key={s.id} className="p-1 border border-slate-200 text-center">
-                             <input 
-                               type="text" 
-                               disabled={!isIncluded}
-                               placeholder={isMaternelle ? "A/ECA/NA" : "/20"}
-                               className="w-full min-w-[60px] text-center text-xs p-1.5 outline-none focus:ring-1 ring-emerald-500 rounded bg-transparent disabled:cursor-not-allowed" 
-                               value={sGrades[s.id] || ''} 
-                               onChange={e => handleGradeChange(student.id, s.id, e.target.value)} 
-                             />
-                           </td>
-                         ))}
-                         
-                         <td className="p-1 border border-slate-200">
-                            <input 
-                              type="text" 
-                              disabled={!isIncluded}
-                              placeholder="Observation / Appréciation" 
-                              className="w-full text-xs p-1.5 outline-none focus:ring-1 ring-emerald-500 rounded bg-transparent disabled:cursor-not-allowed" 
-                              value={Object.values(sGrades)[0]?.app || ''} 
-                              onChange={e => {
-const courseId = myCourses.find(c => c.level === selectedClass)?.id;
-if (courseId) handleManualAppreciation(student.id, courseId, e.target.value);
-}} 
-                            />
-                         </td>
+                         {myCourses.filter(c => c.level === selectedClass).map(course => {
+                         const cGrades = sGrades[course.id] || { int1: '', int2: '', dev1: '', dev2: '', avg: '', app: '' };
+                         return (
+                            <React.Fragment key={course.id}>
+                               <td className="p-1 border border-slate-200 text-center">
+                                  <input type="text" disabled={!isIncluded} className="w-12 text-center text-xs p-1 outline-none focus:ring-1 ring-emerald-500 rounded bg-transparent disabled:cursor-not-allowed" value={cGrades.int1} onChange={e => handleGradeChange(student.id, course.id, 'int1', e.target.value)} />
+                               </td>
+                               <td className="p-1 border border-slate-200 text-center">
+                                  <input type="text" disabled={!isIncluded} className="w-12 text-center text-xs p-1 outline-none focus:ring-1 ring-emerald-500 rounded bg-transparent disabled:cursor-not-allowed" value={cGrades.int2} onChange={e => handleGradeChange(student.id, course.id, 'int2', e.target.value)} />
+                               </td>
+                               <td className="p-1 border border-slate-200 text-center">
+                                  <input type="text" disabled={!isIncluded} className="w-12 text-center text-xs p-1 outline-none focus:ring-1 ring-emerald-500 rounded bg-transparent disabled:cursor-not-allowed" value={cGrades.dev1} onChange={e => handleGradeChange(student.id, course.id, 'dev1', e.target.value)} />
+                               </td>
+                               <td className="p-1 border border-slate-200 text-center">
+                                  <input type="text" disabled={!isIncluded} className="w-12 text-center text-xs p-1 outline-none focus:ring-1 ring-emerald-500 rounded bg-transparent disabled:cursor-not-allowed" value={cGrades.dev2} onChange={e => handleGradeChange(student.id, course.id, 'dev2', e.target.value)} />
+                               </td>
+                               <td className="p-1 border border-slate-200 text-center font-bold text-emerald-600 bg-emerald-50 text-xs">
+                                  {cGrades.avg}
+                               </td>
+                            </React.Fragment>
+                         );
+                       })}
+                       
+                       <td className="p-1 border border-slate-200">
+                           <input 
+                             type="text" 
+                             disabled={!isIncluded}
+                             placeholder="Observation / Appréciation" 
+                             className="w-full text-xs p-1.5 outline-none focus:ring-1 ring-emerald-500 rounded bg-transparent disabled:cursor-not-allowed" 
+                             value={Object.values(sGrades)[0]?.app || ''} 
+                             onChange={e => {
+                               const courseId = myCourses.find(c => c.level === selectedClass)?.id;
+                               if (courseId) handleManualAppreciation(student.id, courseId, e.target.value);
+                             }} 
+                           />
+                       </td>
                        </tr>
                      );
                    })

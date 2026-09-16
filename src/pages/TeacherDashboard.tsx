@@ -22,12 +22,11 @@ export function TeacherDashboard() {
   const [myClasses, setMyClasses] = useState<string[]>([]);
   const [myCourses, setMyCourses] = useState<any[]>([]);
   
-  const [subjects, setSubjects] = useState<Subject[]>([]);
-  const [newSubject, setNewSubject] = useState("");
-  const [newCoef, setNewCoef] = useState("1");
   
-  const [grades, setGrades] = useState<Record<string, Record<string, any>>>({});
-  const [appreciations, setAppreciations] = useState<Record<string, string>>({});
+  
+  
+  
+  const [grades, setGrades] = useState<Record<string, Record<string, {int1: string, int2: string, dev1: string, dev2: string, avg: string, app: string}>>>({});
   
   const [includedStudents, setIncludedStudents] = useState<string[]>([]);
   const [period, setPeriod] = useState("1er Trimestre");
@@ -51,29 +50,25 @@ export function TeacherDashboard() {
     // When class changes, select all students by default for the report card
     setIncludedStudents(classStudents.map(s => s.id));
     // Provide default subjects if Maternelle
-    if (selectedClass?.includes("Maternelle")) {
-       setSubjects([
-         { id: "s1", name: "Langage & Comm.", coef: 1 },
-         { id: "s2", name: "Motricité", coef: 1 },
-         { id: "s3", name: "Éveil & Découverte", coef: 1 }
-       ]);
-    } else {
-       setSubjects([]);
-    }
+    
   }, [selectedClass]);
 
-  const handleAddSubject = () => {
-    if (!newSubject.trim()) return;
-    setSubjects(prev => [...prev, { id: `sub_${Date.now()}`, name: newSubject, coef: Number(newCoef) || 1 }]);
-    setNewSubject("");
-    setNewCoef("1");
-  };
+  
+  const handleManualAppreciation = (studentId: string, courseId: string, value: string) => {
+    setGrades((prev: any) => {
+        const studentGrades = prev[studentId] || {};
+        const courseGrades = studentGrades[courseId] || { int1: '', int2: '', dev1: '', dev2: '', avg: '', app: '' };
+        return {
+            ...prev,
+            [studentId]: {
+                ...studentGrades,
+                [courseId]: { ...courseGrades, app: value }
+            }
+        };
+    });
+};
 
-  const removeSubject = (id: string) => {
-    setSubjects(prev => prev.filter(s => s.id !== id));
-  };
-
-  const handleGradeChange = (studentId: string, subjectId: string, value: string) => {
+const handleGradeChange = (studentId: string, subjectId: string, value: string) => {
     setGrades(prev => ({
       ...prev,
       [studentId]: {
@@ -83,51 +78,40 @@ export function TeacherDashboard() {
     }));
   };
 
-  const handleAppreciationChange = (studentId: string, value: string) => {
-    setAppreciations(prev => ({ ...prev, [studentId]: value }));
-  };
+  
 
   const handleSaveGrades = async () => {
     if (!user?.schoolId) return;
 
     try {
       const gradesToInsert: any[] = [];
-      const appreciationsToInsert: any[] = [];
       const now = new Date().toISOString();
 
-      // Collect grades
       Object.entries(grades).forEach(([studentId, subjectsData]) => {
         if (!includedStudents.includes(studentId)) return;
         
-        Object.entries(subjectsData).forEach(([subjectId, scoreStr]) => {
-          if (scoreStr && String(scoreStr).trim() !== '') {
-            let score = parseFloat(scoreStr.replace(',', '.'));
-            if (!isNaN(score)) {
-              gradesToInsert.push({
-                school_id: user.schoolId,
-                student_id: studentId,
-                course_id: subjectId,
-                evaluation_type: 'EVALUATION',
-                score: score,
-                max_score: 20,
-                grade_date: now
-              });
-            }
-          }
-        });
-      });
-
-      // Collect appreciations
-      Object.entries(appreciations).forEach(([studentId, comment]) => {
-        if (!includedStudents.includes(studentId) || !comment || String(comment).trim() === '') return;
-        
-        appreciationsToInsert.push({
-          school_id: user.schoolId,
-          student_id: studentId,
-          teacher_id: user.id, // Assuming user.id is teacher_id
-          term: period,
-          comment: comment,
-          date: now
+        Object.entries(subjectsData).forEach(([courseId, data]) => {
+           const insertGrade = (val: string, type: string) => {
+               if (val && String(val).trim() !== '') {
+                  let score = parseFloat(String(val).replace(',', '.'));
+                  if (!isNaN(score)) {
+                      gradesToInsert.push({
+                          school_id: user.schoolId,
+                          student_id: studentId,
+                          course_id: courseId,
+                          evaluation_type: type + '_' + period,
+                          score: score,
+                          max_score: 20,
+                          appreciation: data.app || '',
+                          grade_date: now
+                      });
+                  }
+               }
+           };
+           insertGrade(data.int1, 'INT1');
+           insertGrade(data.int2, 'INT2');
+           insertGrade(data.dev1, 'DEV1');
+           insertGrade(data.dev2, 'DEV2');
         });
       });
 
@@ -135,15 +119,7 @@ export function TeacherDashboard() {
         await supabase.from('grades').insert(gradesToInsert);
       }
       
-      if (appreciationsToInsert.length > 0) {
-        // Just checking if appreciations table exists, if it does it works
-        const { error } = await supabase.from('appreciations').insert(appreciationsToInsert);
-        if (error) console.warn("Appreciations error", error);
-      }
-
-      alert("Les notes et appréciations ont été enregistrées avec succès !");
-      setGrades({});
-      setAppreciations({});
+      alert("Notes enregistrées avec succès");
     } catch (err: any) {
       alert("Erreur lors de la sauvegarde: " + err.message);
     }
@@ -243,44 +219,7 @@ export function TeacherDashboard() {
 
          <div className="flex flex-col lg:flex-row gap-8 mb-6">
             {/* Configuration des matières */}
-            <div className="flex-1 bg-slate-50 p-4 rounded-lg border border-slate-200">
-               <h4 className="font-bold text-gray-700 mb-4 flex items-center gap-2"><BookOpen size={16}/> Matières du relevé</h4>
-               {subjects.length > 0 ? (
-                 <ul className="space-y-2 mb-4">
-                   {subjects.map(s => (
-                     <li key={s.id} className="flex items-center justify-between bg-white p-2 border border-slate-200 rounded text-sm">
-                        <span className="font-semibold text-gray-700">{s.name} <span className="text-xs text-slate-500 font-normal">(Coef. {s.coef})</span></span>
-                        <button onClick={() => removeSubject(s.id)} className="text-red-500 hover:text-red-700 p-1"><Trash2 size={14}/></button>
-                     </li>
-                   ))}
-                 </ul>
-               ) : (
-                 <p className="text-xs text-slate-500 mb-4 italic">Aucune matière ajoutée pour cette classe. Ajoutez-en ci-dessous.</p>
-               )}
-               
-               <div className="flex gap-2">
-                 <input 
-                   type="text" 
-                   value={newSubject} 
-                   onChange={e => setNewSubject(e.target.value)} 
-                   placeholder={isMaternelle ? "Nouvelle matière/domaine" : "Nouvelle matière"}
-                   className="flex-1 px-3 py-1.5 border border-slate-300 rounded text-sm outline-none focus:ring-1 focus:ring-emerald-500"
-                 />
-                 {!isMaternelle && (
-                 <input 
-                   type="number" 
-                   value={newCoef} 
-                   onChange={e => setNewCoef(e.target.value)} 
-                   min="1"
-                   placeholder="Coef"
-                   className="w-16 px-2 py-1.5 border border-slate-300 rounded text-sm outline-none focus:ring-1 focus:ring-emerald-500"
-                 />
-                 )}
-                 <button onClick={handleAddSubject} className="bg-emerald-600 text-white px-3 py-1.5 rounded hover:bg-emerald-700 transition flex items-center justify-center">
-                    <Plus size={16} />
-                 </button>
-               </div>
-            </div>
+            
 
             {/* Période / Actions */}
             <div className="w-full lg:w-72 bg-slate-50 p-4 rounded-lg border border-slate-200 flex flex-col justify-between">
@@ -315,24 +254,23 @@ export function TeacherDashboard() {
                       <CheckSquare size={14} className="mx-auto" />
                    </th>
                    <th className="px-3 py-2 border border-slate-700 w-48">Nom et prénoms</th>
-                   
-                   {subjects.map(s => (
-                     <React.Fragment key={s.id}>
-                       <th className="px-2 py-2 border border-slate-700 text-center min-w-[60px] bg-slate-700/50 text-[9px]">Dev 1</th>
-                       <th className="px-2 py-2 border border-slate-700 text-center min-w-[60px] bg-slate-700/50 text-[9px]">Int 1</th>
-                       <th className="px-2 py-2 border border-slate-700 text-center min-w-[60px] bg-slate-700/50 text-[9px]">Int 2</th>
-                       <th className="px-2 py-2 border border-slate-700 text-center min-w-[60px] text-emerald-400">
-                          {s.name} (Moy)<br/><span className="text-slate-400 font-normal">Coef {s.coef}</span>
+                   {myCourses.filter(c => c.level === selectedClass).map(course => (
+                     <React.Fragment key={course.id}>
+                       <th className="px-2 py-2 border border-slate-700 text-center bg-slate-700/50 text-[10px]">Int 1<br/>(/20)</th>
+                       <th className="px-2 py-2 border border-slate-700 text-center bg-slate-700/50 text-[10px]">Int 2<br/>(/20)</th>
+                       <th className="px-2 py-2 border border-slate-700 text-center bg-slate-700/50 text-[10px]">Dev 1<br/>(/20)</th>
+                       <th className="px-2 py-2 border border-slate-700 text-center bg-slate-700/50 text-[10px]">Dev 2<br/>(/20)</th>
+                       <th className="px-2 py-2 border border-slate-700 text-center text-emerald-400 text-[10px]">
+                          Moy.<br/>{course.name}
                        </th>
                      </React.Fragment>
                    ))}
-
                    <th className="px-3 py-2 border border-slate-700 min-w-[150px]">Appréciation globale</th>
                  </tr>
                </thead>
                <tbody className="divide-y divide-slate-200 text-sm">
                  {classStudents.length === 0 ? (
-                   <tr><td colSpan={subjects.length + 3} className="p-8 text-center text-slate-500">Aucun élève dans cette classe.</td></tr>
+                   <tr><td colSpan={10} className="p-8 text-center text-slate-500">Aucun élève dans cette classe.</td></tr>
                  ) : (
                    classStudents.map((student) => {
                      const isIncluded = includedStudents.includes(student.id);
@@ -370,8 +308,11 @@ export function TeacherDashboard() {
                               disabled={!isIncluded}
                               placeholder="Observation / Appréciation" 
                               className="w-full text-xs p-1.5 outline-none focus:ring-1 ring-emerald-500 rounded bg-transparent disabled:cursor-not-allowed" 
-                              value={appreciations[student.id] || ''} 
-                              onChange={e => handleAppreciationChange(student.id, e.target.value)} 
+                              value={Object.values(sGrades)[0]?.app || ''} 
+                              onChange={e => {
+const courseId = myCourses.find(c => c.level === selectedClass)?.id;
+if (courseId) handleManualAppreciation(student.id, courseId, e.target.value);
+}} 
                             />
                          </td>
                        </tr>

@@ -15,6 +15,23 @@ export function TeacherAttendance() {
   const [showPreview, setShowPreview] = useState(false);
 
   useEffect(() => {
+    const fetchHistory = async () => {
+       if (!user?.id) return;
+       const { data } = await supabase.from('attendance').select('date, type, student_id, students(level)').eq('reported_by', user.name || "Professeur").order('date', { ascending: false }).limit(50);
+       if (data) {
+          // Group by date and class
+          const historyMap = new Map();
+          data.forEach(item => {
+             const d = item.date.split('T')[0];
+             const c = Array.isArray(item.students) ? (item.students as any)[0]?.level : (item.students as any)?.level || 'Inconnue';
+             const key = d + '_' + c;
+             if (!historyMap.has(key)) historyMap.set(key, { date: d, class: c, absentCount: 0 });
+             historyMap.get(key).absentCount += 1;
+          });
+          setHistory(Array.from(historyMap.values()));
+       }
+    };
+    fetchHistory();
     const fetchStudents = async () => {
       if (!user?.schoolId) return;
       
@@ -66,8 +83,6 @@ export function TeacherAttendance() {
     if (!user?.schoolId) return;
     
     let count = 0;
-    const now = new Date().toISOString();
-    
     const entriesToInsert: any[] = [];
     
     Object.entries(attendance).forEach(([studentId, status]) => {
@@ -76,7 +91,7 @@ export function TeacherAttendance() {
           school_id: user.schoolId!,
           student_id: studentId,
           type: status,
-          date: now,
+          date: new Date(date).toISOString(),
           reason: "Signalé par le professeur",
           is_justified: false,
           reported_by: user.name || "Professeur"
@@ -93,7 +108,10 @@ export function TeacherAttendance() {
        }
     }
     
-    alert(`Appel terminé ! ${count} absence(s)/retard(s) enregistré(s) et transmis au secrétariat.`);
+    setShowPreview(false);
+    alert(`Appel terminé pour le ${new Date(date).toLocaleDateString()} ! ${count} absence(s)/retard(s) enregistré(s).`);
+    // Refresh history (trigger fetchHistory theoretically, but we can just add a basic entry)
+    setHistory([{ date: new Date(date).toISOString(), class: selectedClass, absentCount: count }, ...history]);
   };
 
   return (
@@ -101,11 +119,14 @@ export function TeacherAttendance() {
       <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm flex flex-col sm:flex-row items-center justify-between gap-4">
         <div>
            <h3 className="font-bold text-gray-700">Faire l'appel</h3>
-           <p className="text-xs text-slate-500">Sélectionnez la classe et pointez les présences</p>
+           <p className="text-xs text-slate-500">Sélectionnez la classe et la date</p>
         </div>
-        <select value={selectedClass} onChange={e => setSelectedClass(e.target.value)} className="px-4 py-2 border rounded font-bold text-gray-700 outline-none focus:ring-2 focus:ring-emerald-500">
-          {LEVELS.map(l => <option key={l} value={l}>{l}</option>)}
-        </select>
+        <div className="flex items-center gap-3">
+           <input type="date" value={date} onChange={e => setDate(e.target.value)} className="px-3 py-2 border rounded font-semibold text-gray-700 outline-none focus:ring-2 focus:ring-emerald-500 bg-slate-50" />
+           <select value={selectedClass} onChange={e => setSelectedClass(e.target.value)} className="px-4 py-2 border rounded font-bold text-gray-700 outline-none focus:ring-2 focus:ring-emerald-500 bg-slate-50">
+             {myClasses.length > 0 ? myClasses.map(l => <option key={l} value={l}>{l}</option>) : LEVELS.map(l => <option key={l} value={l}>{l}</option>)}
+           </select>
+        </div>
       </div>
 
       <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
@@ -160,13 +181,50 @@ export function TeacherAttendance() {
         
         {classStudents.length > 0 && (
           <div className="p-6 border-t border-slate-100 bg-slate-50 flex justify-end">
-            <button onClick={submitAttendance} className="flex items-center gap-2 px-6 py-2 bg-emerald-600 text-white font-bold rounded uppercase tracking-wider text-sm hover:bg-emerald-700 transition">
-              <Save size={16} /> Faire l'appel
+            <button onClick={() => setShowPreview(true)} className="flex items-center gap-2 px-6 py-2 bg-emerald-600 text-white font-bold rounded uppercase tracking-wider text-sm hover:bg-emerald-700 transition shadow-sm">
+              <Save size={16} /> Prévisualiser et Enregistrer
             </button>
           </div>
         )}
-      </div>
       
+      {showPreview && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-lg overflow-hidden animate-in zoom-in-95 max-h-[90vh] flex flex-col">
+            <div className="p-4 border-b border-slate-100 flex justify-between items-center bg-slate-50">
+               <h3 className="font-bold text-gray-700">Récapitulatif de l'appel</h3>
+               <button onClick={() => setShowPreview(false)} className="text-slate-400 hover:text-slate-600"><X size={18} /></button>
+            </div>
+            <div className="p-4 overflow-y-auto">
+               <p className="text-sm font-semibold text-slate-600 mb-2">Classe : {selectedClass} - Date : {new Date(date).toLocaleDateString()}</p>
+               <div className="space-y-1 mt-4">
+                  {classStudents.map(student => {
+                     const status = attendance[student.id] || "PRESENT";
+                     if (status === "PRESENT") return null;
+                     return (
+                        <div key={student.id} className="flex justify-between items-center p-2 rounded border border-slate-100 text-sm">
+                           <span className="font-medium text-gray-700">{student.lastName} {student.firstName}</span>
+                           <span className={`px-2 py-1 rounded text-xs font-bold ${status === 'ABSENT' ? 'bg-red-100 text-red-600' : 'bg-amber-100 text-amber-600'}`}>
+                              {status === 'ABSENT' ? 'ABSENT' : 'RETARD'}
+                           </span>
+                        </div>
+                     );
+                  })}
+                  {classStudents.filter(s => attendance[s.id] && attendance[s.id] !== "PRESENT").length === 0 && (
+                     <div className="p-4 bg-emerald-50 text-emerald-600 text-center rounded border border-emerald-100 text-sm font-semibold">
+                       Tous les élèves sont présents.
+                     </div>
+                  )}
+               </div>
+            </div>
+            <div className="p-4 border-t border-slate-100 flex justify-end gap-2 bg-slate-50">
+               <button onClick={() => setShowPreview(false)} className="px-4 py-2 font-bold text-sm text-slate-600 hover:bg-slate-200 rounded">Annuler</button>
+               <button onClick={submitAttendance} className="px-4 py-2 font-bold text-sm text-white bg-emerald-600 hover:bg-emerald-700 rounded shadow-sm">Confirmer et Sauvegarder</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      </div>
       {history.length > 0 && (
          <div className="mt-8 bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
             <h4 className="font-bold text-gray-700 mb-4">Historique des appels récents</h4>

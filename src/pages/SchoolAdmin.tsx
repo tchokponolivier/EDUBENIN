@@ -2,7 +2,7 @@ import SignatureCanvas from "react-signature-canvas";
 import { useRef } from "react";
 import React, { useState, useEffect } from "react";
 import { Student, Payment, SchoolSettings, Announcement } from "../types";
-import { Users, GraduationCap, ArrowUpRight, Search, Settings, Megaphone, Trash2, Edit, Mail, Plus } from "lucide-react";
+import { Users, GraduationCap, ArrowUpRight, Search, Settings, Megaphone, Trash2, Edit, Mail, Plus, ChevronDown } from "lucide-react";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../lib/auth";
 import { useLocation } from "react-router-dom";
@@ -78,6 +78,13 @@ export function SchoolAdminDashboard() {
     if (!user?.schoolId) return;
     const { data } = await supabase.from('schools').select('*').eq('id', user.schoolId).single();
     if (data) {
+      if (data.contacts) {
+        const match = data.contacts.match(/^(\+\d+)\s+/);
+        if (match) {
+           const c = COUNTRIES.find(x => x.dial === match[1]);
+           if (c) setSelectedCountry(c);
+        }
+      }
       let extra = {};
       try {
         const savedExtra = localStorage.getItem('schoolSettings_extra_' + user.schoolId);
@@ -534,24 +541,27 @@ export function SchoolAdminDashboard() {
              <div>
                <label className="block text-xs font-semibold text-gray-700 mb-1 uppercase tracking-wide">Contact</label>
                <div className="flex gap-2">
-                 <select name="countryCode" className="px-2 py-2 border border-slate-300 rounded text-sm focus:ring-emerald-500 outline-none bg-white w-24">
-                   <option value="🇧🇯 +229">🇧🇯 +229</option>
-                   <option value="🇹🇬 +228">🇹🇬 +228</option>
-                   <option value="🇨🇮 +225">🇨🇮 +225</option>
-                   <option value="🇸🇳 +221">🇸🇳 +221</option>
-                   <option value="🇲🇱 +223">🇲🇱 +223</option>
-                   <option value="🇧🇫 +226">🇧🇫 +226</option>
-                   <option value="🇳🇪 +227">🇳🇪 +227</option>
-                   <option value="🇨🇬 +242">🇨🇬 +242</option>
-                   <option value="🇨🇩 +243">🇨🇩 +243</option>
-                   <option value="🇨🇲 +237">🇨🇲 +237</option>
-                   <option value="🇬🇦 +241">🇬🇦 +241</option>
-                   <option value="🇫🇷 +33">🇫🇷 +33</option>
-                   <option value="🇺🇸 +1">🇺🇸 +1</option>
-                   <option value="🇨🇦 +1">🇨🇦 +1</option>
-                   <option value="🇬🇧 +44">🇬🇧 +44</option>
-                 </select>
-                 <input name="contactNumber" defaultValue={(settings?.contact || "").replace(/^(?:\S+\s+\+\d+\s+)?/, '')} placeholder="Numéro de téléphone" required type="text" className="flex-1 px-4 py-2 border border-slate-300 rounded text-sm focus:ring-emerald-500 focus:border-emerald-500 outline-none" />
+                 <div className="relative">
+                   <button type="button" onClick={() => setShowCountryDropdown(!showCountryDropdown)} className="flex items-center gap-1.5 px-2 py-2 border border-slate-300 rounded text-sm bg-white hover:bg-slate-50 min-w-[90px] justify-between">
+                     <span className="flex items-center gap-1.5">
+                       <img src={"https://flagcdn.com/w20/" + selectedCountry.code + ".png"} alt="drapeau" className="w-5 shadow-sm" /> 
+                       {selectedCountry.dial}
+                     </span>
+                     <ChevronDown size={14} className="text-slate-400" />
+                   </button>
+                   {showCountryDropdown && (
+                     <div className="absolute top-full left-0 mt-1 w-48 max-h-48 overflow-y-auto bg-white border border-slate-200 rounded shadow-xl z-50">
+                       {COUNTRIES.map(c => (
+                         <div key={c.code} onClick={() => { setSelectedCountry(c); setShowCountryDropdown(false); }} className="flex items-center gap-2 px-3 py-2 hover:bg-emerald-50 cursor-pointer text-sm">
+                           <img src={"https://flagcdn.com/w20/" + c.code + ".png"} alt="" className="w-5 shadow-sm" />
+                           <span className="font-semibold text-slate-700">{c.dial}</span>
+                           <span className="text-slate-500 text-xs">{c.name}</span>
+                         </div>
+                       ))}
+                     </div>
+                   )}
+                 </div>
+                 <input name="contactNumber" defaultValue={(settings?.contact || "").replace(/^(?:\+\d+\s+)?/, '')} placeholder="Numéro de téléphone" required type="text" className="flex-1 px-4 py-2 border border-slate-300 rounded text-sm focus:ring-emerald-500 focus:border-emerald-500 outline-none" />
                </div>
              </div>
              <div>

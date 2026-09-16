@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { supabase } from "../lib/supabase";
 import { FeeConfig, LEVELS } from "../types";
 import { useAuth } from "../lib/auth";
-import { DollarSign, Plus, Settings, Trash2, Edit2 } from "lucide-react";
+import { DollarSign, Plus, Settings, Trash2, Edit2 , ChevronDown, X} from "lucide-react";
 
 const OPTIONAL_FEE_TYPES: Record<string, string> = {
   CANTEEN: "Cantine",
@@ -27,11 +27,13 @@ export function SchoolAdminFees() {
   const [activeTab, setActiveTab] = useState<"MANDATORY" | "OPTIONAL">("MANDATORY");
   
   const [selectedLevels, setSelectedLevels] = useState<string[]>([]);
+  const [showLevelsDropdown, setShowLevelsDropdown] = useState(false);
   const [tranches, setTranches] = useState<{id: string; name: string; limit: string; amount: number}[]>([
     {id: 'tranche1', name: 'Tranche 1', limit: '', amount: 0}
   ]);
   const [feeType, setFeeType] = useState<string>("INSCRIPTION");
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [selectedFeeDetails, setSelectedFeeDetails] = useState<any | null>(null);
   const [formYear, setFormYear] = useState("");
   const [academicYear, setAcademicYear] = useState("");
   const [amount, setAmount] = useState("");
@@ -61,7 +63,9 @@ export function SchoolAdminFees() {
          level: d.level,
          feeType: d.fee_type,
          amount: d.amount,
-         createdAt: new Date(d.created_at).getTime()
+         createdAt: new Date(d.created_at).getTime(),
+         academic_year: d.academic_year,
+         tranches: d.tranches
        })));
     }
   };
@@ -198,27 +202,26 @@ export function SchoolAdminFees() {
           </div>
           <div className="md:col-span-2 lg:col-span-3">
             <label className="block text-xs font-semibold text-gray-700 mb-2">Niveaux / Classes</label>
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2 max-h-40 overflow-y-auto p-2 border border-slate-200 rounded">
-              <label className="flex items-center gap-2 text-sm cursor-pointer">
-                <input type="checkbox" checked={selectedLevels.includes('ALL')} onChange={(e) => {
-                  if (e.target.checked) setSelectedLevels(['ALL']);
-                  else setSelectedLevels([]);
-                }} className="rounded text-emerald-600 focus:ring-emerald-500" />
-                <span className="font-semibold text-gray-700">Tous les niveaux</span>
-              </label>
-              {LEVELS.map(l => (
-                <label key={l} className="flex items-center gap-2 text-sm cursor-pointer">
-                  <input type="checkbox" checked={selectedLevels.includes(l)} onChange={(e) => {
-                     if (e.target.checked) {
-                       setSelectedLevels(prev => prev.filter(p => p !== 'ALL').concat(l));
-                     } else {
-                       setSelectedLevels(prev => prev.filter(p => p !== l));
-                     }
-                  }} className="rounded text-emerald-600 focus:ring-emerald-500" />
-                  <span className="text-gray-600">{l}</span>
-                </label>
-              ))}
-            </div>
+            <div className="relative">
+  <button type="button" onClick={() => setShowLevelsDropdown(!showLevelsDropdown)} className="w-full flex items-center justify-between px-3 py-2 border border-slate-300 rounded outline-none focus:border-emerald-500 bg-white text-sm">
+    <span className="truncate">{selectedLevels.length === 0 ? "Sélectionner des classes" : selectedLevels.includes("ALL") ? "Toutes les classes" : selectedLevels.join(", ")}</span>
+    <ChevronDown size={16} className="text-slate-400" />
+  </button>
+  {showLevelsDropdown && (
+    <div className="absolute top-full left-0 right-0 mt-1 max-h-60 overflow-y-auto bg-white border border-slate-200 shadow-xl rounded-lg z-50 p-2 grid grid-cols-2 gap-2">
+      <label className="flex items-center gap-2 text-sm cursor-pointer col-span-full border-b border-slate-100 pb-2 mb-1">
+        <input type="checkbox" checked={selectedLevels.includes("ALL")} onChange={(e) => { if (e.target.checked) setSelectedLevels(["ALL"]); else setSelectedLevels([]); }} className="rounded text-emerald-600 focus:ring-emerald-500" />
+        <span className="font-semibold text-gray-700">Toutes les classes</span>
+      </label>
+      {LEVELS.map(l => (
+        <label key={l} className="flex items-center gap-2 text-sm cursor-pointer hover:bg-slate-50 p-1 rounded">
+          <input type="checkbox" checked={selectedLevels.includes(l)} onChange={(e) => { if (e.target.checked) setSelectedLevels(prev => prev.filter(p => p !== "ALL").concat(l)); else setSelectedLevels(prev => prev.filter(p => p !== l)); }} className="rounded text-emerald-600 focus:ring-emerald-500" />
+          <span className="text-gray-700">{l}</span>
+        </label>
+      ))}
+    </div>
+  )}
+</div>
           </div>
           <div>
             <label className="block text-xs font-semibold text-gray-700 mb-1">Type de Frais</label>
@@ -294,7 +297,7 @@ export function SchoolAdminFees() {
           </thead>
           <tbody className="divide-y divide-slate-100">
             {displayedFees.map(fee => (
-              <tr key={fee.id} className="hover:bg-slate-50">
+              <tr key={fee.id} className="hover:bg-slate-50 cursor-pointer" onClick={() => setSelectedFeeDetails(fee)}>
                 <td className="px-6 py-4 text-sm text-gray-600 font-medium">
                    {fee.academic_year || '-'}
                 </td>
@@ -308,7 +311,7 @@ export function SchoolAdminFees() {
                 </td>
                 <td className="px-6 py-4 text-sm font-bold text-gray-800 text-right">{fee.amount.toLocaleString()}</td>
                 <td className="px-6 py-4 text-sm text-right">
-                   <button onClick={() => {
+                   <button onClick={(e) => { e.stopPropagation();
                      setSelectedLevels([fee.level]);
                      setFeeType(fee.feeType);
                      setAmount(fee.amount.toString());
@@ -319,7 +322,7 @@ export function SchoolAdminFees() {
                    }} className="p-1.5 text-blue-500 hover:text-blue-700 hover:bg-blue-50 rounded transition-colors mr-2" title="Éditer">
                      <Edit2 size={16} />
                    </button>
-                   <button onClick={() => handleDelete(fee.id)} className="p-1.5 text-red-500 hover:text-red-700 hover:bg-red-50 rounded transition-colors" title="Supprimer">
+                   <button onClick={(e) => { e.stopPropagation(); handleDelete(fee.id); }} className="p-1.5 text-red-500 hover:text-red-700 hover:bg-red-50 rounded transition-colors" title="Supprimer">
                      <Trash2 size={16} />
                    </button>
                 </td>

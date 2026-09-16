@@ -107,12 +107,20 @@ export function AddTeacherModal({ isOpen, onClose, onSuccess }: { isOpen: boolea
           </div>
           <div>
             <label className="block text-xs font-bold text-gray-700 mb-1 uppercase tracking-wide">Classes (Cochez une ou plusieurs)</label>
-            <div className="max-h-32 overflow-y-auto border border-slate-300 rounded p-2 grid grid-cols-2 gap-2 bg-slate-50">
+            <div className="max-h-48 overflow-y-auto border border-slate-300 rounded p-2 flex flex-col gap-2 bg-slate-50">
                {LEVELS.map(l => (
-                   <label key={l} className="flex items-center gap-2 text-xs text-slate-700 cursor-pointer">
-                       <input type="checkbox" checked={formData.classes.includes(l)} onChange={() => handleToggleClass(l)} className="rounded text-emerald-600 focus:ring-emerald-500" />
-                       {l}
-                   </label>
+                   <div key={l} className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-1 border-b border-slate-200 last:border-0">
+                       <label className="flex items-center gap-2 text-xs text-slate-700 cursor-pointer flex-1">
+                           <input type="checkbox" checked={formData.classes.includes(l)} onChange={() => handleToggleClass(l)} className="rounded text-emerald-600 focus:ring-emerald-500" />
+                           <span className="font-medium">{l}</span>
+                       </label>
+                       {formData.classes.includes(l) && (
+                           <div className="flex items-center gap-2">
+                             <span className="text-xs text-slate-500">Coef.</span>
+                             <input type="number" min="1" value={classCoefs[l] || 1} onChange={e => setClassCoefs(prev => ({...prev, [l]: Number(e.target.value)}))} className="w-16 px-2 py-1 text-xs border border-slate-300 rounded outline-none" required />
+                           </div>
+                       )}
+                   </div>
                ))}
             </div>
           </div>

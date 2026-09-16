@@ -6,10 +6,7 @@ import { DollarSign, Plus, Settings, Trash2, Edit2 } from "lucide-react";
 
 const OPTIONAL_FEE_TYPES: Record<string, string> = {
   CANTEEN: "Cantine",
-  BOOKS: "Livres Scolaires",
-  UNIFORMS: "Achat des Uniformes",
-  EVALUATION: "Frais d'Évaluation",
-  BOOK_KITS: "Kits Livres par Classe"
+  BOOKS: "Livres Scolaires"
 };
 
 const MANDATORY_FEE_TYPES: Record<string, string> = {
@@ -18,7 +15,9 @@ const MANDATORY_FEE_TYPES: Record<string, string> = {
   TD: "TD",
   ID_CARD: "Carte Scolaire",
   TRANSPORT: "Transport",
-  OTHER: "Autre"
+  UNIFORMS: "Uniforme",
+  SPORTS_WEAR: "Tenue de Sport",
+  EVALUATION: "Frais d'évaluation"
 };
 
 export function SchoolAdminFees() {
@@ -27,7 +26,10 @@ export function SchoolAdminFees() {
   const [showForm, setShowForm] = useState(false);
   const [activeTab, setActiveTab] = useState<"MANDATORY" | "OPTIONAL">("MANDATORY");
   
-  const [level, setLevel] = useState(LEVELS[0]);
+  const [selectedLevels, setSelectedLevels] = useState<string[]>([]);
+  const [tranches, setTranches] = useState<{id: string; name: string; limit: string; amount: number}[]>([
+    {id: 'tranche1', name: 'Tranche 1', limit: '', amount: 0}
+  ]);
   const [feeType, setFeeType] = useState<string>("INSCRIPTION");
   const [editingId, setEditingId] = useState<string | null>(null);
   const [formYear, setFormYear] = useState("");
@@ -82,20 +84,23 @@ export function SchoolAdminFees() {
     let error;
     if (editingId) {
        const res = await supabase.from('fee_config').update({
-         level,
+         level: selectedLevels[0] || 'ALL',
          fee_type: feeType,
          amount: Number(amount),
-         academic_year: formYear
+         academic_year: formYear,
+         tranches: tranches
        }).eq('id', editingId);
        error = res.error;
     } else {
-       const res = await supabase.from('fee_config').insert({
+       const inserts = selectedLevels.map(lvl => ({
          school_id: user.schoolId,
-         level,
+         level: lvl,
          fee_type: feeType,
          amount: Number(amount),
-         academic_year: formYear
-       });
+         academic_year: formYear,
+         tranches: tranches
+       }));
+       const res = await supabase.from('fee_config').insert(inserts);
        error = res.error;
     }
     
@@ -103,6 +108,8 @@ export function SchoolAdminFees() {
        setShowForm(false);
        setAmount("");
        setEditingId(null);
+       setSelectedLevels([]);
+       setTranches([]);
        fetchFees();
     } else {
        alert("Erreur lors de la création");
@@ -189,12 +196,29 @@ export function SchoolAdminFees() {
               {academicYears.map(y => <option key={y.id} value={y.name}>{y.name}</option>)}
             </select>
           </div>
-          <div>
-            <label className="block text-xs font-semibold text-gray-700 mb-1">Niveau / Classe</label>
-            <select value={level} onChange={e => setLevel(e.target.value)} className="w-full px-3 py-2 border border-slate-300 focus:border-emerald-500 outline-none rounded text-sm">
-              <option value="ALL">Tous les niveaux (Général)</option>
-              {LEVELS.map(l => <option key={l} value={l}>{l}</option>)}
-            </select>
+          <div className="md:col-span-2 lg:col-span-3">
+            <label className="block text-xs font-semibold text-gray-700 mb-2">Niveaux / Classes</label>
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2 max-h-40 overflow-y-auto p-2 border border-slate-200 rounded">
+              <label className="flex items-center gap-2 text-sm cursor-pointer">
+                <input type="checkbox" checked={selectedLevels.includes('ALL')} onChange={(e) => {
+                  if (e.target.checked) setSelectedLevels(['ALL']);
+                  else setSelectedLevels([]);
+                }} className="rounded text-emerald-600 focus:ring-emerald-500" />
+                <span className="font-semibold text-gray-700">Tous les niveaux</span>
+              </label>
+              {LEVELS.map(l => (
+                <label key={l} className="flex items-center gap-2 text-sm cursor-pointer">
+                  <input type="checkbox" checked={selectedLevels.includes(l)} onChange={(e) => {
+                     if (e.target.checked) {
+                       setSelectedLevels(prev => prev.filter(p => p !== 'ALL').concat(l));
+                     } else {
+                       setSelectedLevels(prev => prev.filter(p => p !== l));
+                     }
+                  }} className="rounded text-emerald-600 focus:ring-emerald-500" />
+                  <span className="text-gray-600">{l}</span>
+                </label>
+              ))}
+            </div>
           </div>
           <div>
             <label className="block text-xs font-semibold text-gray-700 mb-1">Type de Frais</label>
@@ -207,10 +231,53 @@ export function SchoolAdminFees() {
             </select>
           </div>
           <div>
-            <label className="block text-xs font-semibold text-gray-700 mb-1">Montant (FCFA)</label>
+            <label className="block text-xs font-semibold text-gray-700 mb-1">Montant Total (FCFA)</label>
             <input required value={amount} onChange={e => setAmount(e.target.value)} type="number" className="w-full px-3 py-2 border border-slate-300 focus:border-emerald-500 outline-none rounded text-sm" />
           </div>
-          <button type="submit" className="px-6 py-2 bg-slate-900 text-white rounded font-bold w-full text-sm">Enregistrer</button>
+          
+          {feeType === "MONTHLY" && (
+            <div className="md:col-span-full border-t border-slate-200 mt-4 pt-4">
+              <div className="flex items-center justify-between mb-2">
+                <label className="block text-sm font-semibold text-gray-700">Tranches de paiement</label>
+                <button type="button" onClick={() => setTranches(prev => [...prev, {id: `tranche${prev.length + 1}`, name: `Tranche ${prev.length + 1}`, limit: '', amount: 0}])} className="text-xs flex items-center gap-1 text-emerald-600 font-bold bg-emerald-50 px-2 py-1 rounded">
+                  <Plus size={14} /> Ajouter Tranche
+                </button>
+              </div>
+              <div className="space-y-2 max-h-60 overflow-y-auto p-1">
+                {tranches.map((t, idx) => (
+                  <div key={t.id} className="flex gap-2 items-center bg-slate-50 p-2 rounded border border-slate-100">
+                    <input type="text" value={t.name} onChange={e => {
+                      const newT = [...tranches];
+                      newT[idx].name = e.target.value;
+                      setTranches(newT);
+                    }} placeholder="Nom (ex: Tranche 1)" className="w-1/3 px-2 py-1 text-sm border border-slate-300 rounded outline-none" required />
+                    <input type="number" value={t.amount || ''} onChange={e => {
+                      const newT = [...tranches];
+                      newT[idx].amount = Number(e.target.value);
+                      setTranches(newT);
+                    }} placeholder="Montant" className="w-1/3 px-2 py-1 text-sm border border-slate-300 rounded outline-none" required />
+                    <input type="date" value={t.limit} onChange={e => {
+                      const newT = [...tranches];
+                      newT[idx].limit = e.target.value;
+                      setTranches(newT);
+                    }} className="w-1/3 px-2 py-1 text-sm border border-slate-300 rounded outline-none" required />
+                    <button type="button" onClick={() => {
+                      if (tranches.length > 1) {
+                         setTranches(prev => prev.filter((_, i) => i !== idx));
+                      }
+                    }} className="text-red-500 hover:bg-red-50 p-1 rounded"><Trash2 size={16} /></button>
+                  </div>
+                ))}
+              </div>
+              <div className="mt-2 text-xs text-gray-500 text-right">
+                Total des tranches: <span className="font-bold text-gray-700">{tranches.reduce((sum, t) => sum + (t.amount || 0), 0)}</span> / {amount}
+              </div>
+            </div>
+          )}
+
+          <div className="md:col-span-full mt-2">
+             <button type="submit" className="px-6 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded font-bold w-full text-sm transition-colors">Enregistrer</button>
+          </div>
         </form>
       )}
 
@@ -218,7 +285,7 @@ export function SchoolAdminFees() {
         <table className="w-full text-left border-collapse">
           <thead className="bg-slate-50 text-[10px] uppercase text-slate-500 font-bold border-b border-slate-100">
             <tr>
-              <th className="px-6 py-4">Année</th>
+              <th className="px-6 py-4">Année scolaire</th>
               <th className="px-6 py-4">Niveau / Classe</th>
               <th className="px-6 py-4">Type de Frais</th>
               <th className="px-6 py-4 text-right">Montant (FCFA)</th>
@@ -242,10 +309,11 @@ export function SchoolAdminFees() {
                 <td className="px-6 py-4 text-sm font-bold text-gray-800 text-right">{fee.amount.toLocaleString()}</td>
                 <td className="px-6 py-4 text-sm text-right">
                    <button onClick={() => {
-                     setLevel(fee.level);
+                     setSelectedLevels([fee.level]);
                      setFeeType(fee.feeType);
                      setAmount(fee.amount.toString());
                      if (fee.academic_year) setFormYear(fee.academic_year);
+                     if (fee.tranches) setTranches(fee.tranches);
                      setShowForm(true);
                      setEditingId(fee.id);
                    }} className="p-1.5 text-blue-500 hover:text-blue-700 hover:bg-blue-50 rounded transition-colors mr-2" title="Éditer">

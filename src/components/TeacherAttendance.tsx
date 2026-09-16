@@ -7,12 +7,24 @@ import { Check, X, Clock, Save } from "lucide-react";
 export function TeacherAttendance() {
   const { user } = useAuth();
   const [students, setStudents] = useState<Student[]>([]);
-  const [selectedClass, setSelectedClass] = useState<string>(LEVELS[0]);
+  const [myClasses, setMyClasses] = useState<string[]>([]);
+  const [selectedClass, setSelectedClass] = useState<string>("");
   const [attendance, setAttendance] = useState<Record<string, "PRESENT" | "ABSENT" | "DELAY">>(({}));
+  const [date, setDate] = useState<string>(new Date().toISOString().split('T')[0]);
+  const [history, setHistory] = useState<any[]>([]);
+  const [showPreview, setShowPreview] = useState(false);
 
   useEffect(() => {
     const fetchStudents = async () => {
       if (!user?.schoolId) return;
+      
+      const { data: teacherCourses } = await supabase.from('courses').select('level').eq('teacher_id', user.id);
+      if (teacherCourses) {
+         const levels = [...new Set(teacherCourses.map((c: any) => c.level))];
+         setMyClasses(levels as string[]);
+         if (levels.length > 0) setSelectedClass(levels[0] as string);
+      }
+      
       const { data, error } = await supabase.from('students').select('*').eq('school_id', user.schoolId);
       if (data && !error) {
          setStudents(data.map(d => ({
@@ -154,6 +166,25 @@ export function TeacherAttendance() {
           </div>
         )}
       </div>
+      
+      {history.length > 0 && (
+         <div className="mt-8 bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+            <h4 className="font-bold text-gray-700 mb-4">Historique des appels récents</h4>
+            <div className="space-y-2">
+               {history.map((h, i) => (
+                  <div key={i} className="flex justify-between items-center p-3 bg-slate-50 border border-slate-100 rounded text-sm">
+                     <div>
+                        <span className="font-bold text-gray-700">{h.class}</span>
+                        <span className="text-slate-500 ml-2">- {new Date(h.date).toLocaleDateString()}</span>
+                     </div>
+                     <span className={`font-bold ${h.absentCount > 0 ? 'text-orange-500' : 'text-emerald-500'}`}>
+                        {h.absentCount} signalement(s)
+                     </span>
+                  </div>
+               ))}
+            </div>
+         </div>
+      )}
     </div>
   );
 }

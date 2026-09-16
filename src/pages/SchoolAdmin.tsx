@@ -15,6 +15,20 @@ export function SchoolAdminDashboard() {
   const [students, setStudents] = useState<Student[]>([]);
   const [payments, setPayments] = useState<Payment[]>([]);
   const [settings, setSettings] = useState<SchoolSettings | null>(null);
+  const [showCountryDropdown, setShowCountryDropdown] = useState(false);
+  const [selectedCountry, setSelectedCountry] = useState({ code: 'bj', dial: '+229' });
+  const COUNTRIES = [
+    { code: 'bj', dial: '+229', name: 'Bénin' },
+    { code: 'tg', dial: '+228', name: 'Togo' },
+    { code: 'ci', dial: '+225', name: 'Côte d\'Ivoire' },
+    { code: 'sn', dial: '+221', name: 'Sénégal' },
+    { code: 'ml', dial: '+223', name: 'Mali' },
+    { code: 'bf', dial: '+226', name: 'Burkina Faso' },
+    { code: 'ne', dial: '+227', name: 'Niger' },
+    { code: 'cg', dial: '+242', name: 'Congo' },
+    { code: 'cd', dial: '+243', name: 'RDC' },
+    { code: 'cm', dial: '+237', name: 'Cameroun' }
+  ];
   const [searchTerm, setSearchTerm] = useState("");
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
 
@@ -162,7 +176,7 @@ export function SchoolAdminDashboard() {
     const updates = {
       name: formData.get("name") as string,
       address: formData.get("address") as string,
-      contact: (formData.get("countryCode") as string) + " " + (formData.get("contactNumber") as string),
+      contact: selectedCountry.dial + " " + (formData.get("contactNumber") as string),
       motto: formData.get("motto") as string,
       
       enrollmentContractTemplate: formData.get("enrollmentContractTemplate") as string,

@@ -19,6 +19,8 @@ export function TeacherDashboard() {
   const [activeTab, setActiveTab] = useState<"GRADES" | "ATTENDANCE" | "TIMETABLE" | "CALENDAR">("GRADES");
   const [students, setStudents] = useState<Student[]>([]);
   const [selectedClass, setSelectedClass] = useState<string | null>(null);
+  const [myClasses, setMyClasses] = useState<string[]>([]);
+  const [myCourses, setMyCourses] = useState<any[]>([]);
   
   const [subjects, setSubjects] = useState<Subject[]>([]);
   const [newSubject, setNewSubject] = useState("");

@@ -96,7 +96,8 @@ export interface FeeConfig {
   level: string;
   academicYear?: string;
   academic_year?: string;
-  feeType: "INSCRIPTION" | "MONTHLY" | "TD" | "TRANSPORT" | "CANTEEN" | "OTHER" | "BOOKS" | "ID_CARD" | "UNIFORMS" | "EVALUATION" | "BOOK_KITS";
+  feeType: string;
+  tranches?: {id: string; name: string; amount: number; limit: string}[];
   amount: number;
   createdAt: number;
 }
@@ -200,6 +201,6 @@ export const LEVELS = [
   "Maternelle 1", "Maternelle 2",
   "CI", "CP", "CE1", "CE2", "CM1", "CM2",
   "6ème", "5ème", "4ème", "3ème",
-  "2nde", "1ère A", "1ère B", "1ère C", "1ère D",
+  "2nde A", "2nde B", "2nde C", "2nde D", "1ère A", "1ère B", "1ère C", "1ère D",
   "Terminale A", "Terminale B", "Terminale C", "Terminale D"
 ];

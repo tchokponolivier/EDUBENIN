@@ -14,12 +14,26 @@ export function AddTeacherModal({ isOpen, onClose, onSuccess }: { isOpen: boolea
     subject: "",
     classes: [] as string[]
   });
+  const [classCoefs, setClassCoefs] = useState<Record<string, number>>({});
   
   const handleToggleClass = (cls: string) => {
-    setFormData(prev => ({
-        ...prev,
-        classes: prev.classes.includes(cls) ? prev.classes.filter(c => c !== cls) : [...prev.classes, cls]
-    }));
+    setFormData(prev => {
+        if (prev.classes.includes(cls)) {
+            const newClasses = prev.classes.filter(c => c !== cls);
+            return { ...prev, classes: newClasses };
+        } else {
+            return { ...prev, classes: [...prev.classes, cls] };
+        }
+    });
+    setClassCoefs(prev => {
+        if (prev[cls] !== undefined) {
+            const next = { ...prev };
+            delete next[cls];
+            return next;
+        } else {
+            return { ...prev, [cls]: 1 };
+        }
+    });
   };
 
   if (!isOpen) return null;
@@ -49,7 +63,8 @@ export function AddTeacherModal({ isOpen, onClose, onSuccess }: { isOpen: boolea
               school_id: user?.schoolId,
               name: formData.subject,
               level: cls,
-              teacher_id: dummyId
+              teacher_id: dummyId,
+              coefficient: classCoefs[cls] || 1
           }));
           await supabase.from('courses').insert(coursesToInsert);
       }

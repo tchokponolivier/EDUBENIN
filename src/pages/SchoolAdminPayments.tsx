@@ -67,7 +67,7 @@ const getTranchesForLevel = (level: string) => {
       { id: "tranche3", name: "Tranche 3", limit: "30 Décembre", amount: 20000 }
     ];
   }
-  if (level === "2nde") {
+  if (level.startsWith("2nde")) {
     return [
       { id: "tranche1", name: "Tranche 1", limit: "31 Octobre", amount: 50000 },
       { id: "tranche2", name: "Tranche 2", limit: "30 Novembre", amount: 35000 },
@@ -182,7 +182,7 @@ export function SchoolAdminPayments() {
     
     const isPrimary = level.startsWith("Maternelle") || level.startsWith("CI") || level.startsWith("CP") || level.startsWith("CE") || level.startsWith("CM");
     const isMiddleSchool = ["6ème", "5ème", "4ème", "3ème"].includes(level);
-    const isHighSchool = ["2nde", "1ère A", "1ère B", "1ère C", "1ère D", "Terminale A", "Terminale B", "Terminale C", "Terminale D"].includes(level);
+    const isHighSchool = ["2nde A", "2nde B", "2nde C", "2nde D", "1ère A", "1ère B", "1ère C", "1ère D", "Terminale A", "Terminale B", "Terminale C", "Terminale D"].includes(level);
 
     let uniformeAmount = 0;
     if (isPrimary) uniformeAmount = selectedStudent.gender === "FEMALE" ? 3500 : 5000;
@@ -232,8 +232,12 @@ export function SchoolAdminPayments() {
 
   const levelTranches = useMemo(() => {
      if (!selectedStudent) return [];
+     const levelFee = availableFees.find(f => f.feeType === 'MONTHLY' && (f.level === selectedStudent.level || f.level === 'ALL'));
+     if (levelFee && levelFee.tranches && levelFee.tranches.length > 0) {
+        return levelFee.tranches.map(t => ({ id: t.id, name: t.name, limit: t.limit, amount: t.amount }));
+     }
      return getTranchesForLevel(selectedStudent.level || "");
-  }, [selectedStudent]);
+  }, [selectedStudent, availableFees]);
 
   const paidAmountsPerFee = useMemo(() => {
     const paid: Record<string, number> = {};

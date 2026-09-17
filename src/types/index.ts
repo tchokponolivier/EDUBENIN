@@ -204,3 +204,9 @@ export const LEVELS = [
   "2nde A", "2nde B", "2nde C", "2nde D", "1ère A", "1ère B", "1ère C", "1ère D",
   "Terminale A", "Terminale B", "Terminale C", "Terminale D"
 ];
+
+export const SUBJECTS = [
+  "Mathématiques", "Français", "Anglais", "Histoire-Géographie", 
+  "SVT", "Physique-Chimie", "Philosophie", "Espagnol", "Allemand", 
+  "EPS", "Informatique", "Economie", "Musique", "Arts Plastiques", "Comptabilité"
+];

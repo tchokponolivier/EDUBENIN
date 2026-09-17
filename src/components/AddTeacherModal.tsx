@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../lib/auth";
 import { X, UserPlus } from "lucide-react";
-import { LEVELS } from "../types";
+import { LEVELS, SUBJECTS } from "../types";
 
 export function AddTeacherModal({ isOpen, onClose, onSuccess }: { isOpen: boolean, onClose: () => void, onSuccess: () => void }) {
   const { user } = useAuth();
@@ -103,7 +103,10 @@ export function AddTeacherModal({ isOpen, onClose, onSuccess }: { isOpen: boolea
           </div>
           <div>
             <label className="block text-xs font-bold text-gray-700 mb-1 uppercase tracking-wide">Matière enseignée</label>
-            <input type="text" required value={formData.subject} onChange={e => setFormData({...formData, subject: e.target.value})} placeholder="Mathématiques, Français..." className="w-full px-3 py-2 border border-slate-300 rounded focus:ring-emerald-500 outline-none" />
+            <select required value={formData.subject} onChange={e => setFormData({...formData, subject: e.target.value})} className="w-full px-3 py-2 border border-slate-300 rounded focus:ring-emerald-500 outline-none bg-white">
+              <option value="" disabled>Sélectionnez une matière</option>
+              {SUBJECTS.map(s => <option key={s} value={s}>{s}</option>)}
+            </select>
           </div>
           <div>
             <label className="block text-xs font-bold text-gray-700 mb-1 uppercase tracking-wide">Classes (Cochez une ou plusieurs)</label>

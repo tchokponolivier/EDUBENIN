@@ -86,6 +86,11 @@ export function SchoolAdminFees() {
     if (!user?.schoolId) return;
     
     let error;
+    if (selectedLevels.length === 0) {
+       alert("Veuillez sélectionner au moins une classe pour appliquer ces frais.");
+       return;
+    }
+
     if (editingId) {
        const res = await supabase.from('fee_config').update({
          level: selectedLevels[0] || 'ALL',
@@ -104,8 +109,13 @@ export function SchoolAdminFees() {
          academic_year: formYear,
          tranches: tranches
        }));
-       const res = await supabase.from('fee_config').insert(inserts);
-       error = res.error;
+       
+       if (inserts.length === 0) {
+          error = { message: "Aucun niveau sélectionné" };
+       } else {
+          const res = await supabase.from('fee_config').insert(inserts);
+          error = res.error;
+       }
     }
     
     if (!error) {

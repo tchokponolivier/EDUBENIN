@@ -259,20 +259,24 @@ export function TeacherAttendance() {
             <div className="p-4 overflow-y-auto">
                <p className="text-sm font-semibold text-slate-600 mb-4">Classe : {viewHistory.class} - Date : {new Date(viewHistory.date).toLocaleDateString()}</p>
                <div className="space-y-2">
-                  {viewHistory.details && viewHistory.details.length > 0 ? (
-                     viewHistory.details.map((d: any, idx: number) => (
-                        <div key={idx} className="flex justify-between items-center p-2 rounded border border-slate-100 text-sm">
-                           <span className="font-medium text-gray-700">{d.lastName || ''} {d.firstName || ''}</span>
-                           <span className={`px-2 py-1 rounded text-xs font-bold ${d.type === 'ABSENT' ? 'bg-red-100 text-red-600' : 'bg-amber-100 text-amber-600'}`}>
-                              {d.type === 'ABSENT' ? 'ABSENT' : 'RETARD'}
-                           </span>
+                  {students.filter(s => s.level === viewHistory.class).map((s) => {
+                     const detail = viewHistory.details?.find((d: any) => d.lastName === s.lastName && d.firstName === s.firstName);
+                     const isAbsent = detail?.type === 'ABSENT';
+                     const isDelay = detail?.type === 'DELAY' || detail?.type === 'RETARD';
+                     const isPresent = !isAbsent && !isDelay;
+                     return (
+                        <div key={s.id} className="flex justify-between items-center p-2 rounded border border-slate-100 text-sm">
+                           <span className="font-medium text-gray-700">{s.lastName} {s.firstName}</span>
+                           {isPresent ? (
+                              <span className="px-2 py-1 rounded text-xs font-bold bg-emerald-100 text-emerald-600">PRÉSENT</span>
+                           ) : isAbsent ? (
+                              <span className="px-2 py-1 rounded text-xs font-bold bg-red-100 text-red-600">ABSENT</span>
+                           ) : (
+                              <span className="px-2 py-1 rounded text-xs font-bold bg-amber-100 text-amber-600">RETARD</span>
+                           )}
                         </div>
-                     ))
-                  ) : (
-                     <div className="p-4 bg-emerald-50 text-emerald-600 text-center rounded border border-emerald-100 text-sm font-semibold">
-                       Tous les élèves étaient présents ce jour-là (aucun signalement).
-                     </div>
-                  )}
+                     );
+                  })}
                </div>
             </div>
           </div>

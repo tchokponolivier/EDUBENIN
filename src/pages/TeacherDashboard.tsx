@@ -27,6 +27,8 @@ export function TeacherDashboard() {
   
   
   const [grades, setGrades] = useState<Record<string, Record<string, {int1: string, int2: string, dev1: string, dev2: string, avg: string, app: string}>>>({});
+  const [originalGrades, setOriginalGrades] = useState<any>({});
+  const [isEditingGrades, setIsEditingGrades] = useState<boolean>(false);
   
   const [includedStudents, setIncludedStudents] = useState<string[]>([]);
   const [period, setPeriod] = useState("1er Trimestre");
@@ -274,9 +276,31 @@ const handleGradeChange = (studentId: string, courseId: string, type: 'int1'|'in
                  </select>
                </div>
                <div className="space-y-2">
-                 <button onClick={handleSaveGrades} className="w-full flex items-center justify-center gap-2 px-3 py-2 bg-emerald-600 text-white rounded text-sm font-bold uppercase tracking-wider hover:bg-emerald-700 transition shadow-sm">
-                   <Save size={16} /> Saisir les notes
-                 </button>
+                 
+                  {isEditingGrades ? (
+                    <div className="flex flex-col gap-2 w-full">
+                       <button onClick={() => {
+                          handleSaveGrades();
+                          setIsEditingGrades(false);
+                       }} className="w-full flex items-center justify-center gap-2 px-3 py-2 bg-emerald-600 text-white rounded text-sm font-bold uppercase tracking-wider hover:bg-emerald-700 transition shadow-sm">
+                         <Save size={16} /> Enregistrer les modifications
+                       </button>
+                       <button onClick={() => {
+                          setGrades(originalGrades);
+                          setIsEditingGrades(false);
+                       }} className="w-full flex items-center justify-center gap-2 px-3 py-2 bg-slate-200 text-slate-700 rounded text-sm font-bold uppercase tracking-wider hover:bg-slate-300 transition shadow-sm">
+                         <X size={16} /> Annuler
+                       </button>
+                    </div>
+                  ) : (
+                    <button onClick={() => {
+                       setOriginalGrades(JSON.parse(JSON.stringify(grades)));
+                       setIsEditingGrades(true);
+                    }} className="w-full flex items-center justify-center gap-2 px-3 py-2 bg-emerald-600 text-white rounded text-sm font-bold uppercase tracking-wider hover:bg-emerald-700 transition shadow-sm">
+                      <Edit2 size={16} /> Saisir / Modifier les notes
+                    </button>
+                  )}
+
                  <button onClick={() => window.print()} className="w-full flex items-center justify-center gap-2 px-3 py-2 bg-slate-800 text-white rounded text-sm font-bold uppercase tracking-wider hover:bg-slate-700 transition shadow-sm">
                    <Download size={16} /> Générer Relevés
                  </button>
@@ -334,16 +358,16 @@ const handleGradeChange = (studentId: string, courseId: string, type: 'int1'|'in
                          return (
                             <React.Fragment key={course.id}>
                                <td className="p-1 border border-slate-200 text-center">
-                                  <input type="text" disabled={!isIncluded} className="w-12 text-center text-xs p-1 outline-none focus:ring-1 ring-emerald-500 rounded bg-transparent disabled:cursor-not-allowed" value={cGrades.int1} onChange={e => handleGradeChange(student.id, course.id, 'int1', e.target.value)} />
+                                  <input type="text" disabled={!isIncluded || !isEditingGrades} className="w-12 text-center text-xs p-1 outline-none focus:ring-1 ring-emerald-500 rounded bg-transparent disabled:cursor-not-allowed" value={cGrades.int1} onChange={e => handleGradeChange(student.id, course.id, 'int1', e.target.value)} />
                                </td>
                                <td className="p-1 border border-slate-200 text-center">
-                                  <input type="text" disabled={!isIncluded} className="w-12 text-center text-xs p-1 outline-none focus:ring-1 ring-emerald-500 rounded bg-transparent disabled:cursor-not-allowed" value={cGrades.int2} onChange={e => handleGradeChange(student.id, course.id, 'int2', e.target.value)} />
+                                  <input type="text" disabled={!isIncluded || !isEditingGrades} className="w-12 text-center text-xs p-1 outline-none focus:ring-1 ring-emerald-500 rounded bg-transparent disabled:cursor-not-allowed" value={cGrades.int2} onChange={e => handleGradeChange(student.id, course.id, 'int2', e.target.value)} />
                                </td>
                                <td className="p-1 border border-slate-200 text-center">
-                                  <input type="text" disabled={!isIncluded} className="w-12 text-center text-xs p-1 outline-none focus:ring-1 ring-emerald-500 rounded bg-transparent disabled:cursor-not-allowed" value={cGrades.dev1} onChange={e => handleGradeChange(student.id, course.id, 'dev1', e.target.value)} />
+                                  <input type="text" disabled={!isIncluded || !isEditingGrades} className="w-12 text-center text-xs p-1 outline-none focus:ring-1 ring-emerald-500 rounded bg-transparent disabled:cursor-not-allowed" value={cGrades.dev1} onChange={e => handleGradeChange(student.id, course.id, 'dev1', e.target.value)} />
                                </td>
                                <td className="p-1 border border-slate-200 text-center">
-                                  <input type="text" disabled={!isIncluded} className="w-12 text-center text-xs p-1 outline-none focus:ring-1 ring-emerald-500 rounded bg-transparent disabled:cursor-not-allowed" value={cGrades.dev2} onChange={e => handleGradeChange(student.id, course.id, 'dev2', e.target.value)} />
+                                  <input type="text" disabled={!isIncluded || !isEditingGrades} className="w-12 text-center text-xs p-1 outline-none focus:ring-1 ring-emerald-500 rounded bg-transparent disabled:cursor-not-allowed" value={cGrades.dev2} onChange={e => handleGradeChange(student.id, course.id, 'dev2', e.target.value)} />
                                </td>
                                <td className="p-1 border border-slate-200 text-center font-bold text-emerald-600 bg-emerald-50 text-xs">
                                   {cGrades.avg}
@@ -355,7 +379,7 @@ const handleGradeChange = (studentId: string, courseId: string, type: 'int1'|'in
                        <td className="p-1 border border-slate-200">
                            <input 
                              type="text" 
-                             disabled={!isIncluded}
+                             disabled={!isIncluded || !isEditingGrades}
                              placeholder="Observation / Appréciation" 
                              className="w-full text-xs p-1.5 outline-none focus:ring-1 ring-emerald-500 rounded bg-transparent disabled:cursor-not-allowed" 
                              value={Object.values(sGrades)[0]?.app || ''} 

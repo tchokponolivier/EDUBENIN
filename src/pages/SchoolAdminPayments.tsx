@@ -141,12 +141,14 @@ export function SchoolAdminPayments() {
     if (!user?.schoolId) return;
     
     try {
-      const [studentsRes, paymentsRes, yearsRes, settingsRes] = await Promise.all([
+      const [studentsRes, paymentsRes, yearsRes, settingsRes, feeConfigsRes] = await Promise.all([
         supabase.from('students').select('*').eq('school_id', user.schoolId),
         supabase.from('payments').select('*').eq('school_id', user.schoolId),
         supabase.from('academic_years').select('name').eq('school_id', user.schoolId).order('created_at', { ascending: false }),
-        supabase.from('schools').select('*').eq('id', user.schoolId).single()
+        supabase.from('schools').select('*').eq('id', user.schoolId).single(),
+        supabase.from('fee_config').select('*').eq('school_id', user.schoolId)
       ]);
+      if (feeConfigsRes.data) setFeeConfigs(feeConfigsRes.data);
       if (yearsRes.data) setAcademicYears(yearsRes.data);
       if (settingsRes.data) setSettings(settingsRes.data);
       
@@ -173,62 +175,31 @@ export function SchoolAdminPayments() {
 
   const availableFees = useMemo(() => {
     if (!selectedStudent) return [];
-    const fees = [];
+    const fees: any[] = [];
     const level = selectedStudent.level || "";
     
-    if (selectedStudent.studentType === "NEW") {
-        fees.push({ id: "inscription", name: "Frais d'inscription", amount: 2000 });
+    // Custom fees from DB
+    feeConfigs.forEach(fc => {
+       if (fc.level === 'ALL' || fc.level === level) {
+           if (fc.fee_type === 'INSCRIPTION' && selectedStudent.studentType !== 'NEW') return; // only for new students
+           fees.push({
+               id: fc.id,
+               name: fc.fee_type === 'MONTHLY' ? 'Scolarité (Tranches)' : (fc.fee_type === 'INSCRIPTION' ? "Frais d'inscription" : (fc.fee_type === 'CANTEEN' ? "Cantine" : fc.fee_type)),
+               amount: fc.amount,
+               feeType: fc.fee_type,
+               level: fc.level,
+               tranches: fc.tranches
+           });
+       }
+    });
+    
+    // Fallback: If no fees exist in feeConfig, we use some defaults based on student status
+    if (!fees.some(f => f.feeType === 'INSCRIPTION') && selectedStudent.studentType === "NEW") {
+        fees.push({ id: "inscription", name: "Frais d'inscription", amount: 2000, feeType: 'INSCRIPTION' });
     }
     
-    const isPrimary = level.startsWith("Maternelle") || level.startsWith("CI") || level.startsWith("CP") || level.startsWith("CE") || level.startsWith("CM");
-    const isMiddleSchool = ["6ème", "5ème", "4ème", "3ème"].includes(level);
-    const isHighSchool = ["2nde A", "2nde B", "2nde C", "2nde D", "1ère A", "1ère B", "1ère C", "1ère D", "Terminale A", "Terminale B", "Terminale C", "Terminale D"].includes(level);
-
-    let uniformeAmount = 0;
-    if (isPrimary) uniformeAmount = selectedStudent.gender === "FEMALE" ? 3500 : 5000;
-    else if (isMiddleSchool) uniformeAmount = 5000;
-    else if (isHighSchool) uniformeAmount = 7000;
-
-    if (uniformeAmount > 0) fees.push({ id: "uniforme", name: "Achat Uniforme", amount: uniformeAmount });
-
-    fees.push({ id: "sport", name: "Tee-shirt de sport", amount: 2000 });
-
-    if (["CI", "CP", "CE1", "CE2"].includes(level)) fees.push({ id: "td", name: "Frais de TD", amount: 5000 });
-    else if (["CM1", "CM2"].includes(level)) fees.push({ id: "td", name: "Frais de TD", amount: 10000 });
-
-    fees.push({ id: "eval", name: "Frais d'évaluation", amount: 3000 });
-
-    if (["Maternelle 1", "Maternelle 2", "CM2", "3ème"].includes(level)) {
-        fees.push({ id: "carte", name: "Carte scolaire", amount: 1500 });
-    }
-
-    if (level === "CM2") fees.push({ id: "examen", name: "Examen Blanc & Frais de Dossier", amount: 10000 });
-    else if (level === "3ème") fees.push({ id: "examen", name: "Examen Blanc & Frais de Dossier", amount: 15000 });
-    else if (level.startsWith("Terminale")) fees.push({ id: "examen", name: "Examen Blanc & Frais de Dossier", amount: 25000 });
-
-    if (level.startsWith("Maternelle")) fees.push({ id: "kits", name: "Kit livre", amount: 7500 });
-    else if (["CI", "CP", "CE1", "CE2", "CM1", "CM2"].includes(level)) fees.push({ id: "kits", name: "Kit livre", amount: 15000 });
-    else if (["6ème", "5ème", "4ème", "3ème"].includes(level)) fees.push({ id: "kits", name: "Kit livre", amount: 30000 });
-    else if (isHighSchool) fees.push({ id: "kits", name: "Kit livre", amount: 50000 });
-
-    if (selectedStudent.canteenOptions && selectedStudent.canteenOptions.length > 0) {
-        selectedStudent.canteenOptions.forEach(opt => {
-            let prixJour = 0;
-            if (opt.includes("200F")) prixJour = 200;
-            else if (opt.includes("500F")) prixJour = 500;
-            else if (opt.includes("1000F")) prixJour = 1000;
-
-            if (prixJour > 0) {
-                const prefixId = opt.includes("Garde") ? "garde" : "cantine";
-                const labelName = opt.includes("Garde") ? "Garde surveillée" : "Cantine";
-                fees.push({ id: `${prefixId}_semaine_${prixJour}`, name: `${labelName} (Semaine - 5 jrs)`, amount: prixJour * 5 });
-                fees.push({ id: `${prefixId}_mois_${prixJour}`, name: `${labelName} (Mois - 20 jrs)`, amount: prixJour * 20 });
-            }
-        });
-    }
-
     return fees;
-  }, [selectedStudent]);
+  }, [selectedStudent, feeConfigs]);
 
   const levelTranches = useMemo(() => {
      if (!selectedStudent) return [];
@@ -338,9 +309,15 @@ export function SchoolAdminPayments() {
       }
     }
   };
-  const handleFeeToggle = (id: string, isChecked: boolean) => {
-    if (isChecked) setSelectedFeeIds(prev => [...prev, id]);
-    else setSelectedFeeIds(prev => prev.filter(f => f !== id));
+  const handleFeeToggle = (id: string, isChecked: boolean, remainingAmount?: number) => {
+    if (isChecked) {
+       setSelectedFeeIds(prev => [...prev, id]);
+       if (remainingAmount !== undefined) {
+          setTrancheAmounts(prev => ({ ...prev, [id]: remainingAmount.toString() }));
+       }
+    } else {
+       setSelectedFeeIds(prev => prev.filter(f => f !== id));
+    }
   };
 
   const addCustomItem = () => setCustomItems([...customItems, {name: "", amount: ""}]);
@@ -643,7 +620,7 @@ export function SchoolAdminPayments() {
                              type="checkbox" 
                              disabled={isPaidOut}
                              checked={selectedFeeIds.includes(tranche.id) && !isPaidOut} 
-                             onChange={e => handleFeeToggle(tranche.id, e.target.checked)} 
+                             onChange={e => handleFeeToggle(tranche.id, e.target.checked, remaining)} 
                              className="w-3.5 h-3.5 rounded text-emerald-600 focus:ring-emerald-500 border-slate-300 disabled:opacity-50" 
                            />
                            <span className="text-sm font-medium text-gray-700">

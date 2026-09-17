@@ -3,7 +3,7 @@ import { supabase } from "../lib/supabase";
 import { useAuth } from "../lib/auth";
 import { User, Calculator, BookOpen, Clock, Banknote, Calendar, Plus , Edit2, Trash2} from "lucide-react";
 import { AddTeacherModal } from "../components/AddTeacherModal";
-import { LEVELS } from "../types";
+import { LEVELS, SUBJECTS } from "../types";
 
 export function SchoolAdminTeachers() {
   const { user } = useAuth();
@@ -137,10 +137,6 @@ export function SchoolAdminTeachers() {
            <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Classe</label>
            <select value={filterClass} onChange={e => setFilterClass(e.target.value)} className="w-full px-3 py-2 border border-slate-300 rounded text-sm focus:ring-emerald-500 outline-none bg-white">
              <option value="ALL">Toutes les classes</option>
-             <option value="Maternelle">Maternelle (toutes)</option>
-             <option value="Primaire">Primaire (toutes)</option>
-             <option value="Collège">Collège (toutes)</option>
-             <option value="Lycée">Lycée (toutes)</option>
              {LEVELS.map(l => <option key={l} value={l}>{l}</option>)}
            </select>
         </div>
@@ -174,10 +170,7 @@ export function SchoolAdminTeachers() {
              if (!tc.some(c => c.name === filterSubject)) return false;
           }
           if (filterYear !== "ALL") {
-             // For now we assume the courses don't have academic_year, but if they do we filter here.
-             // Or maybe we just filter by creation date or assume it's always current if not specified.
-             // We'll skip strict year filtering if it breaks the data, or we just leave it passing for now if they don't have years.
-             if (t.academic_year && t.academic_year !== filterYear) return false; 
+             if (!tc.some(c => c.academic_year === filterYear)) return false;
           }
           return true;
         }).map(t => {
@@ -289,7 +282,10 @@ export function SchoolAdminTeachers() {
                     </div>
                     <div>
                       <label className="block text-xs font-semibold text-gray-700 mb-1">Matière principale</label>
-                      <input type="text" value={editingSubject} onChange={e => setEditingSubject(e.target.value)} required className="w-full px-3 py-2 border border-slate-300 rounded outline-none focus:ring-emerald-500" />
+                      <select required value={editingSubject} onChange={e => setEditingSubject(e.target.value)} className="w-full px-3 py-2 border border-slate-300 rounded focus:ring-emerald-500 outline-none bg-white">
+                        <option value="" disabled>Sélectionnez une matière</option>
+                        {SUBJECTS.map(s => <option key={s} value={s}>{s}</option>)}
+                      </select>
                     </div>
                   </div>
                   

@@ -101,6 +101,7 @@ export function SchoolAdminPayments() {
     return "PAYMENTS";
   });
   const [academicYears, setAcademicYears] = useState<{name: string}[]>([]);
+  const [feeConfigs, setFeeConfigs] = useState<any[]>([]);
   const [settings, setSettings] = useState<any>(null);
 
   // Sync state if URL changes

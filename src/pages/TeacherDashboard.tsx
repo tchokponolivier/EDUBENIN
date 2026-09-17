@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { db } from "../lib/db";
 import { Student, LEVELS } from "../types";
 import { useAuth } from "../lib/auth";
-import { BookOpen, Users, Save, Download, LayoutGrid, ArrowLeft, Plus, Trash2, CheckSquare } from "lucide-react";
+import { BookOpen, Users, Save, Download, LayoutGrid, ArrowLeft, Plus, Trash2, CheckSquare, Edit2, X } from "lucide-react";
 import { supabase } from "../lib/supabase";
 import { TeacherAttendance } from "../components/TeacherAttendance";
 import { TeacherTimetable } from "../components/TeacherTimetable";
@@ -14,7 +14,17 @@ interface Subject {
   coef: number;
 }
 
+class ErrorBoundary extends React.Component<{children: React.ReactNode}, {hasError: boolean, error: any}> {
+  constructor(props: any) { super(props); this.state = { hasError: false, error: null }; }
+  static getDerivedStateFromError(error: any) { return { hasError: true, error }; }
+  render() { if (this.state.hasError) return <div className="p-10 text-red-500 font-bold">Error: {this.state.error?.message} {this.state.error?.stack}</div>; return this.props.children; }
+}
+
 export function TeacherDashboard() {
+  return <ErrorBoundary><TeacherDashboardInner /></ErrorBoundary>;
+}
+
+function TeacherDashboardInner() {
   const { user } = useAuth();
   const [activeTab, setActiveTab] = useState<"GRADES" | "ATTENDANCE" | "TIMETABLE" | "CALENDAR">("GRADES");
   const [students, setStudents] = useState<Student[]>([]);

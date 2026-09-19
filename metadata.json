@@ -2,5 +2,7 @@
   "name": "EduBénin - Gestion Scolaire",
   "description": "Application numérique de gestion scolaire multi-établissements pour le Bénin (Maternelle à Terminale).",
   "requestFramePermissions": [],
-  "majorCapabilities": []
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
 }

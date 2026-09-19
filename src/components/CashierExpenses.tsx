@@ -90,7 +90,7 @@ export function CashierExpenses() {
        setProofBase64("");
        fetchExpenses();
     } else {
-       alert("Erreur lors de la création");
+       alert("Erreur lors de la création : " + (error?.message || "Erreur inconnue"));
     }
   };
 

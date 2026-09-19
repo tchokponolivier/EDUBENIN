@@ -70,6 +70,14 @@ class MockQueryBuilder {
         data.push(
           { id: "f1", school_id: "11111111-1111-4111-8111-111111111111", level: "ALL", fee_type: "INSCRIPTION", amount: 25000, created_at: new Date().toISOString() }
         );
+      } else if (this.table === 'courses') {
+        data.push(
+          { id: "c1", school_id: "11111111-1111-4111-8111-111111111111", name: "Mathématiques", level: "6ème", teacher_id: "77777777-7777-4777-8777-777777777777", coefficient: 3, created_at: new Date().toISOString() },
+          { id: "c2", school_id: "11111111-1111-4111-8111-111111111111", name: "Français", level: "6ème", teacher_id: "77777777-7777-4777-8777-777777777777", coefficient: 3, created_at: new Date().toISOString() },
+          { id: "c3", school_id: "11111111-1111-4111-8111-111111111111", name: "Anglais", level: "6ème", teacher_id: "77777777-7777-4777-8777-777777777777", coefficient: 2, created_at: new Date().toISOString() },
+          { id: "c4", school_id: "11111111-1111-4111-8111-111111111111", name: "Mathématiques", level: "CM1", teacher_id: "77777777-7777-4777-8777-777777777777", coefficient: 2, created_at: new Date().toISOString() },
+          { id: "c5", school_id: "11111111-1111-4111-8111-111111111111", name: "Français", level: "CM1", teacher_id: "77777777-7777-4777-8777-777777777777", coefficient: 2, created_at: new Date().toISOString() }
+        );
       }
       localStorage.setItem(storageKey, JSON.stringify(data));
     }

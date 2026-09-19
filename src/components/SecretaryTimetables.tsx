@@ -86,7 +86,7 @@ export function SecretaryTimetables() {
        setCourseName("");
        fetchData();
     } else {
-       alert("Erreur lors de la création");
+       alert("Erreur lors de la création : " + (error?.message || "Erreur inconnue"));
     }
   };
 
@@ -119,7 +119,7 @@ export function SecretaryTimetables() {
        setShowTimetableForm(false);
        fetchData();
     } else {
-       alert("Erreur lors de la création");
+       alert("Erreur lors de la création : " + (error?.message || "Erreur inconnue"));
     }
   };
 

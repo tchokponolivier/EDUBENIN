@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useMemo } from "react";
-import { Payment, Student } from "../types";
+import { Payment, Student, LEVELS } from "../types";
 import { useAuth } from "../lib/auth";
 import { useLocation } from "react-router-dom";
-import { CreditCard, History, Search, MessageCircle, Printer, Plus, Trash2, CheckSquare, Square, X, Wallet, TrendingUp, CheckCircle } from "lucide-react";
+import { CreditCard, History, Search, MessageCircle, Printer, Plus, Trash2, CheckSquare, Square, X, Wallet, TrendingUp, CheckCircle, Table } from "lucide-react";
 import { supabase } from "../lib/supabase";
+import { FeeTableModal } from "../components/FeeTableModal";
 import { CashierExpenses } from "../components/CashierExpenses";
 import { CashierDashboard } from "../components/CashierDashboard";
 import { CashierEnrollment } from "../components/CashierEnrollment";
@@ -128,10 +129,12 @@ export function SchoolAdminPayments() {
   // New Payment Fields
   const [selectedFeeIds, setSelectedFeeIds] = useState<string[]>([]);
   const [trancheAmounts, setTrancheAmounts] = useState<Record<string, string>>({});
+  const [feeAmountsToPay, setFeeAmountsToPay] = useState<Record<string, string>>({});
   const [customItems, setCustomItems] = useState<{name: string; amount: string}[]>([{name: "", amount: ""}]);
   const [paymentMethod, setPaymentMethod] = useState<"ESPÈCES" | "MTN Bénin" | "Moov Bénin" | "Celtiis Bénin">("ESPÈCES");
   const [nextPaymentDate, setNextPaymentDate] = useState("");
   const [showConfirmModal, setShowConfirmModal] = useState(false);
+  const [showFeeTableModal, setShowFeeTableModal] = useState(false);
 
   useEffect(() => {
     fetchData();
@@ -179,28 +182,75 @@ export function SchoolAdminPayments() {
     const fees: any[] = [];
     const level = selectedStudent.level || "";
     
-    // Custom fees from DB
+    // Check canteenOptions on student
+    const studentCanteenOpts = (selectedStudent as any).canteenOptions || [];
+    const isUninterestedInCanteen = studentCanteenOpts.includes("Non intéressé");
+    const isOldStudent = selectedStudent.studentType === "OLD";
+    const isNewStudent = selectedStudent.studentType === "NEW" || !selectedStudent.studentType;
+
+    const FEE_NAME_MAPPINGS: Record<string, string> = {
+      INSCRIPTION: "Frais d'inscription",
+      INSCRIPTION_NEW: "Inscription Nouveau",
+      INSCRIPTION_OLD: "Inscription Ancien",
+      MONTHLY: "Scolarité (Tranches)",
+      CANTEEN: "Cantine",
+      SUPERVISED_CARE: "Garde surveillée",
+      BOOKS: "Livres Scolaires",
+      TD: "TD",
+      ID_CARD: "Carte Scolaire",
+      UNIFORMS: "Uniforme",
+      SPORTS_WEAR: "Tenue de Sport",
+      EVALUATION: "Frais d'évaluation",
+      VACATION_CLASSES: "Cours de vacances",
+      REINFORCEMENT_CLASSES: "Cours de renforcement",
+      TRANSPORT: "Transport"
+    };
+
+    // Filter DB fee configs based on selected year, level, student type, and canteen preferences
     feeConfigs.forEach(fc => {
-       if (fc.level === 'ALL' || fc.level === level) {
-           if (fc.fee_type === 'INSCRIPTION' && selectedStudent.studentType !== 'NEW') return; // only for new students
-           fees.push({
-               id: fc.id,
-               name: fc.fee_type === 'MONTHLY' ? 'Scolarité (Tranches)' : (fc.fee_type === 'INSCRIPTION' ? "Frais d'inscription" : (fc.fee_type === 'CANTEEN' ? "Cantine" : fc.fee_type)),
-               amount: fc.amount,
-               feeType: fc.fee_type,
-               level: fc.level,
-               tranches: fc.tranches
-           });
-       }
+      // If payment modal has a selected academic year, only match fees of that year
+      if (payFilterYear && fc.academic_year && fc.academic_year !== payFilterYear) {
+        return;
+      }
+
+      if (fc.level === 'ALL' || fc.level === level) {
+        // Inscription filtering:
+        // If student is Ancien élève -> skip INSCRIPTION_NEW and default INSCRIPTION
+        if (isOldStudent && (fc.fee_type === 'INSCRIPTION_NEW' || fc.fee_type === 'INSCRIPTION')) {
+          return;
+        }
+        // If student is Nouvel élève -> skip INSCRIPTION_OLD
+        if (isNewStudent && fc.fee_type === 'INSCRIPTION_OLD') {
+          return;
+        }
+
+        // Canteen and Supervised Care filtering:
+        // If "Non intéressé" was selected during enrollment, hide Cantine and Garde surveillée
+        if (isUninterestedInCanteen && (fc.fee_type === 'CANTEEN' || fc.fee_type === 'SUPERVISED_CARE')) {
+          return;
+        }
+
+        fees.push({
+          id: fc.id,
+          name: FEE_NAME_MAPPINGS[fc.fee_type] || fc.fee_type,
+          amount: fc.amount,
+          feeType: fc.fee_type,
+          level: fc.level,
+          tranches: fc.tranches
+        });
+      }
     });
     
-    // Fallback: If no fees exist in feeConfig, we use some defaults based on student status
-    if (!fees.some(f => f.feeType === 'INSCRIPTION') && selectedStudent.studentType === "NEW") {
-        fees.push({ id: "inscription", name: "Frais d'inscription", amount: 2000, feeType: 'INSCRIPTION' });
+    // Fallbacks if no fees configured in DB yet
+    if (isNewStudent && !fees.some(f => f.feeType === 'INSCRIPTION_NEW' || f.feeType === 'INSCRIPTION')) {
+      fees.push({ id: "inscription_new", name: "Inscription Nouveau", amount: 2000, feeType: 'INSCRIPTION_NEW' });
+    }
+    if (isOldStudent && !fees.some(f => f.feeType === 'INSCRIPTION_OLD')) {
+      fees.push({ id: "inscription_old", name: "Inscription Ancien", amount: 1000, feeType: 'INSCRIPTION_OLD' });
     }
     
     return fees;
-  }, [selectedStudent, feeConfigs]);
+  }, [selectedStudent, feeConfigs, payFilterYear]);
 
   const levelTranches = useMemo(() => {
      if (!selectedStudent) return [];
@@ -236,8 +286,14 @@ export function SchoolAdminPayments() {
       } else {
         const fee = availableFees.find(f => f.id === id);
         if (fee) {
-          const amountToPay = Math.max(0, fee.amount - (paidAmountsPerFee[fee.id] || 0));
-          if (amountToPay > 0) items.push({ id, name: fee.name, amount: amountToPay, remaining: 0 });
+          const totalPaid = paidAmountsPerFee[fee.id] || 0;
+          const maxRemaining = Math.max(0, fee.amount - totalPaid);
+          const customPay = feeAmountsToPay[fee.id] !== undefined ? Number(feeAmountsToPay[fee.id]) : maxRemaining;
+          const amountToPay = Math.min(maxRemaining, Math.max(0, customPay));
+          if (amountToPay > 0) {
+            const rem = maxRemaining - amountToPay;
+            items.push({ id, name: fee.name, amount: amountToPay, remaining: rem });
+          }
         }
       }
     });
@@ -249,7 +305,7 @@ export function SchoolAdminPayments() {
     });
 
     return items;
-  }, [selectedFeeIds, availableFees, levelTranches, trancheAmounts, paidAmountsPerFee, ]);
+  }, [selectedFeeIds, availableFees, levelTranches, trancheAmounts, feeAmountsToPay, paidAmountsPerFee]);
 
   const hasPartialPayment = useMemo(() => {
     return currentPaymentItemsTemplate.some(item => item.remaining && item.remaining > 0);
@@ -315,6 +371,7 @@ export function SchoolAdminPayments() {
        setSelectedFeeIds(prev => [...prev, id]);
        if (remainingAmount !== undefined) {
           setTrancheAmounts(prev => ({ ...prev, [id]: remainingAmount.toString() }));
+          setFeeAmountsToPay(prev => ({ ...prev, [id]: remainingAmount.toString() }));
        }
     } else {
        setSelectedFeeIds(prev => prev.filter(f => f !== id));
@@ -496,12 +553,21 @@ export function SchoolAdminPayments() {
         </div>
 
         {activeTab === "PAYMENTS" && (
-          <button
-            onClick={() => setShowPayModal(true)}
-            className="flex items-center justify-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded font-bold uppercase tracking-wider text-xs hover:bg-emerald-700 transition"
-          >
-            <CreditCard size={16} /> Encaisser
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setShowFeeTableModal(true)}
+              className="flex items-center justify-center gap-2 px-3 py-2 bg-indigo-50 border border-indigo-200 text-indigo-700 rounded font-bold uppercase tracking-wider text-xs hover:bg-indigo-100 transition shadow-sm"
+              title="Consulter et modifier la grille générale des tarifs par classe"
+            >
+              <Table size={16} /> Grille des Frais
+            </button>
+            <button
+              onClick={() => setShowPayModal(true)}
+              className="flex items-center justify-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded font-bold uppercase tracking-wider text-xs hover:bg-emerald-700 transition"
+            >
+              <CreditCard size={16} /> Encaisser
+            </button>
+          </div>
         )}
       </div>
 
@@ -661,21 +727,41 @@ export function SchoolAdminPayments() {
                      const remaining = Math.max(0, fee.amount - paid);
                      const isPaidOut = remaining <= 0;
                      return (
-                     <label key={fee.id} className={`flex items-center justify-between gap-3 ${isPaidOut ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}>
-                        <div className="flex items-center gap-2">
+                     <div key={fee.id} className={`flex items-center justify-between gap-3 ${isPaidOut ? 'opacity-50' : ''}`}>
+                        <label className="flex items-center gap-2 cursor-pointer flex-1">
                           <input 
                             type="checkbox" 
                             disabled={isPaidOut}
                             checked={selectedFeeIds.includes(fee.id) && !isPaidOut}
-                            onChange={e => handleFeeToggle(fee.id, e.target.checked)}
+                            onChange={e => handleFeeToggle(fee.id, e.target.checked, remaining)}
                             className="w-3.5 h-3.5 rounded text-emerald-600 focus:ring-emerald-500 border-slate-300 disabled:opacity-50" 
                           />
                           <span className="text-sm font-medium text-gray-700">{fee.name}</span>
+                        </label>
+                        <div className="flex items-center gap-2">
+                          {selectedFeeIds.includes(fee.id) && !isPaidOut && (
+                            <input 
+                              type="number" 
+                              required 
+                              max={remaining}
+                              placeholder="Montant"
+                              value={feeAmountsToPay[fee.id] !== undefined ? feeAmountsToPay[fee.id] : remaining}
+                              onChange={e => {
+                                const val = Number(e.target.value);
+                                if (val > remaining) {
+                                  setFeeAmountsToPay(prev => ({ ...prev, [fee.id]: remaining.toString() }));
+                                } else {
+                                  setFeeAmountsToPay(prev => ({ ...prev, [fee.id]: e.target.value }));
+                                }
+                              }} 
+                              className="w-28 px-2 py-1 border border-slate-300 rounded text-sm outline-none text-right" 
+                            />
+                          )}
+                          <span className="text-xs font-bold text-slate-600 min-w-16 whitespace-nowrap text-right">
+                            {isPaidOut ? "Payé" : (paid > 0 ? `Reste: ${remaining.toLocaleString()}F / ${fee.amount.toLocaleString()}F` : `${fee.amount.toLocaleString()} F`)}
+                          </span>
                         </div>
-                        <span className="text-sm font-bold text-gray-700">
-                          {isPaidOut ? "Payé" : (paid > 0 ? `Reste: ${remaining.toLocaleString()}F (Total: ${fee.amount.toLocaleString()}F)` : `${fee.amount.toLocaleString()} F`)}
-                        </span>
-                     </label>
+                     </div>
                    )})}
                  </div>
               </div>
@@ -781,6 +867,16 @@ export function SchoolAdminPayments() {
           </div>
         </div>
       )}
+      {/* General Fee Matrix Modal */}
+      <FeeTableModal
+        isOpen={showFeeTableModal}
+        onClose={() => setShowFeeTableModal(false)}
+        academicYears={academicYears}
+        currentYear={filterYear !== "ALL" ? filterYear : (academicYears[0]?.name || "2024-2025")}
+        onSaved={() => {
+          fetchData();
+        }}
+      />
     </div>
   );
 }

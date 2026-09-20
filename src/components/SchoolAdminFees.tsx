@@ -2,15 +2,20 @@ import React, { useState, useEffect } from "react";
 import { supabase } from "../lib/supabase";
 import { FeeConfig, LEVELS } from "../types";
 import { useAuth } from "../lib/auth";
-import { DollarSign, Plus, Settings, Trash2, Edit2, ChevronDown, X, AlertCircle, CheckCircle, Info } from "lucide-react";
+import { DollarSign, Plus, Settings, Trash2, Edit2, ChevronDown, X, AlertCircle, CheckCircle, Info, Table } from "lucide-react";
+import { FeeTableModal } from "./FeeTableModal";
 
 const OPTIONAL_FEE_TYPES: Record<string, string> = {
   CANTEEN: "Cantine",
-  BOOKS: "Livres Scolaires"
+  BOOKS: "Livres Scolaires",
+  SUPERVISED_CARE: "Garde surveillée",
+  VACATION_CLASSES: "Cours de vacances",
+  REINFORCEMENT_CLASSES: "Cours de renforcement"
 };
 
 const MANDATORY_FEE_TYPES: Record<string, string> = {
-  INSCRIPTION: "Inscription",
+  INSCRIPTION_NEW: "Inscription Nouveau",
+  INSCRIPTION_OLD: "Inscription Ancien",
   MONTHLY: "Scolarité",
   TD: "TD",
   ID_CARD: "Carte Scolaire",
@@ -26,6 +31,7 @@ export function SchoolAdminFees() {
   const { user } = useAuth();
   const [fees, setFees] = useState<FeeConfig[]>([]);
   const [showForm, setShowForm] = useState(false);
+  const [showTableModal, setShowTableModal] = useState(false);
   const [activeTab, setActiveTab] = useState<"MANDATORY" | "OPTIONAL">("MANDATORY");
   
   const [selectedLevels, setSelectedLevels] = useState<string[]>([]);
@@ -101,7 +107,7 @@ export function SchoolAdminFees() {
 
   // Adjust default feeType when tab changes
   useEffect(() => {
-    if (activeTab === "MANDATORY") setFeeType("INSCRIPTION");
+    if (activeTab === "MANDATORY") setFeeType("INSCRIPTION_NEW");
     else setFeeType("CANTEEN");
   }, [activeTab]);
 
@@ -250,21 +256,33 @@ export function SchoolAdminFees() {
 
   return (
     <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <h2 className="text-lg font-bold text-gray-700">Configuration des Frais</h2>
-        <button 
-          onClick={() => { 
-            setShowForm(!showForm); 
-            setEditingId(null); 
-            setErrorMessage(null);
-            if (!showForm && academicYears.length > 0 && !formYear) {
-              setFormYear(academicYears[0].name);
-            }
-          }}
-          className="px-4 py-2 bg-emerald-600 text-white rounded text-sm font-bold uppercase tracking-wider hover:bg-emerald-700 transition-colors flex items-center gap-2 shadow-sm"
-        >
-          <Plus size={16} /> Ajouter des Frais
-        </button>
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+        <div>
+          <h2 className="text-lg font-bold text-gray-700">Configuration des Frais</h2>
+          <p className="text-xs text-slate-500">Configurez ou modifiez directement les montants de chaque classe dans un tableau d'ensemble.</p>
+        </div>
+        <div className="flex items-center gap-2">
+          <button 
+            onClick={() => setShowTableModal(true)}
+            className="px-4 py-2 bg-indigo-600 text-white rounded text-sm font-bold uppercase tracking-wider hover:bg-indigo-700 transition-colors flex items-center gap-2 shadow-sm"
+            title="Modifier l'ensemble des frais dans un grand tableau rangé par classe"
+          >
+            <Table size={16} /> Modifier dans un tableau
+          </button>
+          <button 
+            onClick={() => { 
+              setShowForm(!showForm); 
+              setEditingId(null); 
+              setErrorMessage(null);
+              if (!showForm && academicYears.length > 0 && !formYear) {
+                setFormYear(academicYears[0].name);
+              }
+            }}
+            className="px-4 py-2 bg-emerald-600 text-white rounded text-sm font-bold uppercase tracking-wider hover:bg-emerald-700 transition-colors flex items-center gap-2 shadow-sm"
+          >
+            <Plus size={16} /> Ajouter des Frais
+          </button>
+        </div>
       </div>
 
       {errorMessage && (
@@ -636,6 +654,19 @@ export function SchoolAdminFees() {
           </div>
         </div>
       )}
+
+      {/* General Table Editor Modal */}
+      <FeeTableModal
+        isOpen={showTableModal}
+        onClose={() => setShowTableModal(false)}
+        academicYears={academicYears}
+        currentYear={formYear || (academicYears[0]?.name ?? "2024-2025")}
+        onSaved={() => {
+          fetchFees();
+          setSuccessMessage("Grille des frais mise à jour avec succès !");
+          setTimeout(() => setSuccessMessage(null), 4000);
+        }}
+      />
     </div>
   );
 }

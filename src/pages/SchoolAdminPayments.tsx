@@ -101,7 +101,7 @@ export function SchoolAdminPayments() {
     if (tab === "PAYMENTS" || tab === "EXPENSES" || tab === "SALARIES" || tab === "DASHBOARD") return tab;
     return "PAYMENTS";
   });
-  const [academicYears, setAcademicYears] = useState<{name: string}[]>([]);
+  const [academicYears, setAcademicYears] = useState<{ id?: string; name: string; status?: string }[]>([]);
   const [feeConfigs, setFeeConfigs] = useState<any[]>([]);
   const [settings, setSettings] = useState<any>(null);
 
@@ -140,7 +140,6 @@ export function SchoolAdminPayments() {
     fetchData();
   }, []);
 
-
   const fetchData = async () => {
     if (!user?.schoolId) return;
     
@@ -148,16 +147,32 @@ export function SchoolAdminPayments() {
       const [studentsRes, paymentsRes, yearsRes, settingsRes, feeConfigsRes] = await Promise.all([
         supabase.from('students').select('*').eq('school_id', user.schoolId),
         supabase.from('payments').select('*').eq('school_id', user.schoolId),
-        supabase.from('academic_years').select('name').eq('school_id', user.schoolId).order('created_at', { ascending: false }),
+        supabase.from('academic_years').select('id, name, status').eq('school_id', user.schoolId).order('created_at', { ascending: false }),
         supabase.from('schools').select('*').eq('id', user.schoolId).single(),
         supabase.from('fee_config').select('*').eq('school_id', user.schoolId)
       ]);
       if (feeConfigsRes.data) setFeeConfigs(feeConfigsRes.data);
-      if (yearsRes.data) setAcademicYears(yearsRes.data);
+      if (yearsRes.data && yearsRes.data.length > 0) {
+        setAcademicYears(yearsRes.data);
+      } else if (settingsRes.data) {
+        setAcademicYears([{ name: settingsRes.data.academic_year || settingsRes.data.academicYear || "2024-2025", status: "ACTIVE" }]);
+      }
       if (settingsRes.data) setSettings(settingsRes.data);
       
       if (studentsRes.data) {
-        setStudents(studentsRes.data.map(d => ({...d, createdAt: d.created_at, firstName: d.first_name, lastName: d.last_name, parentId: d.parent_id, schoolId: d.school_id, studentType: d.studentType, educmasterNumber: d.educmasterNumber, gender: d.gender})) as any);
+        setStudents(studentsRes.data.map(d => ({
+          ...d, 
+          createdAt: d.created_at, 
+          firstName: d.first_name, 
+          lastName: d.last_name, 
+          parentId: d.parent_id, 
+          schoolId: d.school_id, 
+          studentType: d.studentType, 
+          educmasterNumber: d.educmasterNumber, 
+          gender: d.gender,
+          academic_year: d.academic_year || d.academicYear,
+          academicYear: d.academic_year || d.academicYear
+        })) as any);
       }
       if (paymentsRes.data) {
         setPayments(paymentsRes.data.map(d => ({
@@ -173,6 +188,78 @@ export function SchoolAdminPayments() {
     } catch (err) {
       console.error("Failed to fetch dashboard data from supabase", err);
     }
+  };
+
+  // Synchronisation si un élève est présélectionné
+  useEffect(() => {
+    if (selectedStudentId && students.length > 0) {
+      const s = students.find(st => st.id === selectedStudentId);
+      if (s) {
+        if (s.level && !payFilterLevel) {
+          setPayFilterLevel(s.level);
+        }
+        const sYear = s.academic_year || s.academicYear;
+        if (sYear && !payFilterYear) {
+          setPayFilterYear(sYear);
+        }
+      }
+    }
+  }, [selectedStudentId, students]);
+
+  // 1. Étudiants correspondant à l'année scolaire sélectionnée
+  const studentsInSelectedYear = useMemo(() => {
+    if (!payFilterYear) return [];
+    const hasAnyWithYear = students.some(s => (s.academic_year || s.academicYear) === payFilterYear);
+    return students.filter(s => {
+      const sYear = s.academic_year || s.academicYear;
+      return hasAnyWithYear ? sYear === payFilterYear : true;
+    });
+  }, [students, payFilterYear]);
+
+  // 2. Effectif par classe pour l'année sélectionnée
+  const studentCountByClass = useMemo(() => {
+    const counts: Record<string, number> = {};
+    studentsInSelectedYear.forEach(s => {
+      if (s.level) {
+        counts[s.level] = (counts[s.level] || 0) + 1;
+      }
+    });
+    return counts;
+  }, [studentsInSelectedYear]);
+
+  // Classes disponibles ordonnées
+  const availableClassesForYear = useMemo(() => {
+    const classes = [...LEVELS];
+    students.forEach(s => {
+      if (s.level && !classes.includes(s.level)) {
+        classes.push(s.level);
+      }
+    });
+    return classes;
+  }, [students]);
+
+  // 3. Élèves filtrés pour le formulaire : année sélectionnée + classe sélectionnée
+  const filteredStudentsForPay = useMemo(() => {
+    if (!payFilterLevel) return [];
+    return studentsInSelectedYear
+      .filter(s => s.level === payFilterLevel)
+      .sort((a, b) => (a.lastName || "").localeCompare(b.lastName || ""));
+  }, [studentsInSelectedYear, payFilterLevel]);
+
+  const handleOpenPayModal = () => {
+    if (!payFilterYear) {
+      if (filterYear !== "ALL" && filterYear) {
+        setPayFilterYear(filterYear);
+      } else {
+        const activeYear = academicYears.find(y => y.status === 'ACTIVE') || academicYears[0];
+        const defaultYear = activeYear?.name || settings?.academic_year || settings?.academicYear || "2024-2025";
+        setPayFilterYear(defaultYear);
+      }
+    }
+    if (filterClass !== "ALL" && filterClass && !payFilterLevel) {
+      setPayFilterLevel(filterClass);
+    }
+    setShowPayModal(true);
   };
 
   const selectedStudent = useMemo(() => students.find(s => s.id === selectedStudentId), [students, selectedStudentId]);
@@ -354,8 +441,10 @@ export function SchoolAdminPayments() {
     setShowConfirmModal(false);
     setShowPayModal(false);
     setSelectedStudentId("");
+    setPayFilterLevel("");
     setSelectedFeeIds([]);
     setTrancheAmounts({});
+    setFeeAmountsToPay({});
     setCustomItems([{name: "", amount: ""}]);
     setPaymentMethod("ESPÈCES");
     
@@ -562,7 +651,7 @@ export function SchoolAdminPayments() {
               <Table size={16} /> Grille des Frais
             </button>
             <button
-              onClick={() => setShowPayModal(true)}
+              onClick={handleOpenPayModal}
               className="flex items-center justify-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded font-bold uppercase tracking-wider text-xs hover:bg-emerald-700 transition"
             >
               <CreditCard size={16} /> Encaisser
@@ -659,11 +748,124 @@ export function SchoolAdminPayments() {
               <button onClick={() => setShowPayModal(false)} className="text-slate-400 hover:text-slate-600 bg-slate-50 hover:bg-slate-100 p-2 rounded-full transition-colors"><X size={20}/></button>
             </div>
             <form onSubmit={handleManualPayment} className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* 1. Année Scolaire (créée par le directeur) */}
+            <div className="md:col-span-1">
+              <label className="block text-xs font-bold text-gray-700 mb-1 uppercase tracking-wide flex items-center justify-between">
+                <span>1. Année Scolaire</span>
+                <span className="text-[10px] font-medium text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-100">
+                  Créée par la direction
+                </span>
+              </label>
+              <select 
+                required 
+                value={payFilterYear} 
+                onChange={e => {
+                  const newYear = e.target.value;
+                  setPayFilterYear(newYear);
+                  setPayFilterLevel("");
+                  setSelectedStudentId("");
+                  setSelectedFeeIds([]);
+                  setTrancheAmounts({});
+                  setFeeAmountsToPay({});
+                }} 
+                className="w-full px-3 py-2 border border-slate-300 rounded text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none bg-white font-medium shadow-sm transition-all"
+              >
+                <option value="">Sélectionnez l'année scolaire...</option>
+                {academicYears.map((y, idx) => (
+                  <option key={y.id || y.name || idx} value={y.name}>
+                    {y.name} {y.status === 'ACTIVE' ? '★ (En cours)' : ''}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* 2. Classe */}
+            <div className="md:col-span-1">
+              <label className="block text-xs font-bold text-gray-700 mb-1 uppercase tracking-wide flex items-center justify-between">
+                <span>2. Classe</span>
+                {payFilterYear && (
+                  <span className="text-[10px] font-normal text-slate-500">
+                    {availableClassesForYear.filter(l => (studentCountByClass[l] || 0) > 0).length} classe(s) avec inscrits
+                  </span>
+                )}
+              </label>
+              <select 
+                required 
+                disabled={!payFilterYear}
+                value={payFilterLevel} 
+                onChange={e => {
+                  const newClass = e.target.value;
+                  setPayFilterLevel(newClass);
+                  setSelectedStudentId("");
+                  setSelectedFeeIds([]);
+                  setTrancheAmounts({});
+                  setFeeAmountsToPay({});
+                }} 
+                className={`w-full px-3 py-2 border border-slate-300 rounded text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none font-medium shadow-sm transition-all ${
+                  !payFilterYear ? 'bg-slate-100 cursor-not-allowed text-slate-400' : 'bg-white text-gray-800'
+                }`}
+              >
+                <option value="">
+                  {!payFilterYear ? "Veuillez d'abord choisir l'année..." : "Sélectionnez une classe..."}
+                </option>
+                {availableClassesForYear.map(lvl => {
+                  const count = studentCountByClass[lvl] || 0;
+                  return (
+                    <option key={lvl} value={lvl}>
+                      {lvl} {count > 0 ? `(${count} élève${count > 1 ? 's' : ''})` : '(0 élève)'}
+                    </option>
+                  );
+                })}
+              </select>
+            </div>
+
+            {/* 3. Élève */}
             <div className="md:col-span-2">
-              <label className="block text-xs font-semibold text-gray-700 mb-1 uppercase tracking-wide">Élève</label>
-              <select required value={selectedStudentId} onChange={e => setSelectedStudentId(e.target.value)} className="w-full px-3 py-2 border border-slate-300 rounded text-sm focus:ring-emerald-500 focus:border-emerald-500 outline-none">
-                 <option value="">Sélectionnez un élève...</option>
-                 {students.map(c => <option key={c.id} value={c.id}>{c.lastName} {c.firstName} ({c.level})</option>)}
+              <label className="block text-xs font-bold text-gray-700 mb-1 uppercase tracking-wide flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <span>3. Élève</span>
+                  {payFilterLevel && (
+                    <span className="text-[10px] font-normal text-slate-500">
+                      ({filteredStudentsForPay.length} inscrit{filteredStudentsForPay.length > 1 ? 's' : ''} en {payFilterLevel})
+                    </span>
+                  )}
+                </div>
+                {selectedStudent && (
+                  <span className={`text-[10px] px-2 py-0.5 rounded font-semibold ${selectedStudent.studentType === 'OLD' ? 'bg-blue-50 text-blue-700' : 'bg-emerald-50 text-emerald-700'}`}>
+                    {selectedStudent.studentType === 'OLD' ? 'Ancien élève' : 'Nouvel élève'}
+                  </span>
+                )}
+              </label>
+              <select 
+                required 
+                disabled={!payFilterLevel}
+                value={selectedStudentId} 
+                onChange={e => {
+                  setSelectedStudentId(e.target.value);
+                  setSelectedFeeIds([]);
+                  setTrancheAmounts({});
+                  setFeeAmountsToPay({});
+                }} 
+                className={`w-full px-3 py-2 border border-slate-300 rounded text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none font-medium shadow-sm transition-all ${
+                  !payFilterLevel ? 'bg-slate-100 cursor-not-allowed text-slate-400' : 'bg-white text-gray-800'
+                }`}
+              >
+                {!payFilterYear ? (
+                  <option value="">Veuillez d'abord choisir une année scolaire...</option>
+                ) : !payFilterLevel ? (
+                  <option value="">Veuillez d'abord choisir une classe...</option>
+                ) : filteredStudentsForPay.length === 0 ? (
+                  <option value="">Aucun élève trouvé en {payFilterLevel} pour l'année {payFilterYear}</option>
+                ) : (
+                  <>
+                    <option value="">Sélectionnez un élève...</option>
+                    {filteredStudentsForPay.map(c => (
+                      <option key={c.id} value={c.id}>
+                        {c.lastName?.toUpperCase()} {c.firstName} {c.matricule ? `[${c.matricule}]` : ''} - {c.studentType === 'OLD' ? 'Ancien' : 'Nouveau'}
+                      </option>
+                    ))}
+                  </>
+                )}
               </select>
             </div>
             
@@ -808,9 +1010,29 @@ export function SchoolAdminPayments() {
                     <h3 className="font-bold text-gray-700">Confirmer l'encaissement</h3>
                   </div>
                   <div className="p-6">
-                    <p className="text-sm text-slate-600 mb-4">Confirmez-vous l'encaissement de ce montant total ?</p>
+                    <p className="text-sm text-slate-600 mb-4">Confirmez-vous l'encaissement pour cet élève ?</p>
+                    {selectedStudent && (
+                      <div className="mb-4 bg-slate-50 border border-slate-200 rounded-lg p-3 text-xs space-y-1.5">
+                        <div className="flex justify-between">
+                          <span className="text-slate-500 font-medium">Année scolaire :</span>
+                          <span className="font-bold text-slate-800">{payFilterYear}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-slate-500 font-medium">Classe :</span>
+                          <span className="font-bold text-slate-800">{selectedStudent.level}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-slate-500 font-medium">Élève :</span>
+                          <span className="font-bold text-slate-800">{selectedStudent.lastName?.toUpperCase()} {selectedStudent.firstName}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-slate-500 font-medium">Mode de règlement :</span>
+                          <span className="font-bold text-emerald-700">{paymentMethod}</span>
+                        </div>
+                      </div>
+                    )}
                     <div className="bg-emerald-50 text-emerald-700 p-4 rounded-lg flex justify-between items-center font-bold text-lg border border-emerald-100">
-                      <span>Total</span>
+                      <span>Total à encaisser</span>
                       <span>{totalAmountWithFee.toLocaleString()} FCFA</span>
                     </div>
                     {isMomo && <p className="text-xs text-orange-600 mt-2">*Inclut 1% de frais de transaction réseau.</p>}

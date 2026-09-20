@@ -12,6 +12,34 @@ export interface AppNotification {
   link: string;
 }
 
+const FEE_LABELS: Record<string, string> = {
+  MONTHLY: "Frais de scolarité",
+  INSCRIPTION: "Frais d'inscription",
+  INSCRIPTION_NEW: "Frais d'inscription (Nouvel élève)",
+  INSCRIPTION_OLD: "Frais de réinscription (Ancien élève)",
+  RE_REGISTRATION: "Frais de réinscription",
+  CANTEEN: "Cantine scolaire",
+  SUPERVISED_CARE: "Garde surveillée",
+  BOOKS: "Livres et manuels",
+  TD: "Travaux dirigés (TD)",
+  ID_CARD: "Carte scolaire",
+  UNIFORM: "Uniforme scolaire",
+  UNIFORMS: "Uniforme scolaire",
+  SPORTS_WEAR: "Tenue de sport",
+  EVALUATION: "Frais d'évaluation",
+  EXAM: "Frais d'examen",
+  VACATION_CLASSES: "Cours de vacances",
+  REINFORCEMENT_CLASSES: "Cours de renforcement",
+  TRANSPORT: "Transport scolaire",
+  OTHER: "Frais scolaires"
+};
+
+export function getFeeLabel(feeType?: string): string {
+  if (!feeType) return "Frais scolaires";
+  const key = feeType.toUpperCase();
+  return FEE_LABELS[key] || FEE_LABELS[feeType] || feeType;
+}
+
 export function useNotifications() {
   const { user } = useAuth();
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
@@ -103,11 +131,12 @@ export function useNotifications() {
               
               if (paidAmount < fee.amount) {
                 const notifId = `fee-${student.id}-${fee.id}`;
+                const feeLabel = getFeeLabel(fee.fee_type);
                 notifs.push({
                   id: notifId,
                   type: 'PAYMENT',
-                  title: `Paiement requis : ${student.first_name}`,
-                  message: `Reste à payer : ${(fee.amount - paidAmount).toLocaleString()} FCFA pour ${fee.fee_type}.`,
+                  title: `Rappel de paiement : ${student.first_name} ${student.last_name || ''}`,
+                  message: `Reste à payer : ${(fee.amount - paidAmount).toLocaleString()} FCFA pour : ${feeLabel}.`,
                   date: new Date().getTime(), // Currently active
                   read: readIds.includes(notifId),
                   link: '/parent/payments'

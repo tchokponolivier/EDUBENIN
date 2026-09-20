@@ -91,7 +91,8 @@ const getTranchesForLevel = (level: string) => {
 export function ParentPayments() {
   const { user } = useAuth();
   const [children, setChildren] = useState<Student[]>([]);
-  const [academicYears, setAcademicYears] = useState<{name: string}[]>([]);
+  const [academicYears, setAcademicYears] = useState<{id?: string; name: string; status?: string}[]>([]);
+  const [feeConfigs, setFeeConfigs] = useState<any[]>([]);
   const [allPayments, setAllPayments] = useState<Payment[]>([]);
   const [filteredPayments, setFilteredPayments] = useState<Payment[]>([]);
   const [settings, setSettings] = useState<SchoolSettings | null>(null);
@@ -103,32 +104,108 @@ export function ParentPayments() {
   const [filterStudentId, setFilterStudentId] = useState<string>("ALL");
   const [filterYear, setFilterYear] = useState<string>("ALL");
 
-  // Payment Form
+  // Payment Form (Matching Director Encaisser steps)
+  const [payFilterYear, setPayFilterYear] = useState<string>("");
+  const [payFilterLevel, setPayFilterLevel] = useState<string>("");
   const [selectedChildId, setSelectedChildId] = useState("");
   const [network, setNetwork] = useState<"Moov Bénin" | "MTN Bénin" | "Celtiis Bénin">("MTN Bénin");
   
   const [selectedFeeIds, setSelectedFeeIds] = useState<string[]>([]);
   const [trancheAmounts, setTrancheAmounts] = useState<Record<string, string>>({});
+  const [feeAmountsToPay, setFeeAmountsToPay] = useState<Record<string, string>>({});
   const [nextPaymentDate, setNextPaymentDate] = useState<string>("");
 
   useEffect(() => {
     const loadData = async () => {
       if (!user) return;
       try {
-        const { data: kidsData } = await supabase.from('students').select('*').eq('parent_id', user.id);
-        const kids = (kidsData || []).map((d: any) => ({...d, createdAt: d.created_at, firstName: d.first_name, lastName: d.last_name, parentId: d.parent_id, schoolId: d.school_id, studentType: d.studentType, educmasterNumber: d.educmasterNumber, gender: d.gender}));
+        const [kidsRes, paysRes, yearsRes, feesRes] = await Promise.all([
+          supabase.from('students').select('*').eq('parent_id', user.id),
+          supabase.from('payments').select('*').eq('parent_id', user.id),
+          supabase.from('academic_years').select('id, name, status').order('created_at', { ascending: false }),
+          supabase.from('fee_config').select('*')
+        ]);
+
+        const kids = (kidsRes.data || []).map((d: any) => ({
+          ...d, 
+          createdAt: d.created_at, 
+          firstName: d.first_name, 
+          lastName: d.last_name, 
+          parentId: d.parent_id, 
+          schoolId: d.school_id, 
+          studentType: d.studentType, 
+          educmasterNumber: d.educmasterNumber, 
+          gender: d.gender,
+          academic_year: d.academic_year || d.academicYear,
+          academicYear: d.academic_year || d.academicYear
+        }));
         setChildren(kids);
         
-        const { data: paysData } = await supabase.from('payments').select('*').eq('parent_id', user.id);
-        const pays = (paysData || []).map((d: any) => ({...d, studentId: d.student_id, schoolId: d.school_id, parentId: d.parent_id, createdAt: d.created_at, date: new Date(d.created_at).getTime()}));
+        if (feesRes.data) setFeeConfigs(feesRes.data);
+
+        let years: {id?: string; name: string; status?: string}[] = (yearsRes.data || []).map((y: any) => ({ 
+          id: y.id, 
+          name: y.name, 
+          status: y.status 
+        }));
+
+        kids.forEach((k: any) => {
+          const yName = k.academic_year || k.academicYear;
+          if (yName && !years.some(y => y.name === yName)) {
+            years.push({ id: yName, name: yName, status: 'OTHER' });
+          }
+        });
+
+        if (years.length === 0) {
+          years = [{ id: 'default', name: '2024-2025', status: 'ACTIVE' }];
+        }
+        setAcademicYears(years);
+
+        const activeYear = years.find(y => y.status === 'ACTIVE')?.name || years[0].name;
+
+        const pays = (paysRes.data || []).map((d: any) => ({
+          ...d, 
+          studentId: d.student_id, 
+          schoolId: d.school_id, 
+          parentId: d.parent_id, 
+          createdAt: d.created_at, 
+          date: new Date(d.created_at).getTime(),
+          academic_year: d.academic_year || d.academicYear
+        }));
         
         pays.sort((a: any, b: any) => b.date - a.date);
         setAllPayments(pays);
+
         supabase.from('schools').select('*').eq('id', kids.length > 0 ? kids[0].schoolId : user.schoolId).single().then(({data}) => {
            if (data) setSettings(data as any);
         });
         
-        if (kids.length > 0) setSelectedChildId(kids[0].id);
+        // Handle URL search parameters
+        const params = new URLSearchParams(window.location.search);
+        const sId = params.get('studentId');
+        const pay = params.get('pay');
+
+        if (sId && kids.some(k => k.id === sId)) {
+          setFilterStudentId(sId);
+          setSelectedChildId(sId);
+          const targetChild = kids.find(k => k.id === sId);
+          if (targetChild) {
+            setPayFilterLevel(targetChild.level || "");
+            const childYear = targetChild.academic_year || targetChild.academicYear;
+            setPayFilterYear(childYear || activeYear);
+          }
+        } else if (kids.length > 0) {
+          setSelectedChildId(kids[0].id);
+          setPayFilterLevel(kids[0].level || "");
+          const childYear = kids[0].academic_year || kids[0].academicYear;
+          setPayFilterYear(childYear || activeYear);
+        } else {
+          setPayFilterYear(activeYear);
+        }
+
+        if (pay === '1') {
+          setShowPayModal(true);
+        }
       } catch (err) {
         console.error(err);
       }
@@ -140,6 +217,22 @@ export function ParentPayments() {
     const now = new Date();
     
     const filtered = allPayments.filter(payment => {
+      // Student filter
+      if (filterStudentId !== "ALL" && payment.studentId !== filterStudentId) {
+        return false;
+      }
+      
+      // Academic Year filter
+      if (filterYear !== "ALL") {
+        const pYear = (payment as any).academic_year || (payment as any).academicYear;
+        const child = children.find(c => c.id === payment.studentId);
+        const cYear = child?.academicYear || child?.academic_year;
+        if ((pYear || cYear) !== filterYear) {
+          return false;
+        }
+      }
+
+      // Date filter
       const paymentDate = new Date(payment.date);
       switch(dateFilter) {
         case 'DAY': return paymentDate.toDateString() === now.toDateString();
@@ -155,109 +248,133 @@ export function ParentPayments() {
     });
 
     setFilteredPayments(filtered);
-  }, [allPayments, dateFilter]);
+  }, [allPayments, dateFilter, filterStudentId, filterYear, children]);
 
-  const selectedChild = children.find(c => c.id === selectedChildId);
+  // Derived available classes for the selected academic year in payment form
+  const availableClassesForYear = useMemo(() => {
+    const set = new Set<string>();
+    children.forEach(c => {
+      const cYear = (c as any).academic_year || (c as any).academicYear;
+      if (!payFilterYear || !cYear || cYear === payFilterYear) {
+        if (c.level) set.add(c.level);
+      }
+    });
+    if (set.size === 0) {
+      children.forEach(c => { if (c.level) set.add(c.level); });
+    }
+    return Array.from(set).sort();
+  }, [children, payFilterYear]);
+
+  // Derived children filtered by year and class for payment form
+  const filteredChildrenForPay = useMemo(() => {
+    return children.filter(c => {
+      const cYear = (c as any).academic_year || (c as any).academicYear;
+      const matchYear = !payFilterYear || !cYear || cYear === payFilterYear;
+      const matchLevel = !payFilterLevel || c.level === payFilterLevel;
+      return matchYear && matchLevel;
+    });
+  }, [children, payFilterYear, payFilterLevel]);
+
+  const selectedChild = useMemo(() => children.find(c => c.id === selectedChildId), [children, selectedChildId]);
 
   const availableFees = useMemo(() => {
     if (!selectedChild) return [];
-    const fees = [];
+    const fees: any[] = [];
     const level = selectedChild.level || "";
-    
-    // Frais d'inscription Maternelle à Terminale : 2000 FCFA (pour NOUVEAUX ELÈVES seulement)
-    if (selectedChild.studentType === "NEW") {
-        fees.push({ id: "inscription", name: "Frais d'inscription", amount: 2000 });
-    }
-    
-    const isPrimary = level.startsWith("Maternelle") || level.startsWith("CI") || level.startsWith("CP") || level.startsWith("CE") || level.startsWith("CM");
-    const isMiddleSchool = ["6ème", "5ème", "4ème", "3ème"].includes(level);
-    const isHighSchool = ["2nde A", "2nde B", "2nde C", "2nde D", "1ère A", "1ère B", "1ère C", "1ère D", "Terminale A", "Terminale B", "Terminale C", "Terminale D"].includes(level);
+    const studentCanteenOpts = (selectedChild as any).canteenOptions || [];
+    const isUninterestedInCanteen = studentCanteenOpts.includes("Non intéressé");
+    const isOldStudent = selectedChild.studentType === "OLD";
+    const isNewStudent = selectedChild.studentType === "NEW" || !selectedChild.studentType;
 
-    let uniformeAmount = 0;
-    if (isPrimary) {
-       uniformeAmount = selectedChild.gender === "FEMALE" ? 3500 : 5000;
-    } else if (isMiddleSchool) {
-       uniformeAmount = 5000;
-    } else if (isHighSchool) {
-       uniformeAmount = 7000;
-    }
+    const FEE_NAME_MAPPINGS: Record<string, string> = {
+      INSCRIPTION: "Frais d'inscription",
+      INSCRIPTION_NEW: "Inscription Nouveau",
+      INSCRIPTION_OLD: "Inscription Ancien",
+      MONTHLY: "Scolarité (Tranches)",
+      CANTEEN: "Cantine",
+      SUPERVISED_CARE: "Garde surveillée",
+      BOOKS: "Livres Scolaires",
+      TD: "TD",
+      ID_CARD: "Carte Scolaire",
+      UNIFORMS: "Uniforme",
+      SPORTS_WEAR: "Tenue de Sport",
+      EVALUATION: "Frais d'évaluation",
+      VACATION_CLASSES: "Cours de vacances",
+      REINFORCEMENT_CLASSES: "Cours de renforcement",
+      TRANSPORT: "Transport"
+    };
 
-    if (uniformeAmount > 0) {
-        fees.push({ id: "uniforme", name: "Achat Uniforme", amount: uniformeAmount });
-    }
-
-    // Tee-shirt sport
-    fees.push({ id: "sport", name: "Tee-shirt de sport", amount: 2000 });
-
-    // Frais TD CI, CP, CE1, CE2 : 5000 F / L'année. CM1, CM2 : 10000 F / L'année
-    if (["CI", "CP", "CE1", "CE2"].includes(level)) {
-        fees.push({ id: "td", name: "Frais de TD", amount: 5000 });
-    } else if (["CM1", "CM2"].includes(level)) {
-        fees.push({ id: "td", name: "Frais de TD", amount: 10000 });
-    }
-
-    // Frais évaluation pour toutes les classes : 3000 F / L'année
-    fees.push({ id: "eval", name: "Frais d'évaluation", amount: 3000 });
-
-    // Carte scolaire: Uniquement Maternelle 1 et 2, CM2, 3ème
-    if (["Maternelle 1", "Maternelle 2", "CM2", "3ème"].includes(level)) {
-        fees.push({ id: "carte", name: "Carte scolaire", amount: 1500 });
-    }
-
-    // Examen Blanc et Frais Dossier
-    if (level === "CM2") {
-        fees.push({ id: "examen", name: "Examen Blanc & Frais de Dossier", amount: 10000 });
-    } else if (level === "3ème") {
-        fees.push({ id: "examen", name: "Examen Blanc & Frais de Dossier", amount: 15000 });
-    } else if (level.startsWith("Terminale")) {
-        fees.push({ id: "examen", name: "Examen Blanc & Frais de Dossier", amount: 25000 });
-    }
-
-    // Kits scolaires
-    if (level.startsWith("Maternelle")) {
-        fees.push({ id: "kits", name: "Kit livre", amount: 7500 });
-    } else if (["CI", "CP", "CE1", "CE2", "CM1", "CM2"].includes(level)) {
-        fees.push({ id: "kits", name: "Kit livre", amount: 15000 });
-    } else if (["6ème", "5ème", "4ème", "3ème"].includes(level)) {
-        fees.push({ id: "kits", name: "Kit livre", amount: 30000 });
-    } else if (isHighSchool) {
-        fees.push({ id: "kits", name: "Kit livre", amount: 50000 });
-    }
-
-    // Cantine & Garde Surveillée (Basé sur les choix à l'inscription)
-    if (selectedChild.canteenOptions && selectedChild.canteenOptions.length > 0) {
-        selectedChild.canteenOptions.forEach(opt => {
-            let prixJour = 0;
-            if (opt.includes("200F")) prixJour = 200;
-            else if (opt.includes("500F")) prixJour = 500;
-            else if (opt.includes("1000F")) prixJour = 1000;
-
-            if (prixJour > 0) {
-                const prefixId = opt.includes("Garde") ? "garde" : "cantine";
-                const labelName = opt.includes("Garde") ? "Garde surveillée" : "Cantine";
-                
-                fees.push({ id: `${prefixId}_semaine_${prixJour}`, name: `${labelName} (Semaine - 5 jours) - ${prixJour}F/j`, amount: prixJour * 5 });
-                fees.push({ id: `${prefixId}_mois_${prixJour}`, name: `${labelName} (Mois - 20 jours) - ${prixJour}F/j`, amount: prixJour * 20 });
-            }
+    // Filter DB fee configs based on selected year, level, student type, and canteen preferences
+    feeConfigs.forEach(fc => {
+      if (payFilterYear && fc.academic_year && fc.academic_year !== payFilterYear) {
+        return;
+      }
+      if (fc.level === 'ALL' || fc.level === level) {
+        // Skip MONTHLY as it's already handled in "Scolarité par tranches"
+        if (fc.fee_type === 'MONTHLY') {
+          return;
+        }
+        if (isOldStudent && (fc.fee_type === 'INSCRIPTION_NEW' || fc.fee_type === 'INSCRIPTION')) {
+          return;
+        }
+        if (isNewStudent && fc.fee_type === 'INSCRIPTION_OLD') {
+          return;
+        }
+        if (isUninterestedInCanteen && (fc.fee_type === 'CANTEEN' || fc.fee_type === 'SUPERVISED_CARE')) {
+          return;
+        }
+        fees.push({
+          id: fc.id,
+          name: FEE_NAME_MAPPINGS[fc.fee_type] || fc.fee_type,
+          amount: fc.amount,
+          feeType: fc.fee_type,
+          level: fc.level,
+          tranches: fc.tranches
         });
+      }
+    });
+
+    // Fallbacks if no fee configs in DB yet
+    if (fees.length === 0) {
+      if (isNewStudent) {
+        fees.push({ id: "inscription", name: "Frais d'inscription (Nouveau)", amount: 2000, feeType: 'INSCRIPTION_NEW' });
+      }
+      const isPrimary = level.startsWith("Maternelle") || level.startsWith("CI") || level.startsWith("CP") || level.startsWith("CE") || level.startsWith("CM");
+      const isMiddleSchool = ["6ème", "5ème", "4ème", "3ème"].includes(level);
+      const isHighSchool = level.startsWith("2nde") || level.startsWith("1ère") || level.startsWith("Terminale");
+      let uniformeAmount = 0;
+      if (isPrimary) uniformeAmount = selectedChild.gender === "FEMALE" ? 3500 : 5000;
+      else if (isMiddleSchool) uniformeAmount = 5000;
+      else if (isHighSchool) uniformeAmount = 7000;
+      if (uniformeAmount > 0) fees.push({ id: "uniforme", name: "Achat Uniforme", amount: uniformeAmount, feeType: 'UNIFORMS' });
+      fees.push({ id: "sport", name: "Tee-shirt de sport", amount: 2000, feeType: 'SPORTS_WEAR' });
+      if (["CI", "CP", "CE1", "CE2"].includes(level)) {
+        fees.push({ id: "td", name: "Frais de TD", amount: 5000, feeType: 'TD' });
+      } else if (["CM1", "CM2"].includes(level)) {
+        fees.push({ id: "td", name: "Frais de TD", amount: 10000, feeType: 'TD' });
+      }
+      fees.push({ id: "eval", name: "Frais d'évaluation", amount: 3000, feeType: 'EVALUATION' });
+      if (["Maternelle 1", "Maternelle 2", "CM2", "3ème"].includes(level)) {
+        fees.push({ id: "carte", name: "Carte scolaire", amount: 1500, feeType: 'ID_CARD' });
+      }
     }
 
     return fees;
-  }, [selectedChild]);
-
-  useEffect(() => {
-    setSelectedFeeIds([]);
-    setTrancheAmounts({});
-  }, [selectedChildId]);
+  }, [selectedChild, feeConfigs, payFilterYear]);
 
   const levelTranches = useMemo(() => {
-     if (!selectedChild) return [];
-     const levelFee = availableFees.find(f => f.feeType === 'MONTHLY' && (f.level === selectedChild.level || f.level === 'ALL'));
-     if (levelFee && levelFee.tranches && levelFee.tranches.length > 0) {
-        return levelFee.tranches.map(t => ({ id: t.id, name: t.name, limit: t.limit, amount: t.amount }));
-     }
-     return getTranchesForLevel(selectedChild.level || "");
-  }, [selectedChild, availableFees]);
+    if (!selectedChild) return [];
+    const level = selectedChild.level || "";
+    const levelFee = feeConfigs.find(fc =>
+      fc.fee_type === 'MONTHLY' &&
+      (fc.level === level || fc.level === 'ALL') &&
+      (!payFilterYear || !fc.academic_year || fc.academic_year === payFilterYear)
+    );
+    if (levelFee && levelFee.tranches && levelFee.tranches.length > 0) {
+      return levelFee.tranches.map((t: any) => ({ id: t.id, name: t.name, limit: t.limit, amount: t.amount }));
+    }
+    return getTranchesForLevel(level);
+  }, [selectedChild, feeConfigs, payFilterYear]);
 
   const paidAmountsPerFee = useMemo(() => {
     const paid: Record<string, number> = {};
@@ -281,20 +398,32 @@ export function ParentPayments() {
         t += Number(trancheAmounts[tranche.id]) || 0;
       } else {
         const fee = availableFees.find(f => f.id === id);
-        if (fee) t += Math.max(0, fee.amount - (paidAmountsPerFee[fee.id] || 0));
+        if (fee) {
+          const maxRemaining = Math.max(0, fee.amount - (paidAmountsPerFee[fee.id] || 0));
+          const val = feeAmountsToPay[fee.id] !== undefined ? Number(feeAmountsToPay[fee.id]) : maxRemaining;
+          t += Math.min(Math.max(0, val), maxRemaining);
+        }
       }
     });
     return t;
-  }, [selectedFeeIds, availableFees, levelTranches, trancheAmounts, paidAmountsPerFee]);
+  }, [selectedFeeIds, availableFees, levelTranches, trancheAmounts, feeAmountsToPay, paidAmountsPerFee]);
 
-  const transactionFee = Math.ceil(totalAmount * 0.01);
-  const totalAmountWithFee = totalAmount + transactionFee;
+  const transactionFee = useMemo(() => Math.ceil(totalAmount * 0.01), [totalAmount]);
+  const totalAmountWithFee = useMemo(() => totalAmount + transactionFee, [totalAmount, transactionFee]);
 
-  const handleFeeToggle = (id: string, isChecked: boolean) => {
+  const handleFeeToggle = (id: string, isChecked: boolean, defaultAmount?: number) => {
     if (isChecked) {
       setSelectedFeeIds(prev => [...prev, id]);
+      if (defaultAmount !== undefined) {
+        setFeeAmountsToPay(prev => ({ ...prev, [id]: defaultAmount.toString() }));
+      }
     } else {
       setSelectedFeeIds(prev => prev.filter(f => f !== id));
+      setFeeAmountsToPay(prev => {
+        const next = { ...prev };
+        delete next[id];
+        return next;
+      });
     }
   };
 
@@ -309,14 +438,14 @@ export function ParentPayments() {
       } else {
         const fee = availableFees.find(f => f.id === id);
         if (fee) {
-          const amountToPay = Math.max(0, fee.amount - (paidAmountsPerFee[fee.id] || 0));
           const oldRemaining = Math.max(0, fee.amount - (paidAmountsPerFee[fee.id] || 0));
+          const amountToPay = feeAmountsToPay[fee.id] !== undefined ? Number(feeAmountsToPay[fee.id]) : oldRemaining;
           items.push({ id, name: fee.name, amount: amountToPay, remaining: Math.max(0, oldRemaining - amountToPay) });
         }
       }
     });
     return items;
-  }, [selectedFeeIds, availableFees, levelTranches, trancheAmounts, paidAmountsPerFee]);
+  }, [selectedFeeIds, availableFees, levelTranches, trancheAmounts, feeAmountsToPay, paidAmountsPerFee]);
 
   const hasPartialPayment = useMemo(() => {
     return currentPaymentItemsTemplate.some(item => item.remaining && item.remaining > 0);
@@ -340,7 +469,6 @@ export function ParentPayments() {
 const confirmPayment = async () => {
     if (!user) return;
 
-    // Build items payload (optional, if we want to store it in reference or items column - wait, payments schema doesn't have an items jsonb column, but maybe we can add one or ignore it for now. Let's just insert.)
     const child = children.find(c => c.id === selectedChildId);
     if (!child) return;
     
@@ -353,16 +481,19 @@ const confirmPayment = async () => {
     } else if (network === "Celtiis Bénin") {
        ussdCode = `*889*4*1*0140688598*0140688598*${totalAmountWithFee}#`;
     }
+
+    const paymentYear = payFilterYear || (child as any).academic_year || (child as any).academicYear || "2024-2025";
     
     // Attempt insert into Supabase
     const { data: inserted, error } = await supabase.from('payments').insert({
-       school_id: child.schoolId || user.schoolId || child.school_id, // ensure we have school_id
+       school_id: child.schoolId || user.schoolId || (child as any).school_id,
        student_id: selectedChildId,
        parent_id: user.id,
        amount: totalAmountWithFee,
        status: 'PENDING',
        network: network,
        reference: reference,
+       academic_year: paymentYear,
        next_payment_date: (hasPartialPayment && nextPaymentDate) ? nextPaymentDate : null
     }).select().single();
     
@@ -379,8 +510,11 @@ const confirmPayment = async () => {
        date: inserted ? new Date(inserted.created_at).getTime() : Date.now(), 
        reference: reference, 
        studentId: selectedChildId,
+       academic_year: paymentYear,
+       academicYear: paymentYear,
        status: 'PENDING',
-       network: network
+       network: network,
+       items: currentPaymentItemsTemplate
     };
 
     const updatedPays = [newPayment, ...allPayments];
@@ -480,173 +614,389 @@ const childName = child ? `${child.lastName} ${child.firstName}` : "Inconnu";
       </div>
 
       {showPayModal && (
-        <div className="flex justify-center animate-in fade-in slide-in-from-top-4">
-          <div className="w-full max-w-2xl bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
-            <h3 className="font-bold text-gray-700 mb-4">Paiement Mobile Money</h3>
-            <form onSubmit={handlePaymentSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="md:col-span-2">
-              <label className="block text-xs font-semibold text-gray-700 mb-1 uppercase tracking-wide">Enfant</label>
-              <select required value={selectedChildId} onChange={e => setSelectedChildId(e.target.value)} className="w-full px-3 py-2 border border-slate-300 rounded text-sm focus:ring-emerald-500 focus:border-emerald-500 outline-none">
-                {children.map(c => <option key={c.id} value={c.id}>{c.firstName} {c.lastName} ({c.level})</option>)}
-              </select>
-            </div>
-            
-            {selectedChild && (
-              <div className="md:col-span-2 bg-slate-50 p-4 rounded border border-slate-200">
-                 <h4 className="text-xs font-bold uppercase text-gray-700 mb-3 tracking-wide">Éléments à Payer</h4>
-                 <div className="space-y-3">
-                   
-                   {/* Options de Scolarité */}
-                   <div className="pt-2 pb-3 mb-3 border-b border-slate-200 flex flex-col gap-3">
-                     <p className="text-[10px] font-bold text-slate-500 uppercase">Scolarité par tranches</p>
-                     
-                     {levelTranches.map(tranche => {
-                       const paid = paidAmountsPerFee[tranche.id] || 0;
-                       const remaining = Math.max(0, tranche.amount - paid);
-                       const isPaidOut = remaining <= 0;
-                       return (
-                       <div key={tranche.id} className={`flex items-center justify-between gap-3 ${isPaidOut ? 'opacity-50' : ''}`}>
-                         <label className="flex items-center gap-2 cursor-pointer flex-1">
-                           <input 
-                             type="checkbox" 
-                             disabled={isPaidOut}
-                             checked={selectedFeeIds.includes(tranche.id) && !isPaidOut} 
-                             onChange={e => handleFeeToggle(tranche.id, e.target.checked)} 
-                             className="w-3.5 h-3.5 rounded text-emerald-600 focus:ring-emerald-500 border-slate-300 disabled:opacity-50" 
-                           />
-                           <span className="text-sm font-medium text-gray-700">
-                             {tranche.name} <span className="text-[10px] text-red-500 ml-1">(Max: {tranche.limit})</span>
-                           </span>
-                         </label>
-                         <div className="flex items-center gap-2">
-                           {selectedFeeIds.includes(tranche.id) && !isPaidOut && (
-                             <input 
-                               type="number" 
-                               required 
-                               max={remaining}
-                               placeholder="Montant" 
-                               value={trancheAmounts[tranche.id] || ""} 
-                               onChange={e => {
-                                 const val = Number(e.target.value);
-                                 if (val > remaining) {
-                                   setTrancheAmounts(prev => ({ ...prev, [tranche.id]: remaining.toString() }));
-                                 } else {
-                                   setTrancheAmounts(prev => ({ ...prev, [tranche.id]: e.target.value }));
-                                 }
-                               }} 
-                               className="w-28 px-2 py-1 border border-slate-300 rounded text-sm outline-none text-right" 
-                             />
-                           )}
-                           <span className="text-xs font-bold text-slate-600 min-w-16 whitespace-nowrap text-right">
-                             {isPaidOut ? "Payé" : `Reste: ${remaining.toLocaleString()} / ${tranche.amount.toLocaleString()}F`}
-                           </span>
-                         </div>
-                       </div>
-                     )})}
-                   </div>
-
-                   {/* Autres Frais calculés dynamiquement */}
-                   {availableFees.map(fee => {
-                     const paid = paidAmountsPerFee[fee.id] || 0;
-                     const remaining = Math.max(0, fee.amount - paid);
-                     const isPaidOut = remaining <= 0;
-                     return (
-                     <label key={fee.id} className={`flex items-center justify-between gap-3 ${isPaidOut ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}>
-                        <div className="flex items-center gap-2">
-                          <input 
-                            type="checkbox" 
-                            disabled={isPaidOut}
-                            checked={selectedFeeIds.includes(fee.id) && !isPaidOut}
-                            onChange={e => handleFeeToggle(fee.id, e.target.checked)}
-                            className="w-3.5 h-3.5 rounded text-emerald-600 focus:ring-emerald-500 border-slate-300 disabled:opacity-50" 
-                          />
-                          <span className="text-sm font-medium text-gray-700">{fee.name}</span>
-                        </div>
-                        <span className="text-sm font-bold text-gray-700">
-                          {isPaidOut ? "Payé" : (paid > 0 ? `Reste: ${remaining.toLocaleString()}F (Total: ${fee.amount.toLocaleString()}F)` : `${fee.amount.toLocaleString()} F`)}
-                        </span>
-                     </label>
-                   )})}
-
-                 </div>
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm overflow-y-auto">
+          <div className="bg-white rounded-xl shadow-xl border border-slate-200 w-full max-w-2xl my-8 flex flex-col animate-in zoom-in-95 fade-in overflow-hidden">
+            <div className="p-4 border-b border-slate-100 flex items-center justify-between bg-slate-50">
+              <div>
+                <h3 className="font-bold text-gray-800 text-base">Nouveau Paiement - Mobile Money</h3>
+                <p className="text-slate-500 text-xs mt-0.5">Réglez la scolarité et les frais scolaires en quelques clics</p>
               </div>
-            )}
-
-            <div className="md:col-span-2">
-               <div className="flex justify-between items-center bg-emerald-50 px-4 py-3 border border-emerald-100 rounded-lg mb-4">
-                 <span className="text-sm font-bold text-gray-700 uppercase tracking-wide">Total à payer (dont 1% frais)</span>
-                 <span className="font-mono text-xl font-bold text-emerald-600">{totalAmountWithFee.toLocaleString()} FCFA</span>
-               </div>
+              <button 
+                onClick={() => setShowPayModal(false)} 
+                className="p-1.5 text-slate-400 hover:text-slate-600 rounded-md hover:bg-slate-200 transition-colors"
+              >
+                <X size={18} />
+              </button>
             </div>
 
-            <div>
-               <label className="block text-xs font-semibold text-gray-700 mb-1 uppercase tracking-wide">Réseau Mobile</label>
-               <select required value={network} onChange={e => setNetwork(e.target.value as any)} className="w-full px-3 py-2 border border-slate-300 rounded text-sm focus:ring-emerald-500 focus:border-emerald-500 outline-none">
-                 <option value="MTN Bénin">MTN Mobile Money</option>
-                 <option value="Moov Bénin">Moov Money</option>
-                 <option value="Celtiis Bénin">Celtiis Cash</option>
-               </select>
-            </div>
-            
-            {hasPartialPayment && (
-               <div>
-                  <label className="block text-xs font-semibold text-gray-700 mb-1 uppercase tracking-wide">Prochain règlement</label>
-                  <input type="date" required value={nextPaymentDate} onChange={e => setNextPaymentDate(e.target.value)} className="w-full px-3 py-2 border border-slate-300 rounded text-sm focus:ring-emerald-500 focus:border-emerald-500 outline-none" min={new Date().toISOString().split('T')[0]} />
-               </div>
-            )}
+            <form onSubmit={handlePaymentSubmit} className="p-6 overflow-y-auto max-h-[80vh] flex flex-col gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* 1. Année Scolaire */}
+                <div className="md:col-span-1">
+                  <label className="block text-xs font-bold text-gray-700 mb-1 uppercase tracking-wide flex items-center justify-between">
+                    <span>1. Année Scolaire</span>
+                    <span className="text-[10px] font-medium text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-100">
+                      Direction
+                    </span>
+                  </label>
+                  <select 
+                    required 
+                    value={payFilterYear} 
+                    onChange={e => {
+                      const newYear = e.target.value;
+                      setPayFilterYear(newYear);
+                      setPayFilterLevel("");
+                      setSelectedChildId("");
+                      setSelectedFeeIds([]);
+                      setTrancheAmounts({});
+                      setFeeAmountsToPay({});
+                    }} 
+                    className="w-full px-3 py-2 border border-slate-300 rounded text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none bg-white font-medium shadow-sm transition-all"
+                  >
+                    <option value="">Sélectionnez l'année...</option>
+                    {academicYears.map((y, idx) => (
+                      <option key={y.id || y.name || idx} value={y.name}>
+                        {y.name} {y.status === 'ACTIVE' ? '★ (En cours)' : ''}
+                      </option>
+                    ))}
+                  </select>
+                </div>
 
-            <div className="md:col-span-2 flex justify-end gap-3 mt-2">
-              <button type="button" onClick={() => setShowPayModal(false)} className="px-4 py-2 text-xs font-bold text-slate-600 hover:bg-slate-100 rounded uppercase tracking-wider transition-colors">Annuler</button>
-              <button type="submit" disabled={totalAmount <= 0} className="px-4 py-2 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 rounded shadow-sm uppercase tracking-wider transition-colors disabled:opacity-50">Continuer</button>
-            </div>
-          </form>
+                {/* 2. Classe */}
+                <div className="md:col-span-1">
+                  <label className="block text-xs font-bold text-gray-700 mb-1 uppercase tracking-wide flex items-center justify-between">
+                    <span>2. Classe</span>
+                    {payFilterYear && (
+                      <span className="text-[10px] font-normal text-slate-500">
+                        {availableClassesForYear.length} classe(s)
+                      </span>
+                    )}
+                  </label>
+                  <select 
+                    required 
+                    disabled={!payFilterYear}
+                    value={payFilterLevel} 
+                    onChange={e => {
+                      const newClass = e.target.value;
+                      setPayFilterLevel(newClass);
+                      setSelectedChildId("");
+                      setSelectedFeeIds([]);
+                      setTrancheAmounts({});
+                      setFeeAmountsToPay({});
+                    }} 
+                    className={`w-full px-3 py-2 border border-slate-300 rounded text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none font-medium shadow-sm transition-all ${
+                      !payFilterYear ? 'bg-slate-100 cursor-not-allowed text-slate-400' : 'bg-white text-gray-800'
+                    }`}
+                  >
+                    <option value="">
+                      {!payFilterYear ? "Choisissez d'abord l'année..." : "Sélectionnez une classe..."}
+                    </option>
+                    {availableClassesForYear.map(lvl => (
+                      <option key={lvl} value={lvl}>
+                        {lvl}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* 3. Élève */}
+                <div className="md:col-span-2">
+                  <label className="block text-xs font-bold text-gray-700 mb-1 uppercase tracking-wide flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <span>3. Élève</span>
+                      {payFilterLevel && (
+                        <span className="text-[10px] font-normal text-slate-500">
+                          ({filteredChildrenForPay.length} enfant{filteredChildrenForPay.length > 1 ? 's' : ''})
+                        </span>
+                      )}
+                    </div>
+                    {selectedChild && (
+                      <span className={`text-[10px] px-2 py-0.5 rounded font-semibold ${selectedChild.studentType === 'OLD' ? 'bg-blue-50 text-blue-700' : 'bg-emerald-50 text-emerald-700'}`}>
+                        {selectedChild.studentType === 'OLD' ? 'Ancien élève' : 'Nouvel élève'}
+                      </span>
+                    )}
+                  </label>
+                  <select 
+                    required 
+                    disabled={!payFilterLevel}
+                    value={selectedChildId} 
+                    onChange={e => {
+                      setSelectedChildId(e.target.value);
+                      setSelectedFeeIds([]);
+                      setTrancheAmounts({});
+                      setFeeAmountsToPay({});
+                    }} 
+                    className={`w-full px-3 py-2 border border-slate-300 rounded text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none font-medium shadow-sm transition-all ${
+                      !payFilterLevel ? 'bg-slate-100 cursor-not-allowed text-slate-400' : 'bg-white text-gray-800'
+                    }`}
+                  >
+                    {!payFilterYear ? (
+                      <option value="">Veuillez d'abord choisir une année scolaire...</option>
+                    ) : !payFilterLevel ? (
+                      <option value="">Veuillez d'abord choisir une classe...</option>
+                    ) : filteredChildrenForPay.length === 0 ? (
+                      <option value="">Aucun enfant trouvé pour cette sélection</option>
+                    ) : (
+                      <>
+                        <option value="">Sélectionnez votre enfant...</option>
+                        {filteredChildrenForPay.map(c => (
+                          <option key={c.id} value={c.id}>
+                            {c.lastName?.toUpperCase()} {c.firstName} ({c.level}) - {c.studentType === 'OLD' ? 'Ancien' : 'Nouveau'}
+                          </option>
+                        ))}
+                      </>
+                    )}
+                  </select>
+                </div>
+              </div>
+
+              {/* 4. Éléments à Payer */}
+              {selectedChild && (
+                <div className="bg-slate-50 p-4 rounded-lg border border-slate-200">
+                  <h4 className="text-xs font-bold uppercase text-gray-700 mb-3 tracking-wide flex items-center justify-between">
+                    <span>Éléments à Payer</span>
+                    <span className="text-[10px] font-normal text-slate-500">Cochez les éléments à régler</span>
+                  </h4>
+                  <div className="space-y-3">
+                    {/* Scolarité par tranches */}
+                    <div className="pt-2 pb-3 mb-3 border-b border-slate-200 flex flex-col gap-3">
+                      <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Scolarité par tranches</p>
+                      {levelTranches.map(tranche => {
+                        const paid = paidAmountsPerFee[tranche.id] || 0;
+                        const remaining = Math.max(0, tranche.amount - paid);
+                        const isPaidOut = remaining <= 0;
+                        return (
+                          <div key={tranche.id} className={`flex items-center justify-between gap-3 ${isPaidOut ? 'opacity-50' : ''}`}>
+                            <label className="flex items-center gap-2 cursor-pointer flex-1">
+                              <input 
+                                type="checkbox" 
+                                disabled={isPaidOut}
+                                checked={selectedFeeIds.includes(tranche.id) && !isPaidOut} 
+                                onChange={e => {
+                                  if (e.target.checked) {
+                                    setSelectedFeeIds(prev => [...prev, tranche.id]);
+                                    setTrancheAmounts(prev => ({ ...prev, [tranche.id]: remaining.toString() }));
+                                  } else {
+                                    setSelectedFeeIds(prev => prev.filter(id => id !== tranche.id));
+                                  }
+                                }} 
+                                className="w-3.5 h-3.5 rounded text-emerald-600 focus:ring-emerald-500 border-slate-300 disabled:opacity-50" 
+                              />
+                              <span className="text-sm font-medium text-gray-700">
+                                {tranche.name} <span className="text-[10px] text-red-500 ml-1">(Max: {tranche.limit})</span>
+                              </span>
+                            </label>
+                            <div className="flex items-center gap-2">
+                              {selectedFeeIds.includes(tranche.id) && !isPaidOut && (
+                                <input 
+                                  type="number" 
+                                  required 
+                                  max={remaining}
+                                  placeholder="Montant"
+                                  value={trancheAmounts[tranche.id] || ""} 
+                                  onChange={e => {
+                                    const val = Number(e.target.value);
+                                    if (val > remaining) {
+                                      setTrancheAmounts(prev => ({ ...prev, [tranche.id]: remaining.toString() }));
+                                    } else {
+                                      setTrancheAmounts(prev => ({ ...prev, [tranche.id]: e.target.value }));
+                                    }
+                                  }} 
+                                  className="w-28 px-2 py-1 border border-slate-300 rounded text-sm outline-none text-right font-semibold text-gray-700 focus:border-emerald-500" 
+                                />
+                              )}
+                              <span className="text-xs font-bold text-slate-600 min-w-16 whitespace-nowrap text-right">
+                                {isPaidOut ? "Payé" : `Reste: ${remaining.toLocaleString()} / ${tranche.amount.toLocaleString()}F`}
+                              </span>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+
+                    {/* Autres Frais calculés dynamiquement */}
+                    {availableFees.length > 0 && (
+                      <div className="flex flex-col gap-2.5">
+                        <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Autres Frais & Activités</p>
+                        {availableFees.map(fee => {
+                          const paid = paidAmountsPerFee[fee.id] || 0;
+                          const remaining = Math.max(0, fee.amount - paid);
+                          const isPaidOut = remaining <= 0;
+                          return (
+                            <div key={fee.id} className={`flex items-center justify-between gap-3 ${isPaidOut ? 'opacity-50 cursor-not-allowed' : ''}`}>
+                              <label className="flex items-center gap-2 cursor-pointer flex-1">
+                                <input 
+                                  type="checkbox" 
+                                  disabled={isPaidOut}
+                                  checked={selectedFeeIds.includes(fee.id) && !isPaidOut}
+                                  onChange={e => handleFeeToggle(fee.id, e.target.checked, remaining)}
+                                  className="w-3.5 h-3.5 rounded text-emerald-600 focus:ring-emerald-500 border-slate-300 disabled:opacity-50" 
+                                />
+                                <span className="text-sm font-medium text-gray-700">{fee.name}</span>
+                              </label>
+                              <div className="flex items-center gap-2">
+                                {selectedFeeIds.includes(fee.id) && !isPaidOut && (
+                                  <input 
+                                    type="number" 
+                                    required 
+                                    max={remaining}
+                                    placeholder="Montant"
+                                    value={feeAmountsToPay[fee.id] ?? remaining.toString()} 
+                                    onChange={e => {
+                                      const val = Number(e.target.value);
+                                      if (val > remaining) {
+                                        setFeeAmountsToPay(prev => ({ ...prev, [fee.id]: remaining.toString() }));
+                                      } else {
+                                        setFeeAmountsToPay(prev => ({ ...prev, [fee.id]: e.target.value }));
+                                      }
+                                    }} 
+                                    className="w-28 px-2 py-1 border border-slate-300 rounded text-sm outline-none text-right font-semibold text-gray-700 focus:border-emerald-500" 
+                                  />
+                                )}
+                                <span className="text-xs font-bold text-slate-600 min-w-16 whitespace-nowrap text-right">
+                                  {isPaidOut ? "Payé" : (paid > 0 ? `Reste: ${remaining.toLocaleString()}F (Total: ${fee.amount.toLocaleString()}F)` : `${fee.amount.toLocaleString()} F`)}
+                                </span>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Total à payer (dont 1% frais) */}
+              <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-3 text-emerald-900">
+                <div className="flex justify-between items-center text-xs mb-1">
+                  <span className="text-slate-600">Sous-total :</span>
+                  <span className="font-semibold text-gray-700">{totalAmount.toLocaleString()} FCFA</span>
+                </div>
+                <div className="flex justify-between items-center text-xs pb-2 border-b border-emerald-200">
+                  <span className="text-slate-600">Frais Mobile Money (1%) :</span>
+                  <span className="font-semibold text-emerald-700">+{transactionFee.toLocaleString()} FCFA</span>
+                </div>
+                <div className="flex justify-between items-center pt-2">
+                  <span className="text-xs font-black uppercase tracking-wide text-gray-800">Total à payer (dont 1% frais)</span>
+                  <span className="font-mono text-xl font-black text-emerald-700">{totalAmountWithFee.toLocaleString()} FCFA</span>
+                </div>
+              </div>
+
+              {/* Réseau Mobile */}
+              <div>
+                <label className="block text-xs font-bold text-gray-700 mb-1.5 uppercase tracking-wide">Réseau Mobile Money</label>
+                <div className="grid grid-cols-3 gap-2">
+                  {(["MTN Bénin", "Moov Bénin", "Celtiis Bénin"] as const).map(net => (
+                    <button
+                      key={net}
+                      type="button"
+                      onClick={() => setNetwork(net)}
+                      className={`p-2.5 rounded-lg border text-xs font-bold transition-all flex flex-col items-center justify-center gap-1 ${
+                        network === net
+                          ? 'border-emerald-600 bg-emerald-50 text-emerald-800 ring-2 ring-emerald-500/20 shadow-sm'
+                          : 'border-slate-200 hover:border-slate-300 text-slate-700 bg-white'
+                      }`}
+                    >
+                      <span className="truncate">{net.replace(' Bénin', '')}</span>
+                      <span className="text-[10px] font-normal text-slate-500">
+                        {net === 'MTN Bénin' ? 'MoMo *880#' : (net === 'Moov Bénin' ? 'Moov *855#' : 'Celtiis *889#')}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+              
+              {hasPartialPayment && (
+                <div>
+                  <label className="block text-xs font-bold text-gray-700 mb-1 uppercase tracking-wide">Date du prochain règlement</label>
+                  <input 
+                    type="date" 
+                    required 
+                    value={nextPaymentDate} 
+                    onChange={e => setNextPaymentDate(e.target.value)} 
+                    className="w-full px-3 py-2 border border-slate-300 rounded text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none" 
+                    min={new Date().toISOString().split('T')[0]} 
+                  />
+                </div>
+              )}
+
+              <div className="flex justify-end gap-3 pt-3 border-t border-slate-100">
+                <button 
+                  type="button" 
+                  onClick={() => setShowPayModal(false)} 
+                  className="px-4 py-2.5 text-xs font-bold text-slate-600 hover:bg-slate-100 rounded-lg uppercase tracking-wider transition-colors"
+                >
+                  Annuler
+                </button>
+                <button 
+                  type="submit" 
+                  disabled={totalAmount <= 0 || !selectedChildId} 
+                  className="px-5 py-2.5 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg shadow-sm uppercase tracking-wider transition-colors disabled:opacity-50 flex items-center gap-2"
+                >
+                  <CreditCard size={15} />
+                  Continuer vers le paiement
+                </button>
+              </div>
+            </form>
+          </div>
         </div>
-      </div>
       )}
 
       {showConfirmModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
           <div className="bg-white rounded-xl shadow-xl border border-slate-200 w-full max-w-md p-6 animate-in zoom-in-95 fade-in">
             <div className="text-center mb-6">
-               <div className="w-16 h-16 bg-yellow-100 text-yellow-600 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <AlertTriangle size={32} />
+               <div className="w-16 h-16 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <CreditCard size={32} />
                </div>
-               <h3 className="text-xl font-bold text-gray-700">Confirmer le paiement</h3>
-               <p className="text-slate-500 text-xs mt-2">Veuillez vérifier les informations de la transaction avant de valider.</p>
+               <h3 className="text-xl font-bold text-gray-800">Confirmer le paiement</h3>
+               <p className="text-slate-500 text-xs mt-1">Vérifiez les détails de la transaction avant l'envoi du code USSD.</p>
             </div>
             
-            <div className="bg-slate-50 p-4 rounded border border-slate-100 space-y-3 mb-6">
-               <div className="flex justify-between text-sm">
-                 <span className="text-slate-500 font-medium font-semibold uppercase text-[10px] tracking-wide">Enfant</span>
-                 <span className="font-bold text-gray-700">{children.find(c => c.id === selectedChildId)?.firstName} {children.find(c => c.id === selectedChildId)?.lastName}</span>
+            <div className="bg-slate-50 p-4 rounded-lg border border-slate-200 space-y-2.5 mb-5 text-sm">
+               <div className="flex justify-between">
+                 <span className="text-slate-500 font-medium text-xs">Année Scolaire</span>
+                 <span className="font-bold text-emerald-700">{payFilterYear || "2024-2025"}</span>
                </div>
-               <div className="border-t border-slate-200"></div>
-               <div className="flex justify-between text-sm">
-                 <span className="text-slate-500 font-medium font-semibold uppercase text-[10px] tracking-wide">Réseau</span>
-                 <span className="font-bold text-gray-700">{network}</span>
+               <div className="flex justify-between">
+                 <span className="text-slate-500 font-medium text-xs">Enfant</span>
+                 <span className="font-bold text-gray-800">
+                   {selectedChild ? `${selectedChild.lastName?.toUpperCase()} ${selectedChild.firstName} (${selectedChild.level})` : '-'}
+                 </span>
                </div>
-               <div className="border-t border-slate-200"></div>
-               <div className="flex justify-between text-sm items-center">
-                 <span className="text-slate-500 font-medium font-semibold uppercase text-[10px] tracking-wide">Montant Total</span>
-                 <span className="font-mono text-xl font-bold text-emerald-600">{totalAmountWithFee.toLocaleString()} FCFA</span>
+               <div className="flex justify-between">
+                 <span className="text-slate-500 font-medium text-xs">Réseau Mobile</span>
+                 <span className="font-bold text-gray-800">{network}</span>
+               </div>
+               <div className="border-t border-slate-200 pt-2 flex justify-between">
+                 <span className="text-slate-500 font-medium text-xs">Sous-total</span>
+                 <span className="font-semibold text-gray-700">{totalAmount.toLocaleString()} FCFA</span>
+               </div>
+               <div className="flex justify-between text-xs text-slate-500">
+                 <span>Frais Mobile Money (1%)</span>
+                 <span>+{transactionFee.toLocaleString()} FCFA</span>
+               </div>
+               <div className="border-t border-slate-200 pt-2 flex justify-between items-center">
+                 <span className="text-xs font-black uppercase text-gray-800">Total à payer</span>
+                 <span className="font-mono text-xl font-black text-emerald-600">{totalAmountWithFee.toLocaleString()} FCFA</span>
                </div>
             </div>
             
-            <p className="text-[10px] text-orange-600 font-semibold mb-6 text-center bg-orange-50 p-2 rounded border border-orange-100">
-               Attention : Les frais de transaction s'élèvent à 1% du montant total (soit {transactionFee.toLocaleString()} FCFA), inclus dans le total.
+            <p className="text-[11px] text-amber-700 font-medium mb-6 text-center bg-amber-50 p-2.5 rounded-lg border border-amber-200">
+               En cliquant sur "Payer", votre application de téléphone s'ouvrira avec le code USSD pour autoriser le prélèvement.
             </p>
 
-            <div className="flex flex-col gap-3">
+            <div className="flex flex-col gap-2.5">
               <button 
                 onClick={confirmPayment}
-                className="w-full inline-flex justify-center items-center gap-2 bg-emerald-600 text-white px-4 py-3 rounded text-sm font-bold uppercase tracking-wider hover:bg-emerald-700 transition-colors shadow-sm"
+                className="w-full inline-flex justify-center items-center gap-2 bg-emerald-600 text-white px-4 py-3 rounded-lg text-sm font-bold uppercase tracking-wider hover:bg-emerald-700 transition-colors shadow-sm"
               >
                 <CreditCard size={18} />
-                Payer via USSD (*880#)
+                Payer via USSD ({network === 'MTN Bénin' ? '*880#' : network === 'Moov Bénin' ? '*855#' : '*889#'})
               </button>
               <button 
                 onClick={() => setShowConfirmModal(false)}
-                className="w-full px-4 py-3 rounded text-xs font-bold text-slate-600 hover:bg-slate-100 uppercase tracking-wider transition-colors"
+                className="w-full px-4 py-2.5 rounded-lg text-xs font-bold text-slate-600 hover:bg-slate-100 uppercase tracking-wider transition-colors"
               >
                 Modifier
               </button>
@@ -689,8 +1039,68 @@ const childName = child ? `${child.lastName} ${child.firstName}` : "Inconnu";
             </div>
           </div>
         </div>
+
+        {/* Mobile View: Cards showing child, academic year, amount, status */}
+        <div className="sm:hidden divide-y divide-slate-100">
+          {filteredPayments.length === 0 ? (
+            <div className="p-6 text-center text-slate-500 text-xs">
+              Aucun paiement trouvé pour cette sélection.
+            </div>
+          ) : (
+            filteredPayments.map(payment => {
+              const child = children.find(c => c.id === payment.studentId);
+              const childName = child ? `${child.lastName?.toUpperCase()} ${child.firstName}` : "Élève";
+              const paymentYear = (payment as any).academic_year || (payment as any).academicYear || (child as any)?.academicYear || (child as any)?.academic_year || "Année standard";
+              let networkDotColor = "bg-yellow-400";
+              if (payment.network === "Moov Bénin") networkDotColor = "bg-emerald-500";
+              if (payment.network === "Celtiis Bénin") networkDotColor = "bg-red-500";
+
+              return (
+                <div key={payment.id} className="p-4 flex flex-col gap-2 hover:bg-slate-50 transition-colors">
+                  <div className="flex items-center justify-between">
+                    <span className="font-bold text-gray-800 text-sm">{childName}</span>
+                    <span className="font-mono font-bold text-emerald-600 text-sm">{payment.amount.toLocaleString()} FCFA</span>
+                  </div>
+                  <div className="flex items-center justify-between text-xs text-slate-500">
+                    <span className="flex items-center gap-1.5">
+                      <span>{child?.level || '-'}</span>
+                      <span className="px-1.5 py-0.5 bg-emerald-50 text-emerald-700 border border-emerald-100 rounded text-[10px] font-semibold">
+                        {paymentYear}
+                      </span>
+                    </span>
+                    <span>{new Date(payment.date).toLocaleDateString()}</span>
+                  </div>
+                  <div className="flex items-center justify-between pt-1 border-t border-slate-100 text-xs">
+                    <div className="flex items-center gap-2">
+                      <span className={`w-2 h-2 rounded-full ${networkDotColor}`}></span>
+                      <span className="text-slate-600 text-[11px]">{payment.network.replace(' Bénin', '')}</span>
+                      <span className="font-mono text-slate-400 text-[10px] uppercase">({payment.reference})</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {payment.status === 'PENDING' ? (
+                        <span className="px-2 py-0.5 bg-orange-100 text-orange-700 rounded-full text-[10px] font-bold uppercase">En Vérif.</span>
+                      ) : payment.status === 'FAILED' ? (
+                        <span className="px-2 py-0.5 bg-red-100 text-red-700 rounded-full text-[10px] font-bold uppercase">Échoué</span>
+                      ) : (
+                        <span className="px-2 py-0.5 bg-green-100 text-green-700 rounded-full text-[10px] font-bold uppercase">Validé</span>
+                      )}
+                      <button 
+                        onClick={() => setShowReceiptModal(payment)}
+                        className="p-1.5 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded transition-colors"
+                        title="Voir le reçu"
+                      >
+                        <FileText size={14} />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              );
+            })
+          )}
+        </div>
         
-        <div className="flex-1 overflow-x-auto">
+        {/* Desktop View: Table */}
+        <div className="hidden sm:block flex-1 overflow-x-auto">
           <table className="w-full text-left border-collapse min-w-[600px]">
             <thead className="bg-slate-50 text-[10px] uppercase text-slate-500 font-bold sticky top-0">
               <tr className="border-b border-slate-100">
@@ -717,7 +1127,8 @@ const childName = child ? `${child.lastName} ${child.firstName}` : "Inconnu";
                   if (payment.network === "Celtiis Bénin") networkDotColor = "bg-red-500";
 
                   const child = children.find(c => c.id === payment.studentId);
-const childName = child ? `${child.lastName} ${child.firstName}` : "Inconnu";
+                  const childName = child ? `${child.lastName} ${child.firstName}` : "Inconnu";
+                  const paymentYear = (payment as any).academic_year || (payment as any).academicYear || (child as any)?.academicYear || (child as any)?.academic_year || "Année standard";
 
                   return (
                     <tr key={payment.id} className="hover:bg-slate-50 transition-colors">
@@ -727,7 +1138,12 @@ const childName = child ? `${child.lastName} ${child.firstName}` : "Inconnu";
                       <td className="px-4 py-3 text-slate-400 font-mono text-[10px] uppercase">{payment.reference}</td>
                       <td className="px-4 py-3">
                         <p className="font-semibold text-gray-700 text-xs">{childName}</p>
-                        <p className="text-[10px] text-slate-500 mt-0.5">{child?.level || '-'} <span className="ml-1 px-1 bg-emerald-50 text-emerald-600 rounded font-semibold">{child?.academicYear || child?.academic_year || 'Année inconnue'}</span></p>
+                        <p className="text-[10px] text-slate-500 mt-0.5 flex items-center gap-1.5">
+                          <span>{child?.level || '-'}</span>
+                          <span className="px-1.5 py-0.2 bg-emerald-50 text-emerald-700 border border-emerald-100 rounded text-[10px] font-semibold">
+                            {paymentYear}
+                          </span>
+                        </p>
                       </td>
                       <td className="px-4 py-3">
                          <span className="flex items-center gap-2 text-xs">

@@ -7,6 +7,7 @@ import { Link } from "react-router-dom";
 import { ParentTimetable } from "../components/ParentTimetable";
 import { AddStudentModal } from "../components/AddStudentModal";
 import { ParentAttendance } from "../components/ParentAttendance";
+import { getRandomStudentPhoto } from "../lib/studentPhotos";
 
 // Mock timetable data
 const MOCK_TIMETABLE: Record<string, { time: string; subject: string; teacher: string; }[]> = {
@@ -128,8 +129,27 @@ export function ParentDashboard() {
           canteenOptions: Array.isArray(s.canteen_options) ? s.canteen_options : (typeof s.canteen_options === 'string' ? s.canteen_options.split(', ') : []),
           disciplinaryCommitment: s.disciplinary_commitment,
           disciplinarySignature: s.disciplinary_signature,
-          photo: s.photo || "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=150&h=150&fit=crop"
+          academic_year: s.academic_year || s.academicYear,
+          photo: s.photo || getRandomStudentPhoto(s.gender, (s.first_name || '') + ' ' + (s.last_name || ''))
         })));
+      }
+
+      const { data: paysData } = await supabase.from('payments').select('*').eq('parent_id', user.id);
+      if (paysData) {
+        const grouped: Record<string, Payment[]> = {};
+        paysData.forEach((p: any) => {
+          const sId = p.student_id;
+          if (!grouped[sId]) grouped[sId] = [];
+          grouped[sId].push({
+            ...p,
+            studentId: p.student_id,
+            schoolId: p.school_id,
+            parentId: p.parent_id,
+            academic_year: p.academic_year || p.academicYear,
+            date: new Date(p.created_at).getTime()
+          });
+        });
+        setPayments(grouped);
       }
       
       const { data: annData } = await supabase.from('announcements').select('*').in('target_audience', ['Parents', 'ALL']).order('created_at', { ascending: false });
@@ -298,9 +318,16 @@ return (
                      <div className="space-y-2">
                        {recentPayments.length > 0 ? (
                          recentPayments.map(p => (
-                            <div key={p.id} className="flex justify-between text-xs items-center">
-                              <span className="text-slate-500 flex items-center gap-1.5"><History size={12}/> {new Date(p.date).toLocaleDateString()}</span>
-                              <span className="font-semibold text-gray-700">{p.amount.toLocaleString()} F</span>
+                            <div key={p.id} className="flex justify-between text-xs items-center gap-2">
+                              <span className="text-slate-500 flex items-center gap-1.5 truncate">
+                                <History size={12} className="shrink-0"/> {new Date(p.date).toLocaleDateString()}
+                                {((p as any).academic_year || (p as any).academicYear || child.academic_year || child.academicYear) && (
+                                  <span className="px-1.5 py-0.5 bg-slate-100 text-slate-600 rounded text-[10px] font-medium shrink-0">
+                                    {(p as any).academic_year || (p as any).academicYear || child.academic_year || child.academicYear}
+                                  </span>
+                                )}
+                              </span>
+                              <span className="font-semibold text-gray-700 whitespace-nowrap">{p.amount.toLocaleString()} F</span>
                             </div>
                          ))
                        ) : (
@@ -323,10 +350,10 @@ return (
                     </button>
                   </div>
                   <div className="flex items-center gap-4">
-                    <Link to={`/parent/payments`} className="text-xs font-bold text-slate-500 hover:text-gray-700 uppercase tracking-wider">
+                    <Link to={`/parent/payments?studentId=${child.id}`} className="text-xs font-bold text-slate-500 hover:text-gray-700 uppercase tracking-wider">
                        Historique
                     </Link>
-                    <Link to="/parent/payments" className="text-xs font-bold text-emerald-600 hover:text-gray-700 inline-flex items-center gap-1 uppercase tracking-wider">
+                    <Link to={`/parent/payments?studentId=${child.id}&pay=1`} className="text-xs font-bold text-emerald-600 hover:text-gray-700 inline-flex items-center gap-1 uppercase tracking-wider">
                       Payer <CreditCard size={14} />
                     </Link>
                   </div>

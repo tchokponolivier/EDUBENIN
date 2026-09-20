@@ -301,6 +301,11 @@ export function SchoolAdminPayments() {
       }
 
       if (fc.level === 'ALL' || fc.level === level) {
+        // Skip MONTHLY as it's already handled in "Scolarité par tranches"
+        if (fc.fee_type === 'MONTHLY') {
+          return;
+        }
+
         // Inscription filtering:
         // If student is Ancien élève -> skip INSCRIPTION_NEW and default INSCRIPTION
         if (isOldStudent && (fc.fee_type === 'INSCRIPTION_NEW' || fc.fee_type === 'INSCRIPTION')) {
@@ -341,12 +346,17 @@ export function SchoolAdminPayments() {
 
   const levelTranches = useMemo(() => {
      if (!selectedStudent) return [];
-     const levelFee = availableFees.find(f => f.feeType === 'MONTHLY' && (f.level === selectedStudent.level || f.level === 'ALL'));
+     const level = selectedStudent.level || "";
+     const levelFee = feeConfigs.find(fc =>
+       fc.fee_type === 'MONTHLY' &&
+       (fc.level === 'ALL' || fc.level === level) &&
+       (!payFilterYear || !fc.academic_year || fc.academic_year === payFilterYear)
+     );
      if (levelFee && levelFee.tranches && levelFee.tranches.length > 0) {
-        return levelFee.tranches.map(t => ({ id: t.id, name: t.name, limit: t.limit, amount: t.amount }));
+        return levelFee.tranches.map((t: any) => ({ id: t.id, name: t.name, limit: t.limit, amount: t.amount }));
      }
-     return getTranchesForLevel(selectedStudent.level || "");
-  }, [selectedStudent, availableFees]);
+     return getTranchesForLevel(level);
+  }, [selectedStudent, feeConfigs, payFilterYear]);
 
   const paidAmountsPerFee = useMemo(() => {
     const paid: Record<string, number> = {};
@@ -428,6 +438,7 @@ export function SchoolAdminPayments() {
        status: 'COMPLETED',
        reference: reference,
        items: items,
+       academic_year: payFilterYear || selectedStudent.academic_year || selectedStudent.academicYear || "2024-2025",
        next_payment_date: (hasPartialPayment && nextPaymentDate) ? nextPaymentDate : null
     }).select().single();
 
@@ -971,7 +982,16 @@ export function SchoolAdminPayments() {
 
             <div className="md:col-span-2">
                <div className="flex justify-between items-center bg-emerald-50 px-4 py-3 border border-emerald-100 rounded-lg mb-4">
-                 <span className="text-sm font-bold text-gray-700 uppercase tracking-wide">Total à payer {isMomo && '(dont 1% frais)'}</span>
+                 <div>
+                   <span className="text-sm font-bold text-gray-700 uppercase tracking-wide">
+                     Total à payer {isMomo && '(dont 1% frais)'}
+                   </span>
+                   {isMomo && transactionFee > 0 && (
+                     <span className="block text-[10px] text-slate-500 font-medium mt-0.5">
+                       Sous-total: {totalAmount.toLocaleString()} FCFA + Frais Mobile (1%): {transactionFee.toLocaleString()} FCFA
+                     </span>
+                   )}
+                 </div>
                  <span className="font-mono text-xl font-black text-emerald-600">{totalAmountWithFee.toLocaleString()} FCFA</span>
                </div>
             </div>

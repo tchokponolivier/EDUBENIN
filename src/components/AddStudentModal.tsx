@@ -3,6 +3,7 @@ import { supabase } from "../lib/supabase";
 import { useAuth } from "../lib/auth";
 import { X, Save, UserPlus, Camera, FileText, Calendar, CheckCircle } from "lucide-react";
 import { LEVELS } from "../types";
+import { getRandomStudentPhoto } from "../lib/studentPhotos";
 
 export function AddStudentModal({ isOpen, onClose, onSuccess, initialData = null }: { isOpen: boolean, onClose: () => void, onSuccess: () => void, initialData?: any }) {
   const { user } = useAuth();
@@ -201,12 +202,7 @@ export function AddStudentModal({ isOpen, onClose, onSuccess, initialData = null
 
     let finalPhoto = photo;
     if (!finalPhoto) {
-      const seed = encodeURIComponent(firstName + ' ' + lastName);
-      if (gender === 'MALE') {
-        finalPhoto = `https://api.dicebear.com/7.x/avataaars/svg?seed=${seed}&top=shortHair,shortHairDreads01,shortHairDreads02,shortHairFrizzle,shortHairShaggyMullet,shortHairShortCurly,shortHairShortFlat,shortHairShortRound,shortHairShortWaved,shortHairSides,shortHairTheCaesar,shortHairTheCaesarSidePart&backgroundColor=c0aede`;
-      } else if (gender === 'FEMALE') {
-        finalPhoto = `https://api.dicebear.com/7.x/avataaars/svg?seed=${seed}&top=longHair,longHairBigHair,longHairBob,longHairBun,longHairCurly,longHairCurvy,longHairDreads,longHairFrida,longHairFro,longHairFroBand,longHairMiaWallace,longHairNotTooLong,longHairShavedSides,longHairStraight,longHairStraight2,longHairStraightStrand&backgroundColor=ffdfbf`;
-      }
+      finalPhoto = getRandomStudentPhoto(gender, `${firstName} ${lastName} ${Date.now()}`);
     }
     const studentData = {
       firstName, lastName, level, dateOfBirth, placeOfBirth,

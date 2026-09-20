@@ -175,15 +175,24 @@ export function SchoolAdminPayments() {
         })) as any);
       }
       if (paymentsRes.data) {
-        setPayments(paymentsRes.data.map(d => ({
-          ...d, 
-          studentId: d.student_id, 
-          schoolId: d.school_id, 
-          parentId: d.parent_id, 
-          createdAt: d.created_at,
-          date: d.payment_date ? new Date(d.payment_date).getTime() : new Date(d.created_at).getTime(),
-          items: d.items || []
-        })) as any);
+        const studentList = (studentsRes.data || []) as any[];
+        setPayments(paymentsRes.data.map(d => {
+          const student = studentList.find((s: any) => s.id === d.student_id);
+          const studentYear = student?.academic_year || student?.academicYear;
+          const itemYear = d.items?.find((it: any) => it.academic_year || it.academicYear)?.academic_year;
+          const resolvedYear = d.academic_year || d.academicYear || itemYear || studentYear || "2024-2025";
+          return {
+            ...d, 
+            studentId: d.student_id, 
+            schoolId: d.school_id, 
+            parentId: d.parent_id, 
+            createdAt: d.created_at,
+            date: d.payment_date ? new Date(d.payment_date).getTime() : new Date(d.created_at).getTime(),
+            items: d.items || [],
+            academic_year: resolvedYear,
+            academicYear: resolvedYear
+          };
+        }) as any);
       }
     } catch (err) {
       console.error("Failed to fetch dashboard data from supabase", err);
@@ -428,8 +437,15 @@ export function SchoolAdminPayments() {
     if (!selectedStudent || totalAmount <= 0) return;
     
     const reference = 'PAY-' + Date.now();
-    const items = currentPaymentItemsTemplate.map(i => ({ id: i.id, name: i.name, amount: i.amount }));
-    const { data: inserted, error } = await supabase.from('payments').insert({
+    const paymentYear = payFilterYear || selectedStudent.academic_year || selectedStudent.academicYear || "2024-2025";
+    const items = currentPaymentItemsTemplate.map(i => ({ 
+      id: i.id, 
+      name: i.name, 
+      amount: i.amount,
+      academic_year: paymentYear
+    }));
+
+    const payload: any = {
        school_id: selectedStudent.school_id,
        student_id: selectedStudent.id,
        parent_id: selectedStudent.parentId || null,
@@ -438,11 +454,33 @@ export function SchoolAdminPayments() {
        status: 'COMPLETED',
        reference: reference,
        items: items,
-       academic_year: payFilterYear || selectedStudent.academic_year || selectedStudent.academicYear || "2024-2025",
        next_payment_date: (hasPartialPayment && nextPaymentDate) ? nextPaymentDate : null
-    }).select().single();
+    };
+
+    let { data: inserted, error } = await supabase.from('payments').insert(payload).select().single();
+
+    // Fallbacks if optional columns don't exist in Supabase schema cache
+    if (error && error.message && error.message.includes("Could not find the 'items' column")) {
+       delete payload.items;
+       const retry = await supabase.from('payments').insert(payload).select().single();
+       inserted = retry.data;
+       error = retry.error;
+    }
+    if (error && error.message && error.message.includes("Could not find the 'next_payment_date' column")) {
+       delete payload.next_payment_date;
+       const retry = await supabase.from('payments').insert(payload).select().single();
+       inserted = retry.data;
+       error = retry.error;
+    }
+    if (error && error.message && error.message.includes("Could not find the 'academic_year' column")) {
+       delete payload.academic_year;
+       const retry = await supabase.from('payments').insert(payload).select().single();
+       inserted = retry.data;
+       error = retry.error;
+    }
 
     if (error) {
+       console.error("Payment insert error:", error);
        alert("Erreur lors de l'enregistrement: " + error.message);
        return;
     }

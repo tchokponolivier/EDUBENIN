@@ -140,12 +140,17 @@ export function ParentDashboard() {
         paysData.forEach((p: any) => {
           const sId = p.student_id;
           if (!grouped[sId]) grouped[sId] = [];
+          const student = (studentsData || []).find((s: any) => s.id === sId);
+          const sYear = student?.academic_year || student?.academicYear;
+          const itemYear = p.items?.find((it: any) => it.academic_year || it.academicYear)?.academic_year;
+          const resolvedYear = p.academic_year || p.academicYear || itemYear || sYear || "2024-2025";
           grouped[sId].push({
             ...p,
             studentId: p.student_id,
             schoolId: p.school_id,
             parentId: p.parent_id,
-            academic_year: p.academic_year || p.academicYear,
+            academic_year: resolvedYear,
+            academicYear: resolvedYear,
             date: new Date(p.created_at).getTime()
           });
         });

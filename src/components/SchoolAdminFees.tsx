@@ -53,6 +53,8 @@ export function SchoolAdminFees() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
+  const isAllLevelsSelected = selectedLevels.includes("ALL") || (LEVELS.length > 0 && LEVELS.every(l => selectedLevels.includes(l)));
+
   const fetchAcademicYears = async () => {
     try {
       if (user?.schoolId) {
@@ -375,34 +377,46 @@ export function SchoolAdminFees() {
                 <span className="truncate">
                   {selectedLevels.length === 0 
                     ? "Sélectionner des classes" 
-                    : selectedLevels.includes("ALL") 
-                    ? "Toutes les classes" 
+                    : isAllLevelsSelected 
+                    ? `Toutes les classes (${LEVELS.length})` 
+                    : selectedLevels.length > 3
+                    ? `${selectedLevels.length} classes sélectionnées`
                     : selectedLevels.join(", ")}
                 </span>
                 <ChevronDown size={16} className="text-slate-400" />
               </button>
               {showLevelsDropdown && (
                 <div className="absolute top-full left-0 right-0 mt-1 max-h-60 overflow-y-auto bg-white border border-slate-200 shadow-xl rounded-lg z-50 p-2 grid grid-cols-2 gap-2">
-                  <label className="flex items-center gap-2 text-sm cursor-pointer col-span-full border-b border-slate-100 pb-2 mb-1">
+                  <label className="flex items-center gap-2 text-sm cursor-pointer col-span-full border-b border-slate-100 pb-2 mb-1 hover:bg-slate-50 p-1 rounded">
                     <input 
                       type="checkbox" 
-                      checked={selectedLevels.includes("ALL")} 
+                      checked={isAllLevelsSelected} 
                       onChange={(e) => { 
-                        if (e.target.checked) setSelectedLevels(["ALL"]); 
-                        else setSelectedLevels([]); 
+                        if (e.target.checked) {
+                          setSelectedLevels([...LEVELS]); 
+                        } else {
+                          setSelectedLevels([]); 
+                        }
                       }} 
                       className="rounded text-emerald-600 focus:ring-emerald-500" 
                     />
                     <span className="font-semibold text-gray-700">Toutes les classes</span>
+                    <span className="text-xs text-slate-400 font-normal ml-auto">({LEVELS.length} classes)</span>
                   </label>
                   {LEVELS.map(l => (
                     <label key={l} className="flex items-center gap-2 text-sm cursor-pointer hover:bg-slate-50 p-1 rounded">
                       <input 
                         type="checkbox" 
-                        checked={selectedLevels.includes(l)} 
+                        checked={selectedLevels.includes(l) || selectedLevels.includes("ALL")} 
                         onChange={(e) => { 
-                          if (e.target.checked) setSelectedLevels(prev => prev.filter(p => p !== "ALL").concat(l)); 
-                          else setSelectedLevels(prev => prev.filter(p => p !== l)); 
+                          if (e.target.checked) {
+                            const base = selectedLevels.includes("ALL") ? [...LEVELS] : [...selectedLevels];
+                            if (!base.includes(l)) base.push(l);
+                            setSelectedLevels(base);
+                          } else {
+                            const base = selectedLevels.includes("ALL") ? [...LEVELS] : [...selectedLevels];
+                            setSelectedLevels(base.filter(p => p !== l && p !== "ALL"));
+                          }
                         }} 
                         className="rounded text-emerald-600 focus:ring-emerald-500" 
                       />
@@ -560,7 +574,7 @@ export function SchoolAdminFees() {
                    <button 
                      onClick={(e) => { 
                        e.stopPropagation();
-                       setSelectedLevels([fee.level]);
+                       setSelectedLevels(fee.level === 'ALL' ? [...LEVELS] : [fee.level]);
                        setFeeType(fee.feeType);
                        setAmount(fee.amount.toString());
                        if (fee.academic_year) setFormYear(fee.academic_year);

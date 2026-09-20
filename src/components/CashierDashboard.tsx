@@ -36,6 +36,7 @@ export function CashierDashboard() {
            studentId: d.student_id,
            amount: d.amount,
            paymentDate: d.payment_date || d.created_at,
+           date: d.payment_date ? new Date(d.payment_date).getTime() : new Date(d.created_at).getTime(),
            paymentMethod: d.payment_method || d.network || 'CASH',
            reference: d.reference,
            status: d.status,

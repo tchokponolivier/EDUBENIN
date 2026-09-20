@@ -163,15 +163,23 @@ export function ParentPayments() {
 
         const activeYear = years.find(y => y.status === 'ACTIVE')?.name || years[0].name;
 
-        const pays = (paysRes.data || []).map((d: any) => ({
-          ...d, 
-          studentId: d.student_id, 
-          schoolId: d.school_id, 
-          parentId: d.parent_id, 
-          createdAt: d.created_at, 
-          date: new Date(d.created_at).getTime(),
-          academic_year: d.academic_year || d.academicYear
-        }));
+        const pays = (paysRes.data || []).map((d: any) => {
+          const child = kids.find(k => k.id === d.student_id);
+          const childYear = (child as any)?.academic_year || (child as any)?.academicYear;
+          const itemYear = d.items?.find((it: any) => it.academic_year || it.academicYear)?.academic_year;
+          const resolvedYear = d.academic_year || d.academicYear || itemYear || childYear || "2024-2025";
+          return {
+            ...d, 
+            studentId: d.student_id, 
+            schoolId: d.school_id, 
+            parentId: d.parent_id, 
+            createdAt: d.created_at, 
+            date: new Date(d.created_at).getTime(),
+            items: d.items || [],
+            academic_year: resolvedYear,
+            academicYear: resolvedYear
+          };
+        });
         
         pays.sort((a: any, b: any) => b.date - a.date);
         setAllPayments(pays);
@@ -483,9 +491,15 @@ const confirmPayment = async () => {
     }
 
     const paymentYear = payFilterYear || (child as any).academic_year || (child as any).academicYear || "2024-2025";
+    const paymentItems = currentPaymentItemsTemplate.map(i => ({
+      id: i.id,
+      name: i.name,
+      amount: i.amount,
+      academic_year: paymentYear
+    }));
     
     // Attempt insert into Supabase
-    const { data: inserted, error } = await supabase.from('payments').insert({
+    const payload: any = {
        school_id: child.schoolId || user.schoolId || (child as any).school_id,
        student_id: selectedChildId,
        parent_id: user.id,
@@ -493,13 +507,35 @@ const confirmPayment = async () => {
        status: 'PENDING',
        network: network,
        reference: reference,
-       academic_year: paymentYear,
+       items: paymentItems,
        next_payment_date: (hasPartialPayment && nextPaymentDate) ? nextPaymentDate : null
-    }).select().single();
+    };
+
+    let { data: inserted, error } = await supabase.from('payments').insert(payload).select().single();
+
+    // Fallbacks if optional columns don't exist in Supabase schema cache
+    if (error && error.message && error.message.includes("Could not find the 'items' column")) {
+       delete payload.items;
+       const retry = await supabase.from('payments').insert(payload).select().single();
+       inserted = retry.data;
+       error = retry.error;
+    }
+    if (error && error.message && error.message.includes("Could not find the 'next_payment_date' column")) {
+       delete payload.next_payment_date;
+       const retry = await supabase.from('payments').insert(payload).select().single();
+       inserted = retry.data;
+       error = retry.error;
+    }
+    if (error && error.message && error.message.includes("Could not find the 'academic_year' column")) {
+       delete payload.academic_year;
+       const retry = await supabase.from('payments').insert(payload).select().single();
+       inserted = retry.data;
+       error = retry.error;
+    }
     
     if (error) {
-       console.error(error);
-       alert("Erreur lors de l'enregistrement de la transaction.");
+       console.error("Payment insert error:", error);
+       alert("Erreur lors de l'enregistrement de la transaction: " + (error.message || ""));
        return;
     }
     

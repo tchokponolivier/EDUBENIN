@@ -156,13 +156,19 @@ export interface Payment {
   schoolId: string;
   amount: number;
   date?: number;
-  network?: "Moov Bénin" | "MTN Bénin" | "Celtiis Bénin" | "CASH";
+  network?: "Moov Bénin" | "MTN Bénin" | "Celtiis Bénin" | "CASH" | "ESPÈCES";
   paymentMethod?: string;
   paymentDate?: string;
   status: "PENDING" | "COMPLETED" | "FAILED";
   reference: string;
-  items?: { id?: string; name: string; amount: number; remaining?: number }[];
+  items?: { id?: string; name: string; amount: number; remaining?: number; academic_year?: string }[];
   nextPaymentDate?: string;
+  recordedByRole?: "PARENT" | "CASHIER" | "SCHOOL_ADMIN" | "DIRECTOR_OF_STUDIES" | "SECRETARY" | string;
+  recordedByName?: string;
+  recordedById?: string;
+  validatedByRole?: string;
+  validatedByName?: string;
+  validatedAt?: string | number;
 }
 
 export interface AttendanceRecord {

@@ -1,66 +1,153 @@
 import React, { useState, useEffect } from "react";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../lib/auth";
-import { CheckCircle2, XCircle, Search, Calendar, RefreshCcw, Bell, Clock, AlertTriangle } from "lucide-react";
-import { Payment } from "../types";
+import { 
+  CheckCircle2, 
+  XCircle, 
+  Search, 
+  RefreshCcw, 
+  Bell, 
+  Clock, 
+  AlertTriangle,
+  History,
+  CheckCircle,
+  X,
+  Filter,
+  Users
+} from "lucide-react";
+import { PaymentActorBadge } from "./PaymentActorBadge";
 
 export function CashierVerification() {
   const { user } = useAuth();
   const [payments, setPayments] = useState<any[]>([]);
+  const [processedPayments, setProcessedPayments] = useState<any[]>([]);
+  const [profiles, setProfiles] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadingProcessed, setLoadingProcessed] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
+
+  // Filters for processed transactions
+  const [processedFilterStatus, setProcessedFilterStatus] = useState<"ALL" | "COMPLETED" | "FAILED">("ALL");
+  const [processedSearch, setProcessedSearch] = useState("");
+  const [processedFilterActor, setProcessedFilterActor] = useState("ALL");
 
   const fetchPayments = async () => {
     if (!user?.schoolId) return;
     setLoading(true);
     
-    // Attempt with relational students join
-    let res = await supabase
-      .from('payments')
-      .select('*, students(first_name, last_name, level, academic_year, parent_id)')
-      .eq('school_id', user.schoolId)
-      .eq('status', 'PENDING')
-      .order('created_at', { ascending: false });
-    
-    // If foreign key join fails, fetch plain payments and attach students
-    if (res.error) {
-      console.warn("Retrying fetchPayments without relational join:", res.error);
-      const [plainPays, studentsRes] = await Promise.all([
-        supabase.from('payments').select('*').eq('school_id', user.schoolId).eq('status', 'PENDING').order('created_at', { ascending: false }),
-        supabase.from('students').select('*').eq('school_id', user.schoolId)
-      ]);
-      if (plainPays.data) {
-        const studentMap = new Map((studentsRes.data || []).map((s: any) => [s.id, s]));
-        const merged = plainPays.data.map((p: any) => ({
-          ...p,
-          students: studentMap.get(p.student_id) || null
-        }));
-        setPayments(merged);
+    try {
+      // 1. Fetch pending payments
+      let res = await supabase
+        .from('payments')
+        .select('*, students(first_name, last_name, level, academic_year, parent_id)')
+        .eq('school_id', user.schoolId)
+        .eq('status', 'PENDING')
+        .order('created_at', { ascending: false });
+      
+      // If foreign key join fails, fetch plain payments and attach students
+      if (res.error) {
+        console.warn("Retrying fetchPayments without relational join:", res.error);
+        const [plainPays, studentsRes] = await Promise.all([
+          supabase.from('payments').select('*').eq('school_id', user.schoolId).eq('status', 'PENDING').order('created_at', { ascending: false }),
+          supabase.from('students').select('*').eq('school_id', user.schoolId)
+        ]);
+        if (plainPays.data) {
+          const studentMap = new Map((studentsRes.data || []).map((s: any) => [s.id, s]));
+          const merged = plainPays.data.map((p: any) => ({
+            ...p,
+            students: studentMap.get(p.student_id) || null
+          }));
+          setPayments(merged);
+        }
+      } else if (res.data) {
+        const hasMissingStudents = res.data.some((p: any) => !p.students && p.student_id);
+        if (hasMissingStudents) {
+          const { data: studentsData } = await supabase.from('students').select('*').eq('school_id', user.schoolId);
+          const studentMap = new Map((studentsData || []).map((s: any) => [s.id, s]));
+          const merged = res.data.map((p: any) => ({
+            ...p,
+            students: p.students || studentMap.get(p.student_id) || null
+          }));
+          setPayments(merged);
+        } else {
+          setPayments(res.data);
+        }
       }
-    } else if (res.data) {
-      // Ensure students object is present if null in join
-      const hasMissingStudents = res.data.some((p: any) => !p.students && p.student_id);
-      if (hasMissingStudents) {
-        const { data: studentsData } = await supabase.from('students').select('*').eq('school_id', user.schoolId);
-        const studentMap = new Map((studentsData || []).map((s: any) => [s.id, s]));
-        const merged = res.data.map((p: any) => ({
-          ...p,
-          students: p.students || studentMap.get(p.student_id) || null
-        }));
-        setPayments(merged);
-      } else {
-        setPayments(res.data);
+
+      // Fetch profiles to map actor names if needed
+      try {
+        const { data: profs } = await supabase.from('profiles').select('id, full_name, role').eq('school_id', user.schoolId);
+        if (profs) setProfiles(profs);
+      } catch (err) {
+        console.warn("Could not load profiles:", err);
       }
+
+    } catch (err) {
+      console.error("Error fetching pending payments:", err);
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
+  };
+
+  const fetchProcessedPayments = async () => {
+    if (!user?.schoolId) return;
+    setLoadingProcessed(true);
+    try {
+      let res = await supabase
+        .from('payments')
+        .select('*, students(first_name, last_name, level, academic_year, parent_id)')
+        .eq('school_id', user.schoolId)
+        .in('status', ['COMPLETED', 'FAILED'])
+        .order('created_at', { ascending: false })
+        .limit(100);
+
+      if (res.error) {
+        const [plainPays, studentsRes] = await Promise.all([
+          supabase.from('payments').select('*').eq('school_id', user.schoolId).in('status', ['COMPLETED', 'FAILED']).order('created_at', { ascending: false }).limit(100),
+          supabase.from('students').select('*').eq('school_id', user.schoolId)
+        ]);
+        if (plainPays.data) {
+          const studentMap = new Map((studentsRes.data || []).map((s: any) => [s.id, s]));
+          const merged = plainPays.data.map((p: any) => ({
+            ...p,
+            students: studentMap.get(p.student_id) || null
+          }));
+          setProcessedPayments(merged);
+        }
+      } else if (res.data) {
+        const hasMissingStudents = res.data.some((p: any) => !p.students && p.student_id);
+        if (hasMissingStudents) {
+          const { data: studentsData } = await supabase.from('students').select('*').eq('school_id', user.schoolId);
+          const studentMap = new Map((studentsData || []).map((s: any) => [s.id, s]));
+          const merged = res.data.map((p: any) => ({
+            ...p,
+            students: p.students || studentMap.get(p.student_id) || null
+          }));
+          setProcessedPayments(merged);
+        } else {
+          setProcessedPayments(res.data);
+        }
+      }
+    } catch (err) {
+      console.error("Error fetching processed payments:", err);
+    } finally {
+      setLoadingProcessed(false);
+    }
   };
 
   useEffect(() => {
     fetchPayments();
+    fetchProcessedPayments();
 
-    // Auto-refresh pending list every 15 seconds
-    const interval = setInterval(fetchPayments, 15 * 1000);
-    const handleRefresh = () => fetchPayments();
+    const interval = setInterval(() => {
+      fetchPayments();
+      fetchProcessedPayments();
+    }, 15 * 1000);
+
+    const handleRefresh = () => {
+      fetchPayments();
+      fetchProcessedPayments();
+    };
     window.addEventListener('refresh_notifications', handleRefresh);
 
     return () => {
@@ -73,10 +160,23 @@ export function CashierVerification() {
     const studentName = payment.students ? `${payment.students.first_name} ${payment.students.last_name}` : "l'élève";
     if (!window.confirm(`Confirmer et valider la réception du paiement de ${Number(payment.amount).toLocaleString()} FCFA pour ${studentName} ?\n\nUne fois validée, la transaction sera intégrée à l'historique global et le parent en sera notifié.`)) return;
     
-    const { error } = await supabase
+    const updatePayload: any = { 
+      status: 'COMPLETED',
+      validated_at: new Date().toISOString(),
+      validated_by_role: user?.role === "SCHOOL_ADMIN" ? "DIRECTEUR" : "CAISSE",
+      validated_by_name: user?.name || (user?.role === "SCHOOL_ADMIN" ? "Directeur" : "Caisse")
+    };
+
+    let { error } = await supabase
        .from('payments')
-       .update({ status: 'COMPLETED' })
+       .update(updatePayload)
        .eq('id', payment.id);
+
+    // If custom validated_at columns don't exist in Supabase schema cache
+    if (error && error.message && (error.message.includes("validated") || error.message.includes("Could not find"))) {
+      const retry = await supabase.from('payments').update({ status: 'COMPLETED' }).eq('id', payment.id);
+      error = retry.error;
+    }
        
     if (error) {
        alert("Erreur lors de la validation: " + error.message);
@@ -108,10 +208,22 @@ export function CashierVerification() {
     const studentName = payment.students ? `${payment.students.first_name} ${payment.students.last_name}` : "l'élève";
     if (!window.confirm(`Rejeter définitivement ce paiement pour ${studentName} ? (Transaction introuvable ou invalide)`)) return;
     
-    const { error } = await supabase
+    const updatePayload: any = { 
+      status: 'FAILED',
+      validated_at: new Date().toISOString(),
+      validated_by_role: user?.role === "SCHOOL_ADMIN" ? "DIRECTEUR" : "CAISSE",
+      validated_by_name: user?.name || (user?.role === "SCHOOL_ADMIN" ? "Directeur" : "Caisse")
+    };
+
+    let { error } = await supabase
        .from('payments')
-       .update({ status: 'FAILED' })
+       .update(updatePayload)
        .eq('id', payment.id);
+
+    if (error && error.message && (error.message.includes("validated") || error.message.includes("Could not find"))) {
+      const retry = await supabase.from('payments').update({ status: 'FAILED' }).eq('id', payment.id);
+      error = retry.error;
+    }
        
     if (error) {
        alert("Erreur lors du rejet: " + error.message);
@@ -123,171 +235,375 @@ export function CashierVerification() {
     setRefreshKey(k => k + 1);
   };
 
-  if (loading && payments.length === 0) return <div className="p-8 text-center text-slate-500">Chargement des vérifications...</div>;
+  // Filter processed items
+  const filteredProcessed = processedPayments.filter(p => {
+    const studentName = p.students ? `${p.students.first_name} ${p.students.last_name}`.toLowerCase() : "";
+    const ref = (p.reference || "").toLowerCase();
+    const query = processedSearch.toLowerCase();
+    const matchSearch = studentName.includes(query) || ref.includes(query);
+
+    if (processedFilterStatus !== "ALL" && p.status !== processedFilterStatus) return false;
+
+    if (processedFilterActor !== "ALL") {
+      const role = (p.recorded_by_role || p.recordedByRole || "").toUpperCase();
+      if (processedFilterActor === "PARENT") {
+        const isParent = role === "PARENT" || Boolean(p.parent_id);
+        if (!isParent) return false;
+      } else if (processedFilterActor === "CAISSE") {
+        const isCaisse = role === "CASHIER" || (!p.parent_id && (p.network === "ESPÈCES" || p.network === "CASH"));
+        if (!isCaisse) return false;
+      } else if (processedFilterActor === "DIRECTEUR") {
+        const isDir = role === "SCHOOL_ADMIN" || role === "DIRECTEUR";
+        if (!isDir) return false;
+      }
+    }
+
+    return matchSearch;
+  });
+
+  if (loading && payments.length === 0 && processedPayments.length === 0) {
+    return <div className="p-8 text-center text-slate-500">Chargement des vérifications...</div>;
+  }
 
   return (
-    <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-      <div className="p-4 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-        <div className="flex items-center gap-2">
-           <RefreshCcw size={18} className="text-amber-500" /> 
-           <h3 className="font-bold text-gray-700">Transactions en attente de vérification</h3>
-           {payments.length > 0 && (
-             <span className="px-2 py-0.5 bg-amber-500 text-white rounded-full text-[11px] font-bold animate-pulse">
-               {payments.length}
-             </span>
-           )}
+    <div className="flex flex-col gap-6">
+      {/* 1. SECTION: Transactions en attente de vérification */}
+      <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+        <div className="p-4 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
+            <RefreshCcw size={18} className="text-amber-500" /> 
+            <h3 className="font-bold text-gray-800">Transactions en attente de vérification</h3>
+            {payments.length > 0 && (
+              <span className="px-2 py-0.5 bg-amber-500 text-white rounded-full text-[11px] font-bold animate-pulse">
+                {payments.length}
+              </span>
+            )}
+          </div>
+          <button 
+            onClick={() => { fetchPayments(); fetchProcessedPayments(); }} 
+            className="flex items-center gap-1.5 px-3 py-1.5 text-xs text-slate-600 hover:text-gray-800 bg-slate-100 hover:bg-slate-200 rounded-md transition-colors self-end sm:self-auto font-medium"
+          >
+            <RefreshCcw size={12} /> Actualiser
+          </button>
         </div>
-        <button 
-          onClick={fetchPayments} 
-          className="flex items-center gap-1.5 px-3 py-1.5 text-xs text-slate-600 hover:text-gray-800 bg-slate-100 hover:bg-slate-200 rounded-md transition-colors self-end sm:self-auto font-medium"
-        >
-          <RefreshCcw size={12} /> Actualiser
-        </button>
+
+        {payments.length > 0 && (
+          <div className="mx-4 mt-4 p-3 bg-amber-50 border border-amber-200 rounded-lg flex items-center gap-3 text-xs text-amber-900">
+            <Bell size={16} className="text-amber-600 shrink-0" />
+            <span>
+              <strong>Alerte Vérification :</strong> Vous avez <strong>{payments.length} encaissement(s)</strong> en attente. Vérifiez les informations et qui a initié l'encaissement (Parent, Caisse, Directeur) puis cliquez sur <strong>Valider</strong> pour l'intégrer à l'historique global.
+            </span>
+          </div>
+        )}
+        
+        {payments.length === 0 ? (
+          <div className="p-10 text-center text-slate-500">
+            <div className="w-12 h-12 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center mx-auto mb-3">
+              <CheckCircle2 size={24} />
+            </div>
+            <p className="font-semibold text-gray-700 text-sm">Toutes les transactions sont vérifiées</p>
+            <p className="text-xs text-slate-400 mt-1">Aucune transaction en attente de validation par la caisse.</p>
+          </div>
+        ) : (
+          <div className="p-0">
+            {/* Mobile Card View */}
+            <div className="sm:hidden divide-y divide-slate-100">
+              {payments.map(p => {
+                const studentName = p.students ? `${p.students.first_name} ${p.students.last_name}` : "Inconnu";
+                const dateObj = new Date(p.created_at || p.payment_date);
+                const dateStr = !isNaN(dateObj.getTime()) ? dateObj.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '-';
+                const timeStr = !isNaN(dateObj.getTime()) ? dateObj.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }) : '';
+                
+                return (
+                  <div key={p.id} className="p-4 flex flex-col gap-2.5 hover:bg-slate-50 transition-colors">
+                    <div className="flex items-center justify-between">
+                      <span className="font-bold text-gray-800 text-sm">{studentName}</span>
+                      <span className="font-mono font-bold text-amber-600 text-sm">{Number(p.amount).toLocaleString()} FCFA</span>
+                    </div>
+
+                    <div className="flex items-center justify-between text-xs text-slate-500">
+                      <span>{p.students?.level} • {p.students?.academic_year || 'Année standard'}</span>
+                      <span className="flex items-center gap-1 font-mono text-gray-700 text-xs font-semibold">
+                        <Clock size={12} className="text-amber-600" />
+                        <span>{dateStr} à {timeStr || '--:--'}</span>
+                      </span>
+                    </div>
+
+                    {/* Initié par */}
+                    <div className="flex items-center justify-between py-1 px-2 bg-slate-50 rounded text-xs border border-slate-100">
+                      <span className="text-[11px] font-medium text-slate-500">Initié par :</span>
+                      <PaymentActorBadge payment={p} profiles={profiles} />
+                    </div>
+
+                    <div className="flex items-center justify-between pt-2 border-t border-slate-100 text-xs">
+                      <div className="flex items-center gap-1.5">
+                        <span className="px-2 py-0.5 bg-slate-100 text-slate-700 text-[10px] font-bold rounded">
+                          {p.network || 'Caisse'}
+                        </span>
+                        <span className="font-mono text-slate-400 text-[10px]">({p.reference})</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <button 
+                          onClick={() => handleValidate(p)} 
+                          className="flex items-center gap-1 px-2.5 py-1 bg-emerald-600 text-white rounded text-xs font-bold hover:bg-emerald-700 transition-colors"
+                          title="Valider la transaction"
+                        >
+                          <CheckCircle2 size={14} /> Valider
+                        </button>
+                        <button 
+                          onClick={() => handleReject(p)} 
+                          className="p-1 text-red-600 hover:bg-red-50 rounded"
+                          title="Rejeter"
+                        >
+                          <XCircle size={18} />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Desktop Table View */}
+            <div className="hidden sm:block overflow-x-auto">
+              <table className="w-full text-left border-collapse">
+                <thead>
+                  <tr className="bg-slate-50 border-b border-slate-200 text-[10px] uppercase tracking-wider text-slate-500">
+                    <th className="p-3 font-semibold">Date & Heure</th>
+                    <th className="p-3 font-semibold">Référence</th>
+                    <th className="p-3 font-semibold">Élève</th>
+                    <th className="p-3 font-semibold">Initié par</th>
+                    <th className="p-3 font-semibold">Moyen / Réseau</th>
+                    <th className="p-3 font-semibold text-right">Montant</th>
+                    <th className="p-3 font-semibold text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {payments.map(p => {
+                    const studentName = p.students ? `${p.students.first_name} ${p.students.last_name}` : "Inconnu";
+                    const dateObj = new Date(p.created_at || p.payment_date);
+                    const dateStr = !isNaN(dateObj.getTime()) ? dateObj.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '-';
+                    const timeStr = !isNaN(dateObj.getTime()) ? dateObj.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }) : '';
+                    
+                    return (
+                      <tr key={p.id} className="border-b border-slate-100 hover:bg-slate-50/50">
+                        <td className="p-3">
+                           <div className="flex flex-col">
+                             <span className="text-xs font-semibold text-gray-800">{dateStr}</span>
+                             {timeStr && (
+                               <span className="text-[11px] text-amber-700 font-mono font-medium flex items-center gap-1 mt-0.5">
+                                 <Clock size={11} className="text-amber-600" />
+                                 {timeStr}
+                               </span>
+                             )}
+                           </div>
+                        </td>
+                        <td className="p-3">
+                           <span className="text-[11px] text-slate-500 font-mono">{p.reference}</span>
+                        </td>
+                        <td className="p-3">
+                           <p className="text-xs font-bold text-gray-700">{studentName}</p>
+                           <p className="text-[10px] text-slate-500">{p.students?.level} • {p.students?.academic_year || 'Année standard'}</p>
+                        </td>
+                        <td className="p-3">
+                           <PaymentActorBadge payment={p} profiles={profiles} />
+                        </td>
+                        <td className="p-3">
+                           <span className="px-2 py-1 bg-slate-100 text-slate-700 text-[10px] font-bold rounded">
+                             {p.network || 'Caisse'}
+                           </span>
+                        </td>
+                        <td className="p-3 text-right">
+                           <span className="font-mono font-bold text-sm text-gray-800">{Number(p.amount).toLocaleString()} F</span>
+                        </td>
+                        <td className="p-3 text-right">
+                           <div className="flex items-center justify-end gap-2">
+                             <button 
+                               onClick={() => handleValidate(p)} 
+                               className="flex items-center gap-1 px-3 py-1.5 bg-emerald-600 text-white rounded text-xs font-bold hover:bg-emerald-700 transition-colors shadow-sm"
+                               title="Valider et intégrer à l'historique global"
+                             >
+                               <CheckCircle2 size={15} /> Valider
+                             </button>
+                             <button 
+                               onClick={() => handleReject(p)} 
+                               className="p-1.5 text-red-600 hover:bg-red-50 rounded transition-colors" 
+                               title="Rejeter"
+                             >
+                               <XCircle size={18} />
+                             </button>
+                           </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
       </div>
 
-      {payments.length > 0 && (
-        <div className="mx-4 mt-4 p-3 bg-amber-50 border border-amber-200 rounded-lg flex items-center gap-2.5 text-xs text-amber-900">
-          <Bell size={16} className="text-amber-600 shrink-0" />
-          <span>
-            <strong>Alerte Vérification :</strong> Vous avez <strong>{payments.length} encaissement(s)</strong> en attente. Vérifiez les références et cliquez sur <strong>Valider</strong> pour les intégrer à l'historique financier et notifier le parent.
-          </span>
-        </div>
-      )}
-      
-      {payments.length === 0 ? (
-        <div className="p-12 text-center text-slate-500">
-          <div className="w-12 h-12 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center mx-auto mb-3">
-            <CheckCircle2 size={24} />
-          </div>
-          <p className="font-semibold text-gray-700 text-sm">Toutes les transactions sont vérifiées</p>
-          <p className="text-xs text-slate-400 mt-1">Aucune transaction en attente de validation par la caisse.</p>
-        </div>
-      ) : (
-        <div className="p-0">
-          {/* Mobile Card View */}
-          <div className="sm:hidden divide-y divide-slate-100">
-            {payments.map(p => {
-              const studentName = p.students ? `${p.students.first_name} ${p.students.last_name}` : "Inconnu";
-              const dateObj = new Date(p.created_at || p.payment_date);
-              const dateStr = !isNaN(dateObj.getTime()) ? dateObj.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '-';
-              const timeStr = !isNaN(dateObj.getTime()) ? dateObj.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }) : '';
-              
-              return (
-                <div key={p.id} className="p-4 flex flex-col gap-2 hover:bg-slate-50 transition-colors">
-                  <div className="flex items-center justify-between">
-                    <span className="font-bold text-gray-800 text-sm">{studentName}</span>
-                    <span className="font-mono font-bold text-amber-600 text-sm">{Number(p.amount).toLocaleString()} FCFA</span>
-                  </div>
-                  <div className="flex items-center justify-between text-xs text-slate-500">
-                    <span>{p.students?.level} • {p.students?.academic_year || 'Année standard'}</span>
-                    <span className="flex items-center gap-1 font-mono text-gray-700 text-xs font-semibold">
-                      <Clock size={12} className="text-amber-600" />
-                      <span>{dateStr} à {timeStr || '--:--'}</span>
-                    </span>
-                  </div>
-                  <div className="flex items-center justify-between pt-2 border-t border-slate-100 text-xs">
-                    <div className="flex items-center gap-1.5">
-                      <span className="px-2 py-0.5 bg-slate-100 text-slate-700 text-[10px] font-bold rounded">
-                        {p.network || 'Caisse'}
-                      </span>
-                      <span className="font-mono text-slate-400 text-[10px]">({p.reference})</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <button 
-                        onClick={() => handleValidate(p)} 
-                        className="flex items-center gap-1 px-2.5 py-1 bg-emerald-600 text-white rounded text-xs font-bold hover:bg-emerald-700 transition-colors"
-                        title="Valider la transaction"
-                      >
-                        <CheckCircle2 size={14} /> Valider
-                      </button>
-                      <button 
-                        onClick={() => handleReject(p)} 
-                        className="p-1 text-red-600 hover:bg-red-50 rounded"
-                        title="Rejeter"
-                      >
-                        <XCircle size={18} />
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
+      {/* 2. SECTION: Transactions validées ou refusées */}
+      <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+        <div className="p-4 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="flex items-center gap-2">
+            <History size={18} className="text-slate-600" />
+            <h3 className="font-bold text-gray-800">Transactions validées ou refusées</h3>
+            <span className="text-xs text-slate-400">({filteredProcessed.length} enregistrement{filteredProcessed.length > 1 ? 's' : ''})</span>
           </div>
 
-          {/* Desktop Table View */}
-          <div className="hidden sm:block overflow-x-auto">
-            <table className="w-full text-left border-collapse">
-              <thead>
-                <tr className="bg-slate-50 border-b border-slate-200 text-[10px] uppercase tracking-wider text-slate-500">
-                  <th className="p-3 font-semibold">Date & Heure</th>
-                  <th className="p-3 font-semibold">Référence</th>
-                  <th className="p-3 font-semibold">Élève</th>
-                  <th className="p-3 font-semibold">Moyen / Réseau</th>
-                  <th className="p-3 font-semibold text-right">Montant</th>
-                  <th className="p-3 font-semibold text-right">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {payments.map(p => {
-                  const studentName = p.students ? `${p.students.first_name} ${p.students.last_name}` : "Inconnu";
-                  const dateObj = new Date(p.created_at || p.payment_date);
-                  const dateStr = !isNaN(dateObj.getTime()) ? dateObj.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '-';
-                  const timeStr = !isNaN(dateObj.getTime()) ? dateObj.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }) : '';
-                  
-                  return (
-                    <tr key={p.id} className="border-b border-slate-100 hover:bg-slate-50/50">
-                      <td className="p-3">
-                         <div className="flex flex-col">
-                           <span className="text-xs font-semibold text-gray-800">{dateStr}</span>
-                           {timeStr && (
-                             <span className="text-[11px] text-amber-700 font-mono font-medium flex items-center gap-1 mt-0.5">
-                               <Clock size={11} className="text-amber-600" />
-                               {timeStr}
-                             </span>
-                           )}
-                         </div>
-                      </td>
-                      <td className="p-3">
-                         <span className="text-[11px] text-slate-500 font-mono">{p.reference}</span>
-                      </td>
-                      <td className="p-3">
-                         <p className="text-xs font-bold text-gray-700">{studentName}</p>
-                         <p className="text-[10px] text-slate-500">{p.students?.level} • {p.students?.academic_year || 'Année standard'}</p>
-                      </td>
-                      <td className="p-3">
-                         <span className="px-2 py-1 bg-slate-100 text-slate-700 text-[10px] font-bold rounded">
-                           {p.network || 'Caisse'}
-                         </span>
-                      </td>
-                      <td className="p-3 text-right">
-                         <span className="font-mono font-bold text-sm text-gray-800">{Number(p.amount).toLocaleString()} F</span>
-                      </td>
-                      <td className="p-3 text-right">
-                         <div className="flex items-center justify-end gap-2">
-                           <button 
-                             onClick={() => handleValidate(p)} 
-                             className="flex items-center gap-1 px-3 py-1.5 bg-emerald-600 text-white rounded text-xs font-bold hover:bg-emerald-700 transition-colors shadow-sm"
-                             title="Valider et intégrer à l'historique"
-                           >
-                             <CheckCircle2 size={15} /> Valider
-                           </button>
-                           <button 
-                             onClick={() => handleReject(p)} 
-                             className="p-1.5 text-red-600 hover:bg-red-50 rounded transition-colors" 
-                             title="Rejeter"
-                           >
-                             <XCircle size={18} />
-                           </button>
-                         </div>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+          {/* Filters */}
+          <div className="flex flex-wrap items-center gap-2">
+            <select
+              value={processedFilterStatus}
+              onChange={e => setProcessedFilterStatus(e.target.value as any)}
+              className="px-2.5 py-1.5 border border-slate-200 rounded-md text-xs font-semibold focus:ring-emerald-500 outline-none"
+            >
+              <option value="ALL">Tous les statuts</option>
+              <option value="COMPLETED">Validées</option>
+              <option value="FAILED">Refusées / Rejetées</option>
+            </select>
+
+            <select
+              value={processedFilterActor}
+              onChange={e => setProcessedFilterActor(e.target.value)}
+              className="px-2.5 py-1.5 border border-slate-200 rounded-md text-xs focus:ring-emerald-500 outline-none"
+            >
+              <option value="ALL">Tous les initiateurs</option>
+              <option value="PARENT">Par Parent</option>
+              <option value="CAISSE">Par Caisse</option>
+              <option value="DIRECTEUR">Par Directeur / Direction</option>
+            </select>
+
+            <div className="relative">
+              <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
+              <input 
+                type="text" 
+                placeholder="Rechercher élève, réf..." 
+                value={processedSearch}
+                onChange={e => setProcessedSearch(e.target.value)}
+                className="pl-8 pr-3 py-1.5 border border-slate-200 rounded-md text-xs focus:ring-emerald-500 focus:border-emerald-500 outline-none w-44"
+              />
+            </div>
           </div>
         </div>
-      )}
+
+        {filteredProcessed.length === 0 ? (
+          <div className="p-8 text-center text-slate-400 text-xs">
+            Aucune transaction validée ou refusée correspondant aux filtres.
+          </div>
+        ) : (
+          <div className="p-0">
+            {/* Mobile View */}
+            <div className="sm:hidden divide-y divide-slate-100">
+              {filteredProcessed.map(p => {
+                const studentName = p.students ? `${p.students.first_name} ${p.students.last_name}` : "Inconnu";
+                const dateObj = new Date(p.created_at || p.payment_date);
+                const dateStr = !isNaN(dateObj.getTime()) ? dateObj.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '-';
+                const timeStr = !isNaN(dateObj.getTime()) ? dateObj.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }) : '';
+                const isCompleted = p.status === 'COMPLETED';
+
+                return (
+                  <div key={p.id} className="p-4 flex flex-col gap-2 hover:bg-slate-50">
+                    <div className="flex items-center justify-between">
+                      <span className="font-bold text-gray-800 text-sm">{studentName}</span>
+                      <span className={`font-mono font-bold text-sm ${isCompleted ? 'text-emerald-700' : 'text-red-600 line-through'}`}>
+                        {Number(p.amount).toLocaleString()} FCFA
+                      </span>
+                    </div>
+
+                    <div className="flex items-center justify-between text-xs text-slate-500">
+                      <span>{p.students?.level} • {p.students?.academic_year || 'Année standard'}</span>
+                      <span className="font-mono text-xs">{dateStr} {timeStr}</span>
+                    </div>
+
+                    <div className="flex items-center justify-between pt-1 text-xs">
+                      <PaymentActorBadge payment={p} profiles={profiles} />
+                      <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase border ${
+                        isCompleted 
+                          ? 'bg-emerald-50 text-emerald-700 border-emerald-200' 
+                          : 'bg-red-50 text-red-700 border-red-200'
+                      }`}>
+                        {isCompleted ? 'Validé' : 'Refusé'}
+                      </span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Desktop Table View */}
+            <div className="hidden sm:block overflow-x-auto">
+              <table className="w-full text-left border-collapse">
+                <thead>
+                  <tr className="bg-slate-50 border-b border-slate-200 text-[10px] uppercase tracking-wider text-slate-500">
+                    <th className="p-3 font-semibold">Date & Heure</th>
+                    <th className="p-3 font-semibold">Référence</th>
+                    <th className="p-3 font-semibold">Élève</th>
+                    <th className="p-3 font-semibold">Initié par</th>
+                    <th className="p-3 font-semibold">Moyen</th>
+                    <th className="p-3 font-semibold text-right">Montant</th>
+                    <th className="p-3 font-semibold text-center">Décision</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {filteredProcessed.map(p => {
+                    const studentName = p.students ? `${p.students.first_name} ${p.students.last_name}` : "Inconnu";
+                    const dateObj = new Date(p.created_at || p.payment_date);
+                    const dateStr = !isNaN(dateObj.getTime()) ? dateObj.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '-';
+                    const timeStr = !isNaN(dateObj.getTime()) ? dateObj.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }) : '';
+                    const isCompleted = p.status === 'COMPLETED';
+
+                    return (
+                      <tr key={p.id} className="hover:bg-slate-50/50">
+                        <td className="p-3 text-xs">
+                          <span className="font-semibold text-gray-800">{dateStr}</span>
+                          {timeStr && (
+                            <span className="text-[11px] text-slate-500 font-mono block mt-0.5">
+                              {timeStr}
+                            </span>
+                          )}
+                        </td>
+                        <td className="p-3">
+                          <span className="text-[11px] text-slate-400 font-mono">{p.reference}</span>
+                        </td>
+                        <td className="p-3">
+                          <p className="text-xs font-bold text-gray-700">{studentName}</p>
+                          <p className="text-[10px] text-slate-500">{p.students?.level} • {p.students?.academic_year || 'Année standard'}</p>
+                        </td>
+                        <td className="p-3">
+                          <PaymentActorBadge payment={p} profiles={profiles} />
+                        </td>
+                        <td className="p-3">
+                          <span className="px-2 py-0.5 bg-slate-100 text-slate-700 text-[10px] font-bold rounded">
+                            {p.network || 'Caisse'}
+                          </span>
+                        </td>
+                        <td className="p-3 text-right">
+                          <span className={`font-mono font-bold text-xs ${isCompleted ? 'text-gray-800' : 'text-red-500 line-through'}`}>
+                            {Number(p.amount).toLocaleString()} F
+                          </span>
+                        </td>
+                        <td className="p-3 text-center">
+                          <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase border ${
+                            isCompleted 
+                              ? 'bg-emerald-50 text-emerald-700 border-emerald-200' 
+                              : 'bg-red-50 text-red-700 border-red-200'
+                          }`}>
+                            {isCompleted ? <CheckCircle size={11} className="text-emerald-600" /> : <X size={11} className="text-red-600" />}
+                            {isCompleted ? 'Validé' : 'Refusé'}
+                          </span>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 }

@@ -11,6 +11,7 @@ import { CashierEnrollment } from "../components/CashierEnrollment";
 import { CashierSalaries } from "../components/CashierSalaries";
 import { CashierVerification } from "../components/CashierVerification";
 import { CashierDebts, parseDeadlineDate } from "../components/CashierDebts";
+import { PaymentActorBadge } from "../components/PaymentActorBadge";
 
 const getTranchesForLevel = (level: string) => {
   if (["Maternelle 1", "Maternelle 2"].includes(level)) {
@@ -116,11 +117,13 @@ export function SchoolAdminPayments() {
   }, [location.search]);
   const [payments, setPayments] = useState<Payment[]>([]);
   const [students, setStudents] = useState<Student[]>([]);
+  const [profiles, setProfiles] = useState<any[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [filterClass, setFilterClass] = useState("ALL");
   const [filterYear, setFilterYear] = useState("ALL");
   const [filterType, setFilterType] = useState("ALL");
   const [filterStatus, setFilterStatus] = useState<"COMPLETED" | "ALL" | "PENDING">("COMPLETED");
+  const [filterActor, setFilterActor] = useState("ALL");
 
   const pendingCount = useMemo(() => {
     return payments.filter(p => p.status === 'PENDING').length;
@@ -201,13 +204,15 @@ export function SchoolAdminPayments() {
     if (!user?.schoolId) return;
     
     try {
-      const [studentsRes, paymentsRes, yearsRes, settingsRes, feeConfigsRes] = await Promise.all([
+      const [studentsRes, paymentsRes, yearsRes, settingsRes, feeConfigsRes, profilesRes] = await Promise.all([
         supabase.from('students').select('*').eq('school_id', user.schoolId),
         supabase.from('payments').select('*').eq('school_id', user.schoolId),
         supabase.from('academic_years').select('id, name, status').eq('school_id', user.schoolId).order('created_at', { ascending: false }),
         supabase.from('schools').select('*').eq('id', user.schoolId).single(),
-        supabase.from('fee_config').select('*').eq('school_id', user.schoolId)
+        supabase.from('fee_config').select('*').eq('school_id', user.schoolId),
+        supabase.from('profiles').select('id, full_name, role').eq('school_id', user.schoolId)
       ]);
+      if (profilesRes.data) setProfiles(profilesRes.data);
       if (feeConfigsRes.data) setFeeConfigs(feeConfigsRes.data);
       if (yearsRes.data && yearsRes.data.length > 0) {
         setAcademicYears(yearsRes.data);
@@ -505,6 +510,9 @@ export function SchoolAdminPayments() {
     const schoolId = user?.schoolId || selectedStudent.schoolId || (selectedStudent as any).school_id;
     const parentId = selectedStudent.parentId || (selectedStudent as any).parent_id || null;
 
+    const roleForPayment = user?.role === "SCHOOL_ADMIN" ? "SCHOOL_ADMIN" : (user?.role === "CASHIER" ? "CASHIER" : (user?.role || "CASHIER"));
+    const nameForPayment = user?.name || (roleForPayment === "SCHOOL_ADMIN" ? "Directeur" : "Caisse");
+
     const payload: any = {
        school_id: schoolId,
        student_id: selectedStudent.id,
@@ -515,12 +523,23 @@ export function SchoolAdminPayments() {
        reference: reference,
        payment_date: new Date().toISOString(),
        items: items,
-       next_payment_date: (hasPartialPayment && nextPaymentDate) ? nextPaymentDate : null
+       next_payment_date: (hasPartialPayment && nextPaymentDate) ? nextPaymentDate : null,
+       recorded_by_role: roleForPayment,
+       recorded_by_name: nameForPayment,
+       recorded_by_id: user?.id || null
     };
 
     let { data: inserted, error } = await supabase.from('payments').insert(payload).select().single();
 
     // Fallbacks if optional columns don't exist in Supabase schema cache
+    if (error && error.message && (error.message.includes("recorded_by") || error.message.includes("Could not find the 'recorded_by"))) {
+       delete payload.recorded_by_role;
+       delete payload.recorded_by_name;
+       delete payload.recorded_by_id;
+       const retry = await supabase.from('payments').insert(payload).select().single();
+       inserted = retry.data;
+       error = retry.error;
+    }
     if (error && error.message && error.message.includes("Could not find the 'payment_date' column")) {
        delete payload.payment_date;
        const retry = await supabase.from('payments').insert(payload).select().single();
@@ -722,6 +741,21 @@ export function SchoolAdminPayments() {
     if (filterClass !== "ALL") {
        matchClass = student.level === filterClass;
     }
+
+    // Actor filter
+    if (filterActor !== "ALL") {
+      const role = ((p as any).recorded_by_role || (p as any).recordedByRole || "").toUpperCase();
+      if (filterActor === "PARENT") {
+        const isParent = role === "PARENT" || Boolean(p.parentId || (p as any).parent_id);
+        if (!isParent) return false;
+      } else if (filterActor === "CAISSE") {
+        const isCaisse = role === "CASHIER" || (!p.parentId && !(p as any).parent_id && (p.network === "ESPÈCES" || p.network === "CASH" || !p.network));
+        if (!isCaisse) return false;
+      } else if (filterActor === "DIRECTEUR") {
+        const isDir = role === "SCHOOL_ADMIN" || role === "DIRECTEUR";
+        if (!isDir) return false;
+      }
+    }
     
     return matchSearch && matchType && matchClass;
   });
@@ -831,6 +865,13 @@ export function SchoolAdminPayments() {
                  <option key={level} value={level}>{level}</option>
                ))}
              </select>
+
+             <select value={filterActor} onChange={e => setFilterActor(e.target.value)} className="px-3 py-1.5 border border-slate-200 rounded-md text-xs font-semibold focus:ring-emerald-500 outline-none">
+               <option value="ALL">Tous les initiateurs</option>
+               <option value="PARENT">👤 Par Parent</option>
+               <option value="CAISSE">💼 Par Caisse</option>
+               <option value="DIRECTEUR">🏫 Par Directeur</option>
+             </select>
              <div className="relative">
                <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
                <input 
@@ -899,7 +940,8 @@ export function SchoolAdminPayments() {
                        </span>
                        <span className="font-mono text-slate-400 text-[10px]">({payment.reference})</span>
                      </div>
-                     <div className="flex items-center gap-2">
+                     <div className="flex flex-wrap items-center gap-1.5">
+                       <PaymentActorBadge payment={payment} profiles={profiles} size="sm" showName={true} />
                        {payment.status === 'PENDING' ? (
                          <span className="px-2 py-0.5 bg-amber-100 text-amber-700 border border-amber-200 rounded-full text-[10px] font-bold uppercase">En Vérif.</span>
                        ) : (
@@ -931,6 +973,7 @@ export function SchoolAdminPayments() {
                  <th className="px-4 py-3">Date & Heure</th>
                  <th className="px-4 py-3">Référence</th>
                  <th className="px-4 py-3">Élève</th>
+                 <th className="px-4 py-3">Initié par</th>
                  <th className="px-4 py-3">Moyen</th>
                  <th className="px-4 py-3 text-right">Montant</th>
                  <th className="px-4 py-3 text-center">Statut</th>
@@ -940,7 +983,7 @@ export function SchoolAdminPayments() {
              <tbody className="divide-y divide-slate-100">
                {filteredPayments.length === 0 ? (
                  <tr>
-                   <td colSpan={7} className="p-8 text-center text-slate-500 text-xs">
+                   <td colSpan={8} className="p-8 text-center text-slate-500 text-xs">
                      Aucun encaissement trouvé pour ces critères.
                    </td>
                  </tr>
@@ -967,6 +1010,9 @@ export function SchoolAdminPayments() {
                        <td className="px-4 py-3">
                          <p className="text-xs font-semibold text-gray-700">{studentName}</p>
                          <p className="text-[10px] text-slate-500 mt-0.5">{student?.level || '-'} <span className="ml-1 px-1 bg-emerald-50 text-emerald-600 rounded font-semibold">{student?.academicYear || student?.academic_year || 'Année inconnue'}</span></p>
+                       </td>
+                       <td className="px-4 py-3">
+                         <PaymentActorBadge payment={payment} profiles={profiles} size="sm" showName={true} />
                        </td>
                        <td className="px-4 py-3">
                          <span className="px-2 py-0.5 bg-slate-100 text-slate-700 text-[10px] font-bold rounded">

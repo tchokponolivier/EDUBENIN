@@ -515,12 +515,23 @@ const confirmPayment = async () => {
        network: network,
        reference: reference,
        items: paymentItems,
-       next_payment_date: (hasPartialPayment && nextPaymentDate) ? nextPaymentDate : null
+       next_payment_date: (hasPartialPayment && nextPaymentDate) ? nextPaymentDate : null,
+       recorded_by_role: 'PARENT',
+       recorded_by_name: user.name || "Parent",
+       recorded_by_id: user.id
     };
 
     let { data: inserted, error } = await supabase.from('payments').insert(payload).select().single();
 
     // Fallbacks if optional columns don't exist in Supabase schema cache
+    if (error && error.message && (error.message.includes("recorded_by") || error.message.includes("Could not find the 'recorded_by"))) {
+       delete payload.recorded_by_role;
+       delete payload.recorded_by_name;
+       delete payload.recorded_by_id;
+       const retry = await supabase.from('payments').insert(payload).select().single();
+       inserted = retry.data;
+       error = retry.error;
+    }
     if (error && error.message && error.message.includes("Could not find the 'items' column")) {
        delete payload.items;
        const retry = await supabase.from('payments').insert(payload).select().single();

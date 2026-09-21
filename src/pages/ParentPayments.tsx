@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { Student, Payment, SchoolSettings } from "../types";
 import { useAuth } from "../lib/auth";
-import { CreditCard, CheckCircle2, History, AlertTriangle, MessageCircle, Download, FileText, X, Calendar } from "lucide-react";
+import { CreditCard, CheckCircle2, History, AlertTriangle, MessageCircle, Download, FileText, X, Calendar, Clock, Bell } from "lucide-react";
 import { supabase } from "../lib/supabase";
 import html2pdf from "html2pdf.js";
 
@@ -174,7 +174,7 @@ export function ParentPayments() {
             schoolId: d.school_id, 
             parentId: d.parent_id, 
             createdAt: d.created_at, 
-            date: new Date(d.created_at).getTime(),
+            date: d.payment_date ? new Date(d.payment_date).getTime() : new Date(d.created_at).getTime(),
             items: d.items || [],
             academic_year: resolvedYear,
             academicYear: resolvedYear
@@ -219,6 +219,13 @@ export function ParentPayments() {
       }
     };
     loadData();
+
+    // Auto-refresh when notifications / payments change
+    const handleRefresh = () => loadData();
+    window.addEventListener('refresh_notifications', handleRefresh);
+    return () => {
+      window.removeEventListener('refresh_notifications', handleRefresh);
+    };
   }, [user]);
 
   useEffect(() => {
@@ -1104,7 +1111,13 @@ const childName = child ? `${child.lastName} ${child.firstName}` : "Inconnu";
                         {paymentYear}
                       </span>
                     </span>
-                    <span>{new Date(payment.date).toLocaleDateString()}</span>
+                    <span className="flex items-center gap-1 font-mono text-gray-700 text-xs font-semibold">
+                      <Clock size={11} className="text-emerald-600" />
+                      <span>
+                        {new Date(payment.date).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' })}
+                        {payment.date ? ` à ${new Date(payment.date).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}` : ''}
+                      </span>
+                    </span>
                   </div>
                   <div className="flex items-center justify-between pt-1 border-t border-slate-100 text-xs">
                     <div className="flex items-center gap-2">
@@ -1140,7 +1153,7 @@ const childName = child ? `${child.lastName} ${child.firstName}` : "Inconnu";
           <table className="w-full text-left border-collapse min-w-[600px]">
             <thead className="bg-slate-50 text-[10px] uppercase text-slate-500 font-bold sticky top-0">
               <tr className="border-b border-slate-100">
-                <th className="px-4 py-3">Date</th>
+                <th className="px-4 py-3">Date & Heure</th>
                 <th className="px-4 py-3">Réf</th>
                 <th className="px-4 py-3">Élève</th>
                 <th className="px-4 py-3">Moyen</th>
@@ -1169,7 +1182,15 @@ const childName = child ? `${child.lastName} ${child.firstName}` : "Inconnu";
                   return (
                     <tr key={payment.id} className="hover:bg-slate-50 transition-colors">
                       <td className="px-4 py-3 text-xs">
-                        {new Date(payment.date).toLocaleDateString()}
+                        <span className="font-semibold text-gray-800">
+                          {new Date(payment.date).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' })}
+                        </span>
+                        {payment.date && (
+                          <span className="text-[11px] text-emerald-600 font-mono font-medium flex items-center gap-1 mt-0.5">
+                            <Clock size={11} className="text-emerald-500" />
+                            {new Date(payment.date).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
+                          </span>
+                        )}
                       </td>
                       <td className="px-4 py-3 text-slate-400 font-mono text-[10px] uppercase">{payment.reference}</td>
                       <td className="px-4 py-3">

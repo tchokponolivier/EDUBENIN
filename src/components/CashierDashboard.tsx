@@ -62,14 +62,22 @@ export function CashierDashboard() {
     fetchData();
   }, [user]);
 
+  const completedPayments = useMemo(() => {
+    return payments.filter(p => p.status === 'COMPLETED');
+  }, [payments]);
+
+  const pendingPayments = useMemo(() => {
+    return payments.filter(p => p.status === 'PENDING');
+  }, [payments]);
+
   const filteredPayments = useMemo(() => {
-      if (selectedYearId === "ALL") return payments;
+      if (selectedYearId === "ALL") return completedPayments;
       const year = academicYears.find(y => y.id === selectedYearId);
-      if (!year) return payments;
+      if (!year) return completedPayments;
       const start = new Date(year.start_date).getTime();
       const end = new Date(year.end_date).getTime();
-      return payments.filter(p => p.date >= start && p.date <= end);
-  }, [payments, selectedYearId, academicYears]);
+      return completedPayments.filter(p => p.date >= start && p.date <= end);
+  }, [completedPayments, selectedYearId, academicYears]);
 
   const filteredExpenses = useMemo(() => {
       if (selectedYearId === "ALL") return expenses;

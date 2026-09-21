@@ -1,6 +1,6 @@
 import { ReactNode, useState } from "react";
 import { useAuth } from "../../lib/auth";
-import { LogOut, LayoutDashboard, Users, CreditCard, BookOpen, Building, HelpCircle, User, Menu, X, Settings, Clock, FileText, Calendar, ArrowDownToLine, Banknote, Shield } from "lucide-react";
+import { LogOut, LayoutDashboard, Users, CreditCard, BookOpen, Building, HelpCircle, User, Menu, X, Settings, Clock, FileText, Calendar, ArrowDownToLine, Banknote, Shield, AlertCircle } from "lucide-react";
 import { Link, useLocation } from "react-router-dom";
 import { clsx } from "clsx";
 import { EduBeninLogo } from "../Logo";
@@ -79,6 +79,7 @@ export function DashboardLayout({ children }: { children: ReactNode }) {
           { name: "Professeurs", href: "/school-admin/teachers", icon: Users },
           { name: "Vérifications", href: "/school-admin/payments?tab=VERIFICATION", icon: CreditCard },
           { name: "Encaissements", href: "/school-admin/payments?tab=PAYMENTS", icon: CreditCard },
+          { name: "Créances", href: "/school-admin/payments?tab=CREANCES", icon: AlertCircle },
           { name: "Dépenses", href: "/school-admin/payments?tab=EXPENSES", icon: ArrowDownToLine },
           { name: "Salaires", href: "/school-admin/payments?tab=SALARIES", icon: Banknote },
           { name: "Prospectus", href: "/school-admin/prospectus", icon: BookOpen },

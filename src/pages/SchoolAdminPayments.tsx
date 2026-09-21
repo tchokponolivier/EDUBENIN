@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from "react";
 import { Payment, Student, LEVELS } from "../types";
 import { useAuth } from "../lib/auth";
 import { useLocation } from "react-router-dom";
-import { CreditCard, History, Search, MessageCircle, Printer, Plus, Trash2, CheckSquare, Square, X, Wallet, TrendingUp, CheckCircle, Table } from "lucide-react";
+import { CreditCard, History, Search, MessageCircle, Printer, Plus, Trash2, CheckSquare, Square, X, Wallet, TrendingUp, CheckCircle, Table, Clock, AlertTriangle, Coins } from "lucide-react";
 import { supabase } from "../lib/supabase";
 import { FeeTableModal } from "../components/FeeTableModal";
 import { CashierExpenses } from "../components/CashierExpenses";
@@ -10,6 +10,7 @@ import { CashierDashboard } from "../components/CashierDashboard";
 import { CashierEnrollment } from "../components/CashierEnrollment";
 import { CashierSalaries } from "../components/CashierSalaries";
 import { CashierVerification } from "../components/CashierVerification";
+import { CashierDebts, parseDeadlineDate } from "../components/CashierDebts";
 
 const getTranchesForLevel = (level: string) => {
   if (["Maternelle 1", "Maternelle 2"].includes(level)) {
@@ -95,10 +96,11 @@ const getTranchesForLevel = (level: string) => {
 export function SchoolAdminPayments() {
   const { user } = useAuth();
   const location = useLocation();
-  const [activeTab, setActiveTab] = useState<"INSCRIPTIONS" | "PAYMENTS" | "EXPENSES" | "SALARIES" | "DASHBOARD" | "VERIFICATION">(() => {
+  const [activeTab, setActiveTab] = useState<"INSCRIPTIONS" | "PAYMENTS" | "EXPENSES" | "SALARIES" | "DASHBOARD" | "VERIFICATION" | "CREANCES">(() => {
     const params = new URLSearchParams(location.search);
     const tab = params.get('tab');
-    if (tab === "PAYMENTS" || tab === "EXPENSES" || tab === "SALARIES" || tab === "DASHBOARD") return tab;
+    const validTabs = ["INSCRIPTIONS", "PAYMENTS", "EXPENSES", "SALARIES", "DASHBOARD", "VERIFICATION", "CREANCES"];
+    if (tab && validTabs.includes(tab)) return tab as any;
     return "PAYMENTS";
   });
   const [academicYears, setAcademicYears] = useState<{ id?: string; name: string; status?: string }[]>([]);
@@ -109,7 +111,8 @@ export function SchoolAdminPayments() {
   React.useEffect(() => {
     const params = new URLSearchParams(location.search);
     const tab = params.get('tab');
-    if (tab === "PAYMENTS" || tab === "EXPENSES" || tab === "SALARIES" || tab === "DASHBOARD") setActiveTab(tab);
+    const validTabs = ["INSCRIPTIONS", "PAYMENTS", "EXPENSES", "SALARIES", "DASHBOARD", "VERIFICATION", "CREANCES"];
+    if (tab && validTabs.includes(tab)) setActiveTab(tab as any);
   }, [location.search]);
   const [payments, setPayments] = useState<Payment[]>([]);
   const [students, setStudents] = useState<Student[]>([]);
@@ -117,6 +120,52 @@ export function SchoolAdminPayments() {
   const [filterClass, setFilterClass] = useState("ALL");
   const [filterYear, setFilterYear] = useState("ALL");
   const [filterType, setFilterType] = useState("ALL");
+  const [filterStatus, setFilterStatus] = useState<"COMPLETED" | "ALL" | "PENDING">("COMPLETED");
+
+  const pendingCount = useMemo(() => {
+    return payments.filter(p => p.status === 'PENDING').length;
+  }, [payments]);
+
+  const overdueCountGlobal = useMemo(() => {
+    const now = new Date();
+    let count = 0;
+    students.forEach(student => {
+      const level = student.level || "";
+      const studentYear = student.academic_year || student.academicYear || "2024-2025";
+      
+      const levelMonthlyFee = feeConfigs.find(fc =>
+        fc.fee_type === 'MONTHLY' &&
+        (fc.level === 'ALL' || fc.level === level) &&
+        (!fc.academic_year || fc.academic_year === studentYear)
+      );
+
+      const tranches = (levelMonthlyFee && levelMonthlyFee.tranches && levelMonthlyFee.tranches.length > 0)
+        ? levelMonthlyFee.tranches
+        : getTranchesForLevel(level);
+
+      const studentPayments = payments.filter(p => p.studentId === student.id && p.status === "COMPLETED");
+      const paidPerFee: Record<string, number> = {};
+      studentPayments.forEach(p => {
+        p.items?.forEach(i => {
+          if (i.id) paidPerFee[i.id] = (paidPerFee[i.id] || 0) + (Number(i.amount) || 0);
+        });
+      });
+
+      let isOverdue = false;
+      for (const t of tranches) {
+        const paid = paidPerFee[t.id] || 0;
+        if (paid < t.amount) {
+          const d = parseDeadlineDate(t.limit, studentYear);
+          if (d && now.getTime() > d.getTime()) {
+            isOverdue = true;
+            break;
+          }
+        }
+      }
+      if (isOverdue) count++;
+    });
+    return count;
+  }, [students, payments, feeConfigs]);
   
   // Modal states
   const [showPayModal, setShowPayModal] = useState(false);
@@ -138,7 +187,15 @@ export function SchoolAdminPayments() {
 
   useEffect(() => {
     fetchData();
-  }, []);
+
+    const handleRefresh = () => {
+      fetchData();
+    };
+    window.addEventListener('refresh_notifications', handleRefresh);
+    return () => {
+      window.removeEventListener('refresh_notifications', handleRefresh);
+    };
+  }, [user]);
 
   const fetchData = async () => {
     if (!user?.schoolId) return;
@@ -445,14 +502,18 @@ export function SchoolAdminPayments() {
       academic_year: paymentYear
     }));
 
+    const schoolId = user?.schoolId || selectedStudent.schoolId || (selectedStudent as any).school_id;
+    const parentId = selectedStudent.parentId || (selectedStudent as any).parent_id || null;
+
     const payload: any = {
-       school_id: selectedStudent.school_id,
+       school_id: schoolId,
        student_id: selectedStudent.id,
-       parent_id: selectedStudent.parentId || null,
+       parent_id: parentId,
        amount: totalAmount,
        network: paymentMethod,
-       status: 'COMPLETED',
+       status: 'PENDING',
        reference: reference,
+       payment_date: new Date().toISOString(),
        items: items,
        next_payment_date: (hasPartialPayment && nextPaymentDate) ? nextPaymentDate : null
     };
@@ -460,6 +521,12 @@ export function SchoolAdminPayments() {
     let { data: inserted, error } = await supabase.from('payments').insert(payload).select().single();
 
     // Fallbacks if optional columns don't exist in Supabase schema cache
+    if (error && error.message && error.message.includes("Could not find the 'payment_date' column")) {
+       delete payload.payment_date;
+       const retry = await supabase.from('payments').insert(payload).select().single();
+       inserted = retry.data;
+       error = retry.error;
+    }
     if (error && error.message && error.message.includes("Could not find the 'items' column")) {
        delete payload.items;
        const retry = await supabase.from('payments').insert(payload).select().single();
@@ -484,7 +551,7 @@ export function SchoolAdminPayments() {
        alert("Erreur lors de l'enregistrement: " + error.message);
        return;
     }
-    alert("Paiement enregistré avec succès.");
+    alert("Encaissement enregistré avec succès ! La transaction a été envoyée dans l'onglet Vérifications pour validation avant intégration à l'historique global.");
     
     fetchData(); // Reload dashboard data
     setShowConfirmModal(false);
@@ -496,6 +563,10 @@ export function SchoolAdminPayments() {
     setFeeAmountsToPay({});
     setCustomItems([{name: "", amount: ""}]);
     setPaymentMethod("ESPÈCES");
+
+    // Redirect to verification tab and trigger notification update
+    setActiveTab("VERIFICATION");
+    window.dispatchEvent(new CustomEvent('refresh_notifications'));
     
     if (isMomo) {
       if (window.confirm("Paiement enregistré pour vérification. Voulez-vous lancer le code USSD sur cet appareil pour valider la transaction via téléphone ?")) {
@@ -629,16 +700,24 @@ export function SchoolAdminPayments() {
     const nameStr = `${student.firstName} ${student.lastName}`.toLowerCase();
     const matchSearch = nameStr.includes(searchTerm.toLowerCase()) || p.reference.toLowerCase().includes(searchTerm.toLowerCase());
     
-    // Fallbacks since we don't have year or type explicitly on payment for now, 
-    // but we might have them in the items.
-    // For type: check if any item name matches or if 'ALL'
+    // Status filter: default to COMPLETED so pending encaissements do not update global history before validation
+    if (filterStatus === "COMPLETED" && p.status === "PENDING") return false;
+    if (filterStatus === "PENDING" && p.status !== "PENDING") return false;
+
+    // Academic Year filter
+    if (filterYear !== "ALL") {
+      const pYear = (p as any).academic_year || (p as any).academicYear || student.academic_year || student.academicYear;
+      if (pYear && pYear !== filterYear) return false;
+    }
+
+    // Type filter
     let matchType = true;
     if (filterType !== "ALL") {
        matchType = p.items?.some(i => i.name.toLowerCase().includes(filterType.toLowerCase())) || false;
        if (!p.items?.length && filterType === "Scolarité") matchType = true; // Default payments are usually scolarité
     }
     
-    // For class
+    // Class filter
     let matchClass = true;
     if (filterClass !== "ALL") {
        matchClass = student.level === filterClass;
@@ -659,9 +738,14 @@ export function SchoolAdminPayments() {
           
           <button 
             onClick={() => setActiveTab("VERIFICATION")} 
-            className={`px-4 py-2 rounded text-xs whitespace-nowrap shrink-0 font-bold uppercase tracking-wider transition-colors ${activeTab === "VERIFICATION" ? "bg-white shadow-sm text-gray-700" : "text-slate-500 hover:text-gray-700"}`}
+            className={`px-4 py-2 rounded text-xs whitespace-nowrap shrink-0 font-bold uppercase tracking-wider transition-colors flex items-center gap-1.5 ${activeTab === "VERIFICATION" ? "bg-white shadow-sm text-gray-700" : "text-slate-500 hover:text-gray-700"}`}
           >
-            Vérifications
+            <span>Vérifications</span>
+            {pendingCount > 0 && (
+              <span className="px-1.5 py-0.5 bg-amber-500 text-white text-[10px] rounded-full font-bold animate-pulse">
+                {pendingCount}
+              </span>
+            )}
           </button>
           <button 
             onClick={() => setActiveTab("PAYMENTS")} 
@@ -669,6 +753,18 @@ export function SchoolAdminPayments() {
             className={`px-4 py-2 rounded text-xs whitespace-nowrap shrink-0 font-bold uppercase tracking-wider transition-colors ${activeTab === "PAYMENTS" ? "bg-white shadow-sm text-gray-700" : "text-slate-500 hover:text-gray-700"}`}
           >
             Encaissements
+          </button>
+          <button 
+            onClick={() => setActiveTab("CREANCES")} 
+            className={`px-4 py-2 rounded text-xs whitespace-nowrap shrink-0 font-bold uppercase tracking-wider transition-colors flex items-center gap-1.5 ${activeTab === "CREANCES" ? "bg-white shadow-sm text-gray-700" : "text-slate-500 hover:text-gray-700"}`}
+          >
+            <span>Créances</span>
+            {overdueCountGlobal > 0 && (
+              <span className="px-1.5 py-0.5 bg-rose-500 text-white text-[10px] rounded-full font-bold animate-pulse flex items-center gap-0.5" title={`${overdueCountGlobal} élève(s) avec date limite dépassée`}>
+                <AlertTriangle size={10} />
+                {overdueCountGlobal}
+              </span>
+            )}
           </button>
           <button 
             onClick={() => setActiveTab("EXPENSES")} 
@@ -711,10 +807,19 @@ export function SchoolAdminPayments() {
 
       
       {activeTab === "PAYMENTS" && (
-        <div className="bg-white rounded-xl border border-slate-200 shadow-sm">
+        <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
          <div className="p-4 border-b border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-4">
-           <h3 className="font-bold text-gray-700 flex items-center gap-2"><History size={18}/> Historique Global</h3>
+           <div className="flex items-center gap-2">
+             <h3 className="font-bold text-gray-700 flex items-center gap-2"><History size={18}/> Historique Global</h3>
+             <span className="text-xs text-slate-400">({filteredPayments.length} transaction{filteredPayments.length > 1 ? 's' : ''})</span>
+           </div>
            <div className="flex flex-wrap items-center gap-2">
+             <select value={filterStatus} onChange={e => setFilterStatus(e.target.value as any)} className="px-3 py-1.5 border border-slate-200 rounded-md text-xs font-semibold focus:ring-emerald-500 outline-none">
+               <option value="COMPLETED">Validés uniquement</option>
+               <option value="PENDING">En attente ({pendingCount})</option>
+               <option value="ALL">Toutes les transactions</option>
+             </select>
+
              <select value={filterYear} onChange={e => setFilterYear(e.target.value)} className="px-3 py-1.5 border border-slate-200 rounded-md text-xs focus:ring-emerald-500 outline-none">
                <option value="ALL">Toutes les années</option>
                {academicYears.map(y => <option key={y.name} value={y.name}>{y.name}</option>)}
@@ -733,50 +838,165 @@ export function SchoolAdminPayments() {
                  placeholder="Recherche..." 
                  value={searchTerm}
                  onChange={e => setSearchTerm(e.target.value)}
-                 className="pl-9 pr-4 py-1.5 border border-slate-200 rounded-md text-xs focus:ring-emerald-500 focus:border-emerald-500 outline-none w-48"
+                 className="pl-9 pr-4 py-1.5 border border-slate-200 rounded-md text-xs focus:ring-emerald-500 focus:border-emerald-500 outline-none w-44"
                />
              </div>
            </div>
          </div>
-         <div className="overflow-x-auto">
+
+         {pendingCount > 0 && filterStatus === "COMPLETED" && (
+           <div className="mx-4 mt-4 p-3 bg-amber-50 border border-amber-200 rounded-lg flex items-center justify-between text-xs text-amber-900">
+             <div className="flex items-center gap-2">
+               <Clock size={16} className="text-amber-600 shrink-0" />
+               <span><strong>{pendingCount} transaction(s) en attente</strong> de validation dans l'onglet Vérifications avant intégration à l'historique global.</span>
+             </div>
+             <button 
+               onClick={() => setActiveTab("VERIFICATION")} 
+               className="px-3 py-1 bg-amber-600 hover:bg-amber-700 text-white rounded font-bold uppercase tracking-wider text-[10px] transition-colors shrink-0 ml-2"
+             >
+               Vérifier maintenant
+             </button>
+           </div>
+         )}
+
+         {/* Mobile Card View */}
+         <div className="sm:hidden divide-y divide-slate-100">
+           {filteredPayments.length === 0 ? (
+             <div className="p-8 text-center text-slate-500 text-xs">
+               Aucun encaissement trouvé.
+             </div>
+           ) : (
+             filteredPayments.map(payment => {
+               const student = students.find(s => s.id === payment.studentId);
+               const studentName = student ? `${student.firstName} ${student.lastName}` : "Inconnu";
+               const paymentDateObj = payment.date ? new Date(payment.date) : ((payment as any).created_at ? new Date((payment as any).created_at) : null);
+               const dateStr = paymentDateObj && !isNaN(paymentDateObj.getTime()) ? paymentDateObj.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '-';
+               const timeStr = paymentDateObj && !isNaN(paymentDateObj.getTime()) ? paymentDateObj.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }) : '';
+               const paymentYear = (payment as any).academic_year || (payment as any).academicYear || student?.academic_year || student?.academicYear || "2024-2025";
+               
+               return (
+                 <div key={payment.id} className="p-4 flex flex-col gap-2 hover:bg-slate-50 transition-colors">
+                   <div className="flex items-center justify-between">
+                     <span className="font-bold text-gray-800 text-sm">{studentName}</span>
+                     <span className="font-mono font-bold text-emerald-600 text-sm">{payment.amount.toLocaleString()} FCFA</span>
+                   </div>
+                   <div className="flex items-center justify-between text-xs text-slate-500">
+                     <span className="flex items-center gap-1.5">
+                       <span>{student?.level || '-'}</span>
+                       <span className="px-1.5 py-0.5 bg-emerald-50 text-emerald-700 border border-emerald-100 rounded text-[10px] font-semibold">
+                         {paymentYear}
+                       </span>
+                     </span>
+                     <span className="flex items-center gap-1 font-mono text-gray-700 text-xs font-semibold">
+                       <Clock size={12} className="text-emerald-600" />
+                       <span>{dateStr} à {timeStr || '--:--'}</span>
+                     </span>
+                   </div>
+                   <div className="flex items-center justify-between pt-1 border-t border-slate-100 text-xs">
+                     <div className="flex items-center gap-2">
+                       <span className="px-2 py-0.5 bg-slate-100 text-slate-700 text-[10px] font-bold rounded">
+                         {payment.network || 'ESPÈCES'}
+                       </span>
+                       <span className="font-mono text-slate-400 text-[10px]">({payment.reference})</span>
+                     </div>
+                     <div className="flex items-center gap-2">
+                       {payment.status === 'PENDING' ? (
+                         <span className="px-2 py-0.5 bg-amber-100 text-amber-700 border border-amber-200 rounded-full text-[10px] font-bold uppercase">En Vérif.</span>
+                       ) : (
+                         <span className="px-2 py-0.5 bg-emerald-100 text-emerald-700 border border-emerald-200 rounded-full text-[10px] font-bold uppercase">Validé</span>
+                       )}
+                       {student && (
+                         <div className="flex items-center gap-1 ml-1">
+                           <button onClick={() => printReceipt(payment, student)} className="p-1.5 text-slate-500 hover:text-gray-700 hover:bg-slate-200 rounded" title="Imprimer le reçu">
+                             <Printer size={15} />
+                           </button>
+                           <button onClick={() => sendWhatsAppReceipt(payment, student)} className="p-1.5 text-emerald-600 hover:bg-emerald-100 rounded" title="WhatsApp">
+                             <MessageCircle size={15} />
+                           </button>
+                         </div>
+                       )}
+                     </div>
+                   </div>
+                 </div>
+               );
+             })
+           )}
+         </div>
+
+         {/* Desktop Table View */}
+         <div className="hidden sm:block overflow-x-auto">
            <table className="w-full text-left border-collapse">
              <thead className="bg-slate-50 text-[10px] uppercase text-slate-500 font-bold">
                <tr className="border-b border-slate-100">
-                 <th className="px-4 py-3">Date</th>
+                 <th className="px-4 py-3">Date & Heure</th>
                  <th className="px-4 py-3">Référence</th>
                  <th className="px-4 py-3">Élève</th>
+                 <th className="px-4 py-3">Moyen</th>
                  <th className="px-4 py-3 text-right">Montant</th>
+                 <th className="px-4 py-3 text-center">Statut</th>
                  <th className="px-4 py-3 text-right">Actions</th>
                </tr>
              </thead>
              <tbody className="divide-y divide-slate-100">
-               {filteredPayments.map(payment => {
-                 const student = students.find(s => s.id === payment.studentId);
-                 const studentName = student ? `${student.firstName} ${student.lastName}` : "Inconnu";
-                 return (
-                   <tr key={payment.id} className="hover:bg-slate-50 transition-colors">
-                     <td className="px-4 py-3 text-xs">{payment.date && !isNaN(new Date(payment.date).getTime()) ? new Date(payment.date).toLocaleDateString() : '-'}</td>
-                     <td className="px-4 py-3 font-mono text-[10px] text-slate-400">{payment.reference}</td>
-                     <td className="px-4 py-3">
-    <p className="text-xs font-semibold text-gray-700">{studentName}</p>
-    <p className="text-[10px] text-slate-500 mt-0.5">{student?.level || '-'} <span className="ml-1 px-1 bg-emerald-50 text-emerald-600 rounded font-semibold">{student?.academicYear || student?.academic_year || 'Année inconnue'}</span></p>
-  </td>
-                     <td className="px-4 py-3 font-mono text-xs font-bold text-right">{payment.amount.toLocaleString()} F</td>
-                     <td className="px-4 py-3 text-right">
-                       {student && (
-                         <div className="flex items-center justify-end gap-2">
-                            <button onClick={() => printReceipt(payment, student)} className="p-1.5 text-slate-500 hover:text-gray-700 hover:bg-slate-200 rounded transition-colors" title="Imprimer le reçu">
-                               <Printer size={16} />
-                            </button>
-                            <button onClick={() => sendWhatsAppReceipt(payment, student)} className="p-1.5 text-emerald-600 hover:text-gray-700 hover:bg-emerald-100 rounded transition-colors" title="Envoyer par WhatsApp">
-                               <MessageCircle size={16} />
-                            </button>
-                         </div>
-                       )}
-                     </td>
-                   </tr>
-                 );
-               })}
+               {filteredPayments.length === 0 ? (
+                 <tr>
+                   <td colSpan={7} className="p-8 text-center text-slate-500 text-xs">
+                     Aucun encaissement trouvé pour ces critères.
+                   </td>
+                 </tr>
+               ) : (
+                 filteredPayments.map(payment => {
+                   const student = students.find(s => s.id === payment.studentId);
+                   const studentName = student ? `${student.firstName} ${student.lastName}` : "Inconnu";
+                   const paymentDateObj = payment.date ? new Date(payment.date) : ((payment as any).created_at ? new Date((payment as any).created_at) : null);
+                   const dateStr = paymentDateObj && !isNaN(paymentDateObj.getTime()) ? paymentDateObj.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '-';
+                   const timeStr = paymentDateObj && !isNaN(paymentDateObj.getTime()) ? paymentDateObj.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }) : '';
+                   
+                   return (
+                     <tr key={payment.id} className="hover:bg-slate-50 transition-colors">
+                       <td className="px-4 py-3 text-xs">
+                         <span className="font-semibold text-gray-800">{dateStr}</span>
+                         {timeStr && (
+                           <span className="text-[11px] text-emerald-600 font-mono font-medium flex items-center gap-1 mt-0.5">
+                             <Clock size={11} className="text-emerald-500" />
+                             {timeStr}
+                           </span>
+                         )}
+                       </td>
+                       <td className="px-4 py-3 font-mono text-[10px] text-slate-400">{payment.reference}</td>
+                       <td className="px-4 py-3">
+                         <p className="text-xs font-semibold text-gray-700">{studentName}</p>
+                         <p className="text-[10px] text-slate-500 mt-0.5">{student?.level || '-'} <span className="ml-1 px-1 bg-emerald-50 text-emerald-600 rounded font-semibold">{student?.academicYear || student?.academic_year || 'Année inconnue'}</span></p>
+                       </td>
+                       <td className="px-4 py-3">
+                         <span className="px-2 py-0.5 bg-slate-100 text-slate-700 text-[10px] font-bold rounded">
+                           {payment.network || 'ESPÈCES'}
+                         </span>
+                       </td>
+                       <td className="px-4 py-3 font-mono text-xs font-bold text-right">{payment.amount.toLocaleString()} F</td>
+                       <td className="px-4 py-3 text-center">
+                         {payment.status === 'PENDING' ? (
+                           <span className="px-2 py-0.5 bg-amber-100 text-amber-700 border border-amber-200 rounded-full text-[10px] font-bold uppercase">En Vérif.</span>
+                         ) : (
+                           <span className="px-2 py-0.5 bg-emerald-100 text-emerald-700 border border-emerald-200 rounded-full text-[10px] font-bold uppercase">Validé</span>
+                         )}
+                       </td>
+                       <td className="px-4 py-3 text-right">
+                         {student && (
+                           <div className="flex items-center justify-end gap-2">
+                              <button onClick={() => printReceipt(payment, student)} className="p-1.5 text-slate-500 hover:text-gray-700 hover:bg-slate-200 rounded transition-colors" title="Imprimer le reçu">
+                                 <Printer size={16} />
+                              </button>
+                              <button onClick={() => sendWhatsAppReceipt(payment, student)} className="p-1.5 text-emerald-600 hover:text-gray-700 hover:bg-emerald-100 rounded transition-colors" title="Envoyer par WhatsApp">
+                                 <MessageCircle size={16} />
+                              </button>
+                           </div>
+                         )}
+                       </td>
+                     </tr>
+                   );
+                 })
+               )}
              </tbody>
            </table>
          </div>
@@ -784,6 +1004,26 @@ export function SchoolAdminPayments() {
       )}
 
       {activeTab === "VERIFICATION" && <CashierVerification />}
+      {activeTab === "CREANCES" && (
+        <CashierDebts
+          students={students}
+          payments={payments}
+          academicYears={academicYears}
+          feeConfigs={feeConfigs}
+          getTranchesForLevel={getTranchesForLevel}
+          onSelectStudentForPayment={(studentId) => {
+            const s = students.find(st => st.id === studentId);
+            if (s) {
+              const sYear = s.academic_year || s.academicYear || "2024-2025";
+              setPayFilterYear(sYear);
+              if (s.level) setPayFilterLevel(s.level);
+              setSelectedStudentId(s.id);
+              setActiveTab("PAYMENTS");
+              setShowPayModal(true);
+            }
+          }}
+        />
+      )}
       {activeTab === "EXPENSES" && <CashierExpenses />}
       {activeTab === "SALARIES" && <CashierSalaries />}
       {activeTab === "DASHBOARD" && <CashierDashboard />}

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, isSameDay, addMonths, subMonths, getDay, isToday } from "date-fns";
 import { fr } from "date-fns/locale";
-import { ChevronLeft, ChevronRight, Plus, Trash2, Calendar as CalendarIcon, Clock } from "lucide-react";
+import { ChevronLeft, ChevronRight, Plus, Trash2, Calendar as CalendarIcon, Clock, Printer } from "lucide-react";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../lib/auth";
 
@@ -20,6 +20,7 @@ export function SharedCalendar({ userRole }: { userRole: string }) {
   const { user } = useAuth();
   const [currentDate, setCurrentDate] = useState(new Date());
   const [events, setEvents] = useState<CalendarEvent[]>([]);
+  const [schoolInfo, setSchoolInfo] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [showAddModal, setShowAddModal] = useState(false);
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
@@ -36,8 +37,18 @@ export function SharedCalendar({ userRole }: { userRole: string }) {
   useEffect(() => {
     if (user?.schoolId) {
       fetchEvents();
+      fetchSchoolInfo();
     }
   }, [user?.schoolId, currentDate]);
+
+  const fetchSchoolInfo = async () => {
+    try {
+      const { data } = await supabase.from('schools').select('*').eq('id', user?.schoolId).maybeSingle();
+      if (data) setSchoolInfo(data);
+    } catch (e) {
+      console.error(e);
+    }
+  };
 
   const fetchEvents = async () => {
     try {
@@ -147,22 +158,44 @@ export function SharedCalendar({ userRole }: { userRole: string }) {
   };
 
   return (
-    <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-      <div className="p-6 border-b border-slate-200 flex flex-col sm:flex-row justify-between items-center gap-4">
+    <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden print:border-none print:shadow-none">
+      {/* Header visible uniquement lors de l'impression pour l'affichage de l'établissement */}
+      <div className="hidden print:block p-6 border-b-2 border-slate-800 mb-4">
+        <div className="flex justify-between items-center">
+          <div>
+            <h1 className="text-2xl font-black text-gray-900 uppercase">{schoolInfo?.name || "Établissement Scolaire"}</h1>
+            <p className="text-xs text-slate-600">{schoolInfo?.locality || "Direction des Études & Vie Scolaire"}</p>
+          </div>
+          <div className="text-right">
+            <h2 className="text-lg font-black uppercase text-emerald-800">Calendrier Général & Événements</h2>
+            <p className="text-xs font-bold text-gray-700 capitalize">{format(currentDate, 'MMMM yyyy', { locale: fr })}</p>
+          </div>
+        </div>
+      </div>
+
+      <div className="p-6 border-b border-slate-200 flex flex-col sm:flex-row justify-between items-center gap-4 print:hidden">
         <div>
           <h2 className="text-xl font-bold text-gray-700 flex items-center gap-2">
             <CalendarIcon className="w-5 h-5 text-emerald-600" />
-            Calendrier Scolaire
+            Calendrier Scolaire Officiel
           </h2>
-          <p className="text-sm text-slate-500">Dates clés, examens et événements de l'établissement</p>
+          <p className="text-sm text-slate-500">Dates clés, examens, devoirs, congés et réunions</p>
         </div>
         
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => window.print()}
+            className="flex items-center gap-2 px-3.5 py-2 bg-slate-800 hover:bg-slate-700 text-white rounded-lg text-xs font-bold uppercase tracking-wider transition shadow-sm"
+            title="Télécharger / Imprimer pour affichage dans l'école"
+          >
+            <Printer size={15} /> Télécharger / Imprimer
+          </button>
+
           <div className="flex items-center bg-slate-50 rounded-lg border border-slate-200 p-1">
             <button onClick={prevMonth} className="p-1.5 rounded hover:bg-white hover:shadow-sm text-slate-600 transition-all">
               <ChevronLeft className="w-5 h-5" />
             </button>
-            <span className="px-4 font-bold text-gray-700 w-32 text-center capitalize">
+            <span className="px-4 font-bold text-gray-700 w-32 text-center capitalize text-sm">
               {format(currentDate, 'MMMM yyyy', { locale: fr })}
             </span>
             <button onClick={nextMonth} className="p-1.5 rounded hover:bg-white hover:shadow-sm text-slate-600 transition-all">

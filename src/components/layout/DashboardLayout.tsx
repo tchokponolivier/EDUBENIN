@@ -101,6 +101,7 @@ export function DashboardLayout({ children }: { children: ReactNode }) {
       case "DIRECTOR_OF_STUDIES":
         return [
           { name: "Direction des Études", href: "/director", icon: BookOpen },
+          { name: "Professeurs", href: "/school-admin/teachers", icon: Users },
           { name: "Finances & Caisse", href: "/school-admin/payments?tab=DASHBOARD", icon: Banknote },
           commonSettings
         ];

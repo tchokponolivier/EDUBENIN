@@ -4,13 +4,13 @@ import { useAuth } from "../lib/auth";
 import { X, UserPlus } from "lucide-react";
 import { LEVELS, SUBJECTS } from "../types";
 
-export function AddTeacherModal({ isOpen, onClose, onSuccess }: { isOpen: boolean, onClose: () => void, onSuccess: () => void }) {
+export function AddTeacherModal({ isOpen, onClose, onSuccess, currentAcademicYear }: { isOpen: boolean, onClose: () => void, onSuccess: () => void, currentAcademicYear?: string }) {
   const { user } = useAuth();
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
     fullName: "",
-    email: "",
     phone: "",
+    teacherType: "Permanent", // "Permanent" | "Vacataire"
     subject: "",
     classes: [] as string[]
   });
@@ -42,19 +42,16 @@ export function AddTeacherModal({ isOpen, onClose, onSuccess }: { isOpen: boolea
     e.preventDefault();
     setLoading(true);
     try {
-      // In a real app, we might need an auth user for the teacher, but for now we just create a profile or a 'teachers' table entry.
-      // Wait, teachers are in 'profiles' table with role='TEACHER'
-      // But creating a profile without an auth user might fail if there's a foreign key on id.
-      // We will create a dummy id, or just insert into profiles if it allows it.
-      // Let's check if we can insert into profiles.
       const dummyId = crypto.randomUUID();
+      const generatedEmail = `prof_${Date.now()}_${Math.floor(Math.random() * 1000)}@ecole.local`;
       const { error } = await supabase.from('profiles').insert({
         id: dummyId,
         full_name: formData.fullName,
-        email: formData.email,
+        email: generatedEmail,
         phone: formData.phone,
         role: 'TEACHER',
-        school_id: user?.schoolId
+        school_id: user?.schoolId,
+        title: formData.teacherType // Storing teacher type (Permanent / Vacataire) in title or metadata
       });
       if (error) throw error;
       
@@ -64,7 +61,8 @@ export function AddTeacherModal({ isOpen, onClose, onSuccess }: { isOpen: boolea
               name: formData.subject,
               level: cls,
               teacher_id: dummyId,
-              coefficient: classCoefs[cls] || 1
+              coefficient: classCoefs[cls] || 1,
+              academic_year: currentAcademicYear || null
           }));
           await supabase.from('courses').insert(coursesToInsert);
       }
@@ -91,19 +89,39 @@ export function AddTeacherModal({ isOpen, onClose, onSuccess }: { isOpen: boolea
         <form onSubmit={handleSubmit} className="p-6 space-y-4 overflow-y-auto">
           <div>
             <label className="block text-xs font-bold text-gray-700 mb-1 uppercase tracking-wide">Nom Complet</label>
-            <input type="text" required value={formData.fullName} onChange={e => setFormData({...formData, fullName: e.target.value})} className="w-full px-3 py-2 border border-slate-300 rounded focus:ring-emerald-500 outline-none" />
+            <input 
+              type="text" 
+              required 
+              placeholder="Ex: M. KOFFI Jean"
+              value={formData.fullName} 
+              onChange={e => setFormData({...formData, fullName: e.target.value})} 
+              className="w-full px-3 py-2 border border-slate-300 rounded focus:ring-emerald-500 outline-none text-sm" 
+            />
           </div>
           <div>
-            <label className="block text-xs font-bold text-gray-700 mb-1 uppercase tracking-wide">Email</label>
-            <input type="email" required value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} className="w-full px-3 py-2 border border-slate-300 rounded focus:ring-emerald-500 outline-none" />
+            <label className="block text-xs font-bold text-gray-700 mb-1 uppercase tracking-wide">Type de Professeur</label>
+            <select 
+              value={formData.teacherType} 
+              onChange={e => setFormData({...formData, teacherType: e.target.value})} 
+              className="w-full px-3 py-2 border border-slate-300 rounded focus:ring-emerald-500 outline-none bg-white text-sm font-medium"
+            >
+              <option value="Permanent">Permanent</option>
+              <option value="Vacataire">Vacataire</option>
+            </select>
           </div>
           <div>
             <label className="block text-xs font-bold text-gray-700 mb-1 uppercase tracking-wide">Téléphone</label>
-            <input type="text" value={formData.phone} onChange={e => setFormData({...formData, phone: e.target.value})} className="w-full px-3 py-2 border border-slate-300 rounded focus:ring-emerald-500 outline-none" />
+            <input 
+              type="text" 
+              placeholder="Ex: +229 97 00 00 00"
+              value={formData.phone} 
+              onChange={e => setFormData({...formData, phone: e.target.value})} 
+              className="w-full px-3 py-2 border border-slate-300 rounded focus:ring-emerald-500 outline-none text-sm" 
+            />
           </div>
           <div>
             <label className="block text-xs font-bold text-gray-700 mb-1 uppercase tracking-wide">Matière enseignée</label>
-            <select required value={formData.subject} onChange={e => setFormData({...formData, subject: e.target.value})} className="w-full px-3 py-2 border border-slate-300 rounded focus:ring-emerald-500 outline-none bg-white">
+            <select required value={formData.subject} onChange={e => setFormData({...formData, subject: e.target.value})} className="w-full px-3 py-2 border border-slate-300 rounded focus:ring-emerald-500 outline-none bg-white text-sm">
               <option value="" disabled>Sélectionnez une matière</option>
               {SUBJECTS.map(s => <option key={s} value={s}>{s}</option>)}
             </select>
@@ -128,8 +146,8 @@ export function AddTeacherModal({ isOpen, onClose, onSuccess }: { isOpen: boolea
             </div>
           </div>
           <div className="pt-4 flex gap-3">
-             <button type="button" onClick={onClose} className="flex-1 py-2 bg-white border border-slate-200 text-gray-700 rounded font-semibold hover:bg-slate-50 transition-colors">Annuler</button>
-             <button type="submit" disabled={loading} className="flex-1 py-2 bg-emerald-600 text-white rounded font-semibold hover:bg-emerald-700 transition-colors">{loading ? "..." : "Enregistrer"}</button>
+             <button type="button" onClick={onClose} className="flex-1 py-2 bg-white border border-slate-200 text-gray-700 rounded font-semibold hover:bg-slate-50 transition-colors text-sm">Annuler</button>
+             <button type="submit" disabled={loading} className="flex-1 py-2 bg-emerald-600 text-white rounded font-semibold hover:bg-emerald-700 transition-colors text-sm">{loading ? "..." : "Enregistrer"}</button>
           </div>
         </form>
       </div>

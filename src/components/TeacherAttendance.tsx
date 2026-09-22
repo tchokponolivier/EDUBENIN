@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { supabase } from "../lib/supabase";
 import { Student, LEVELS } from "../types";
 import { useAuth } from "../lib/auth";
-import { Check, X, Clock, Save } from "lucide-react";
+import { Check, X, Clock, Save, Printer, Download } from "lucide-react";
 
 export function TeacherAttendance() {
   const { user } = useAuth();
@@ -233,7 +233,18 @@ export function TeacherAttendance() {
       </div>
       {history.length > 0 && (
          <div className="mt-8 bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
-            <h4 className="font-bold text-gray-700 mb-4">Historique des appels récents</h4>
+            <div className="flex justify-between items-center mb-4">
+              <h4 className="font-bold text-gray-700">Historique des appels récents</h4>
+              <button 
+                onClick={() => {
+                  window.print();
+                }}
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-bold transition"
+                title="Imprimer / Exporter l'historique"
+              >
+                <Printer size={14} /> Exporter / Imprimer PDF
+              </button>
+            </div>
             <div className="space-y-2">
                {history.map((h, i) => (
                   <div key={i} onClick={() => setViewHistory(h)} className="flex justify-between items-center p-3 bg-slate-50 hover:bg-slate-100 border border-slate-100 rounded text-sm cursor-pointer transition">
@@ -241,9 +252,14 @@ export function TeacherAttendance() {
                         <span className="font-bold text-gray-700">{h.class}</span>
                         <span className="text-slate-500 ml-2">- {new Date(h.date).toLocaleDateString()}</span>
                      </div>
-                     <span className={`font-bold ${h.absentCount > 0 ? 'text-orange-500' : 'text-emerald-500'}`}>
-                        {h.absentCount} signalement(s)
-                     </span>
+                     <div className="flex items-center gap-3">
+                       <span className={`font-bold ${h.absentCount > 0 ? 'text-orange-500' : 'text-emerald-500'}`}>
+                          {h.absentCount} signalement(s)
+                       </span>
+                       <span className="text-xs bg-slate-200 hover:bg-slate-300 text-slate-700 px-2 py-0.5 rounded font-medium">
+                         Voir la feuille
+                       </span>
+                     </div>
                   </div>
                ))}
             </div>
@@ -251,13 +267,24 @@ export function TeacherAttendance() {
       )}
       {viewHistory && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
-          <div className="bg-white rounded-xl shadow-xl w-full max-w-lg overflow-hidden animate-in zoom-in-95 max-h-[90vh] flex flex-col">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-lg overflow-hidden animate-in zoom-in-95 max-h-[90vh] flex flex-col print:max-h-none print:shadow-none print:border-none">
             <div className="p-4 border-b border-slate-100 flex justify-between items-center bg-slate-50">
-               <h3 className="font-bold text-gray-700">Détails de l'appel</h3>
-               <button onClick={() => setViewHistory(null)} className="text-slate-400 hover:text-slate-600"><X size={18} /></button>
+               <div>
+                 <h3 className="font-bold text-gray-700">Feuille d'Appel Officielle</h3>
+                 <p className="text-xs text-slate-500">Classe : {viewHistory.class} • Date : {new Date(viewHistory.date).toLocaleDateString()}</p>
+               </div>
+               <div className="flex items-center gap-2 print:hidden">
+                 <button 
+                   onClick={() => window.print()}
+                   className="flex items-center gap-1 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded text-xs font-bold transition shadow-sm"
+                   title="Imprimer / Télécharger en PDF"
+                 >
+                   <Printer size={14} /> PDF
+                 </button>
+                 <button onClick={() => setViewHistory(null)} className="text-slate-400 hover:text-slate-600 p-1"><X size={18} /></button>
+               </div>
             </div>
             <div className="p-4 overflow-y-auto">
-               <p className="text-sm font-semibold text-slate-600 mb-4">Classe : {viewHistory.class} - Date : {new Date(viewHistory.date).toLocaleDateString()}</p>
                <div className="space-y-2">
                   {students.filter(s => s.level === viewHistory.class).map((s) => {
                      const detail = viewHistory.details?.find((d: any) => d.lastName === s.lastName && d.firstName === s.firstName);

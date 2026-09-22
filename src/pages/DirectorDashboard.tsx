@@ -9,9 +9,7 @@ import {
   BarChart, 
   Settings, 
   UserCheck, 
-  Clock,
-  Layers,
-  Banknote
+  Layers
 } from "lucide-react";
 import { DirectorPrograms } from "../components/director/DirectorPrograms";
 import { DirectorAcademic } from "../components/director/DirectorAcademic";
@@ -20,13 +18,12 @@ import { DirectorExams } from "../components/director/DirectorExams";
 import { DirectorResults } from "../components/director/DirectorResults";
 import { DirectorOrientation } from "../components/director/DirectorOrientation";
 import { DirectorPedagogy } from "../components/director/DirectorPedagogy";
-import { CashierDailySummary } from "../components/CashierDailySummary";
 import { SharedCalendar } from "../components/SharedCalendar";
 
 export function DirectorDashboard() {
   const { user } = useAuth();
   const [activeTab, setActiveTab] = useState<
-    "PEDAGOGY" | "PROGRAMS" | "ACADEMIC" | "TEACHERS" | "EXAMS" | "RESULTS" | "ORIENTATION" | "CAISSE_DU_JOUR" | "CALENDAR"
+    "PEDAGOGY" | "PROGRAMS" | "ACADEMIC" | "TEACHERS" | "EXAMS" | "RESULTS" | "ORIENTATION" | "CALENDAR"
   >("PEDAGOGY");
 
   return (
@@ -35,7 +32,7 @@ export function DirectorDashboard() {
         <div>
           <h1 className="text-2xl font-bold text-gray-800 tracking-tight">Direction des Études & Pédagogie</h1>
           <p className="text-xs md:text-sm text-slate-500">
-            Pilotage pédagogique, coordination des curricula APC, suivi des enseignants et contrôle de la caisse.
+            Pilotage pédagogique, curricula APC, emploi du temps, examens et suivi des enseignants.
           </p>
         </div>
       </div>
@@ -86,13 +83,6 @@ export function DirectorDashboard() {
             Orientation & Sanctions
           </button>
           <button
-            onClick={() => setActiveTab("CAISSE_DU_JOUR")}
-            className={`px-4 py-2.5 rounded-lg text-xs font-bold uppercase tracking-wider transition-all whitespace-nowrap flex items-center gap-1.5 ${activeTab === "CAISSE_DU_JOUR" ? "bg-amber-600 text-white shadow-sm" : "text-amber-800 bg-amber-50 hover:bg-amber-100"}`}
-          >
-            <Banknote size={14} />
-            Caisse du Jour & Visa
-          </button>
-          <button
             onClick={() => setActiveTab("CALENDAR")}
             className={`px-4 py-2.5 rounded-lg text-xs font-bold uppercase tracking-wider transition-all whitespace-nowrap ${activeTab === "CALENDAR" ? "bg-white shadow-sm border border-slate-200 text-emerald-700" : "text-slate-500 hover:text-gray-700 hover:bg-slate-100"}`}
           >
@@ -108,7 +98,6 @@ export function DirectorDashboard() {
           {activeTab === "EXAMS" && <DirectorExams />}
           {activeTab === "RESULTS" && <DirectorResults />}
           {activeTab === "ORIENTATION" && <DirectorOrientation />}
-          {activeTab === "CAISSE_DU_JOUR" && <CashierDailySummary />}
           {activeTab === "CALENDAR" && <SharedCalendar userRole={user?.role || "DIRECTOR_OF_STUDIES"} />}
         </div>
       </div>

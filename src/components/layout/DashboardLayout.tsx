@@ -42,10 +42,11 @@ export function DashboardLayout({ children }: { children: ReactNode }) {
       case "SCHOOL_ADMIN":
         return [
           { name: "Tableau de bord", href: "/school-admin", icon: LayoutDashboard },
+          { name: "Caisse du Jour (Visa)", href: "/school-admin/payments?tab=DAILY_SUMMARY", icon: Clock },
+          { name: "Finances & Caisse", href: "/school-admin/payments?tab=DASHBOARD", icon: Banknote },
           { name: "Inscriptions & Élèves", href: "/school-admin/students?tab=STUDENTS", icon: Users },
           { name: "Liste des Élèves", href: "/school-admin/students-list", icon: Users },
           { name: "Professeurs", href: "/school-admin/teachers", icon: Users },
-          { name: "Finances & Caisse", href: "/school-admin/payments?tab=DASHBOARD", icon: Banknote },
           { name: "Synthèse & Bilans", href: "/school-admin/stats", icon: BookOpen },
           { name: "Prospectus", href: "/school-admin/prospectus", icon: BookOpen },
           { name: "Paramètres Établissement", href: "/school-admin?tab=SETTINGS", icon: Settings },
@@ -100,7 +101,6 @@ export function DashboardLayout({ children }: { children: ReactNode }) {
       case "DIRECTOR_OF_STUDIES":
         return [
           { name: "Direction des Études", href: "/director", icon: BookOpen },
-          { name: "Caisse du Jour (Visa)", href: "/school-admin/payments?tab=DAILY_SUMMARY", icon: Clock },
           { name: "Finances & Caisse", href: "/school-admin/payments?tab=DASHBOARD", icon: Banknote },
           commonSettings
         ];

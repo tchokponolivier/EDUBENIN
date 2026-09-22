@@ -42,7 +42,7 @@ interface DailyRemittance {
 
 export function CashierDailySummary() {
   const { user } = useAuth();
-  const isDirector = user?.role === "SCHOOL_ADMIN" || user?.role === "DIRECTOR_OF_STUDIES";
+  const isDirector = user?.role === "SCHOOL_ADMIN";
   const isCashier = user?.role === "CASHIER";
 
   // Default to today

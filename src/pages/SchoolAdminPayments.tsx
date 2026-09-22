@@ -10,6 +10,7 @@ import { CashierDashboard } from "../components/CashierDashboard";
 import { CashierEnrollment } from "../components/CashierEnrollment";
 import { CashierSalaries } from "../components/CashierSalaries";
 import { CashierVerification } from "../components/CashierVerification";
+import { CashierDailySummary } from "../components/CashierDailySummary";
 import { CashierDebts, parseDeadlineDate } from "../components/CashierDebts";
 import { PaymentActorBadge, resolvePaymentActor } from "../components/PaymentActorBadge";
 
@@ -97,10 +98,10 @@ const getTranchesForLevel = (level: string) => {
 export function SchoolAdminPayments() {
   const { user } = useAuth();
   const location = useLocation();
-  const [activeTab, setActiveTab] = useState<"INSCRIPTIONS" | "PAYMENTS" | "EXPENSES" | "SALARIES" | "DASHBOARD" | "VERIFICATION" | "CREANCES">(() => {
+  const [activeTab, setActiveTab] = useState<"INSCRIPTIONS" | "DAILY_SUMMARY" | "PAYMENTS" | "EXPENSES" | "SALARIES" | "DASHBOARD" | "VERIFICATION" | "CREANCES">(() => {
     const params = new URLSearchParams(location.search);
     const tab = params.get('tab');
-    const validTabs = ["INSCRIPTIONS", "PAYMENTS", "EXPENSES", "SALARIES", "DASHBOARD", "VERIFICATION", "CREANCES"];
+    const validTabs = ["INSCRIPTIONS", "DAILY_SUMMARY", "PAYMENTS", "EXPENSES", "SALARIES", "DASHBOARD", "VERIFICATION", "CREANCES"];
     if (tab && validTabs.includes(tab)) return tab as any;
     return "PAYMENTS";
   });
@@ -112,7 +113,7 @@ export function SchoolAdminPayments() {
   React.useEffect(() => {
     const params = new URLSearchParams(location.search);
     const tab = params.get('tab');
-    const validTabs = ["INSCRIPTIONS", "PAYMENTS", "EXPENSES", "SALARIES", "DASHBOARD", "VERIFICATION", "CREANCES"];
+    const validTabs = ["INSCRIPTIONS", "DAILY_SUMMARY", "PAYMENTS", "EXPENSES", "SALARIES", "DASHBOARD", "VERIFICATION", "CREANCES"];
     if (tab && validTabs.includes(tab)) setActiveTab(tab as any);
   }, [location.search]);
   const [payments, setPayments] = useState<Payment[]>([]);
@@ -779,7 +780,13 @@ export function SchoolAdminPayments() {
         </div>
         
         <div className="flex p-1 bg-slate-100 overflow-x-auto whitespace-nowrap hide-scrollbar rounded-lg shrink-0 overflow-x-auto max-w-full">
-          
+          <button 
+            onClick={() => setActiveTab("DAILY_SUMMARY")} 
+            className={`px-4 py-2 rounded text-xs whitespace-nowrap shrink-0 font-bold uppercase tracking-wider transition-colors flex items-center gap-1.5 ${activeTab === "DAILY_SUMMARY" ? "bg-emerald-600 text-white shadow-sm" : "text-emerald-700 hover:text-emerald-900 bg-emerald-50 hover:bg-emerald-100"}`}
+          >
+            <Clock size={13} />
+            <span>Caisse du Jour</span>
+          </button>
           <button 
             onClick={() => setActiveTab("VERIFICATION")} 
             className={`px-4 py-2 rounded text-xs whitespace-nowrap shrink-0 font-bold uppercase tracking-wider transition-colors flex items-center gap-1.5 ${activeTab === "VERIFICATION" ? "bg-white shadow-sm text-gray-700" : "text-slate-500 hover:text-gray-700"}`}
@@ -1059,6 +1066,7 @@ export function SchoolAdminPayments() {
       </div>
       )}
 
+      {activeTab === "DAILY_SUMMARY" && <CashierDailySummary />}
       {activeTab === "VERIFICATION" && <CashierVerification />}
       {activeTab === "CREANCES" && (
         <CashierDebts

@@ -9,16 +9,18 @@ import { SecretaryTimetables } from "../components/SecretaryTimetables";
 import { SecretaryMails } from "../components/SecretaryMails";
 import { SecretaryExams } from "../components/SecretaryExams";
 import { SecretaryPlanning } from "../components/SecretaryPlanning";
+import { SecretaryHR } from "../components/SecretaryHR";
 import { AddStudentModal } from "../components/AddStudentModal";
 
 export function SchoolAdminStudents() {
   const { user } = useAuth();
   const location = useLocation();
   const [showAddStudentModal, setShowAddStudentModal] = useState(false);
-  const [activeTab, setActiveTab] = useState<"STUDENTS" | "ABSENCES" | "DOCUMENTS" | "TIMETABLES">(() => {
+  const [activeTab, setActiveTab] = useState<"STUDENTS" | "ABSENCES" | "DOCUMENTS" | "MAILS" | "EXAMS" | "PLANNING" | "TIMETABLES" | "HR">(() => {
     const params = new URLSearchParams(location.search);
     const tab = params.get('tab');
-    if (tab === "STUDENTS" || tab === "ABSENCES" || tab === "DOCUMENTS" || tab === "TIMETABLES") return tab;
+    const validTabs = ["STUDENTS", "ABSENCES", "DOCUMENTS", "MAILS", "EXAMS", "PLANNING", "TIMETABLES", "HR"];
+    if (tab && validTabs.includes(tab)) return tab as any;
     return "STUDENTS";
   });
   
@@ -26,7 +28,8 @@ export function SchoolAdminStudents() {
   React.useEffect(() => {
     const params = new URLSearchParams(location.search);
     const tab = params.get('tab');
-    if (tab === "STUDENTS" || tab === "ABSENCES" || tab === "DOCUMENTS" || tab === "TIMETABLES") setActiveTab(tab);
+    const validTabs = ["STUDENTS", "ABSENCES", "DOCUMENTS", "MAILS", "EXAMS", "PLANNING", "TIMETABLES", "HR"];
+    if (tab && validTabs.includes(tab)) setActiveTab(tab as any);
   }, [location.search]);
   const [students, setStudents] = useState<any[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
@@ -242,10 +245,34 @@ export function SchoolAdminStudents() {
             Documents
           </button>
           <button 
+            onClick={() => setActiveTab("MAILS")} 
+            className={`px-4 py-2 rounded text-xs whitespace-nowrap shrink-0 font-bold uppercase tracking-wider transition-colors ${activeTab === "MAILS" ? "bg-white shadow-sm text-gray-700" : "text-slate-500 hover:text-gray-700"}`}
+          >
+            Courriers
+          </button>
+          <button 
+            onClick={() => setActiveTab("EXAMS")} 
+            className={`px-4 py-2 rounded text-xs whitespace-nowrap shrink-0 font-bold uppercase tracking-wider transition-colors ${activeTab === "EXAMS" ? "bg-white shadow-sm text-gray-700" : "text-slate-500 hover:text-gray-700"}`}
+          >
+            Épreuves
+          </button>
+          <button 
+            onClick={() => setActiveTab("PLANNING")} 
+            className={`px-4 py-2 rounded text-xs whitespace-nowrap shrink-0 font-bold uppercase tracking-wider transition-colors ${activeTab === "PLANNING" ? "bg-white shadow-sm text-gray-700" : "text-slate-500 hover:text-gray-700"}`}
+          >
+            Planning
+          </button>
+          <button 
             onClick={() => setActiveTab("TIMETABLES")} 
             className={`px-4 py-2 rounded text-xs whitespace-nowrap shrink-0 font-bold uppercase tracking-wider transition-colors ${activeTab === "TIMETABLES" ? "bg-white shadow-sm text-gray-700" : "text-slate-500 hover:text-gray-700"}`}
           >
             Emplois du temps
+          </button>
+          <button 
+            onClick={() => setActiveTab("HR")} 
+            className={`px-4 py-2 rounded text-xs whitespace-nowrap shrink-0 font-bold uppercase tracking-wider transition-colors flex items-center gap-1.5 ${activeTab === "HR" ? "bg-emerald-600 text-white shadow-sm" : "text-emerald-700 hover:text-emerald-900 bg-emerald-50"}`}
+          >
+            <span>Personnel & RH</span>
           </button>
         </div>
       </div>
@@ -454,7 +481,11 @@ export function SchoolAdminStudents() {
 
       {activeTab === "ABSENCES" && <SecretaryAbsences />}
       {activeTab === "DOCUMENTS" && <SecretaryDocuments />}
+      {activeTab === "MAILS" && <SecretaryMails />}
+      {activeTab === "EXAMS" && <SecretaryExams />}
+      {activeTab === "PLANNING" && <SecretaryPlanning />}
       {activeTab === "TIMETABLES" && <SecretaryTimetables />}
+      {activeTab === "HR" && <SecretaryHR />}
       {showAddStudentModal && <AddStudentModal isOpen={true} onClose={() => setShowAddStudentModal(false)} onSuccess={() => { setShowAddStudentModal(false); window.location.reload(); }} />}
 
     </div>

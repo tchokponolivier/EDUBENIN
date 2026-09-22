@@ -1,6 +1,6 @@
 import { ReactNode, useState } from "react";
 import { useAuth } from "../../lib/auth";
-import { LogOut, LayoutDashboard, Users, CreditCard, BookOpen, Building, HelpCircle, User, Menu, X, Settings, Clock, FileText, Calendar, ArrowDownToLine, Banknote, Shield, AlertCircle } from "lucide-react";
+import { LogOut, LayoutDashboard, Users, CreditCard, BookOpen, Building, HelpCircle, User, Menu, X, Settings, Clock, FileText, Calendar, ArrowDownToLine, Banknote, Shield, AlertCircle, ShieldAlert, Award } from "lucide-react";
 import { Link, useLocation } from "react-router-dom";
 import { clsx } from "clsx";
 import { EduBeninLogo } from "../Logo";
@@ -54,8 +54,9 @@ export function DashboardLayout({ children }: { children: ReactNode }) {
       case "SUPERVISOR":
         return [
           { name: "Tableau de Bord", href: "/supervisor", icon: LayoutDashboard },
+          { name: "Discipline & Sanctions", href: "/supervisor?tab=DISCIPLINE", icon: ShieldAlert },
           { name: "Absences Élèves", href: "/supervisor?tab=ABSENCES", icon: Clock },
-          { name: "Sorties Pédagogiques", href: "/supervisor?tab=TRIPS", icon: Building },
+          { name: "Sorties & Mouvements", href: "/supervisor?tab=TRIPS", icon: Building },
           { name: "Absences Profs", href: "/supervisor?tab=TEACHER_ABSENCES", icon: Users },
           { name: "Matériel", href: "/supervisor?tab=MATERIALS", icon: BookOpen },
           commonSettings
@@ -65,6 +66,8 @@ export function DashboardLayout({ children }: { children: ReactNode }) {
           { name: "Inscriptions & Élèves", href: "/school-admin/students?tab=STUDENTS", icon: Users },
           { name: "Liste des Élèves", href: "/school-admin/students-list", icon: Users },
           { name: "Professeurs", href: "/school-admin/teachers", icon: Users },
+          { name: "Personnel & RH", href: "/school-admin/students?tab=HR", icon: Users },
+          { name: "Absences & Retards", href: "/school-admin/students?tab=ABSENCES", icon: Clock },
           { name: "Documents", href: "/school-admin/students?tab=DOCUMENTS", icon: FileText },
           { name: "Courriers", href: "/school-admin/students?tab=MAILS", icon: FileText },
           { name: "Épreuves", href: "/school-admin/students?tab=EXAMS", icon: BookOpen },
@@ -74,14 +77,15 @@ export function DashboardLayout({ children }: { children: ReactNode }) {
       case "CASHIER":
         return [
           { name: "Tableau de Bord Caisse", href: "/school-admin/payments?tab=DASHBOARD", icon: LayoutDashboard },
-          { name: "Inscriptions Élèves", href: "/school-admin/students?tab=STUDENTS", icon: Users },
-          { name: "Liste des Élèves", href: "/school-admin/students-list", icon: Users },
-          { name: "Professeurs", href: "/school-admin/teachers", icon: Users },
+          { name: "Caisse du Jour", href: "/school-admin/payments?tab=DAILY_SUMMARY", icon: Clock },
           { name: "Vérifications", href: "/school-admin/payments?tab=VERIFICATION", icon: CreditCard },
           { name: "Encaissements", href: "/school-admin/payments?tab=PAYMENTS", icon: CreditCard },
           { name: "Créances", href: "/school-admin/payments?tab=CREANCES", icon: AlertCircle },
           { name: "Dépenses", href: "/school-admin/payments?tab=EXPENSES", icon: ArrowDownToLine },
           { name: "Salaires", href: "/school-admin/payments?tab=SALARIES", icon: Banknote },
+          { name: "Inscriptions Élèves", href: "/school-admin/students?tab=STUDENTS", icon: Users },
+          { name: "Liste des Élèves", href: "/school-admin/students-list", icon: Users },
+          { name: "Professeurs", href: "/school-admin/teachers", icon: Users },
           { name: "Prospectus", href: "/school-admin/prospectus", icon: BookOpen },
           commonSettings
         ];
@@ -96,6 +100,7 @@ export function DashboardLayout({ children }: { children: ReactNode }) {
       case "DIRECTOR_OF_STUDIES":
         return [
           { name: "Direction des Études", href: "/director", icon: BookOpen },
+          { name: "Caisse du Jour (Visa)", href: "/school-admin/payments?tab=DAILY_SUMMARY", icon: Clock },
           { name: "Finances & Caisse", href: "/school-admin/payments?tab=DASHBOARD", icon: Banknote },
           commonSettings
         ];

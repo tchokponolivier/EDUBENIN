@@ -1,31 +1,54 @@
 import React, { useState } from "react";
 import { useAuth } from "../lib/auth";
-import { BookOpen, Calendar, FileText, Users, Activity, BarChart, Settings, UserCheck, Search, Plus } from "lucide-react";
+import { 
+  BookOpen, 
+  Calendar, 
+  FileText, 
+  Users, 
+  Activity, 
+  BarChart, 
+  Settings, 
+  UserCheck, 
+  Clock,
+  Layers,
+  Banknote
+} from "lucide-react";
 import { DirectorPrograms } from "../components/director/DirectorPrograms";
 import { DirectorAcademic } from "../components/director/DirectorAcademic";
 import { DirectorTeachers } from "../components/director/DirectorTeachers";
 import { DirectorExams } from "../components/director/DirectorExams";
 import { DirectorResults } from "../components/director/DirectorResults";
 import { DirectorOrientation } from "../components/director/DirectorOrientation";
+import { DirectorPedagogy } from "../components/director/DirectorPedagogy";
+import { CashierDailySummary } from "../components/CashierDailySummary";
 import { SharedCalendar } from "../components/SharedCalendar";
 
 export function DirectorDashboard() {
   const { user } = useAuth();
   const [activeTab, setActiveTab] = useState<
-    "PROGRAMS" | "ACADEMIC" | "TEACHERS" | "EXAMS" | "RESULTS" | "ORIENTATION" | "CALENDAR"
-  >("PROGRAMS");
+    "PEDAGOGY" | "PROGRAMS" | "ACADEMIC" | "TEACHERS" | "EXAMS" | "RESULTS" | "ORIENTATION" | "CAISSE_DU_JOUR" | "CALENDAR"
+  >("PEDAGOGY");
 
   return (
     <div className="animate-in fade-in space-y-6">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-gray-700">Direction des Études</h1>
-          <p className="text-slate-500">Gestion pédagogique et académique globale</p>
+          <h1 className="text-2xl font-bold text-gray-800 tracking-tight">Direction des Études & Pédagogie</h1>
+          <p className="text-xs md:text-sm text-slate-500">
+            Pilotage pédagogique, coordination des curricula APC, suivi des enseignants et contrôle de la caisse.
+          </p>
         </div>
       </div>
 
       <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-        <div className="flex p-2 bg-slate-50 border-b border-slate-200 overflow-x-auto">
+        <div className="flex p-2 bg-slate-50 border-b border-slate-200 overflow-x-auto whitespace-nowrap hide-scrollbar">
+          <button
+            onClick={() => setActiveTab("PEDAGOGY")}
+            className={`px-4 py-2.5 rounded-lg text-xs font-bold uppercase tracking-wider transition-all whitespace-nowrap flex items-center gap-1.5 ${activeTab === "PEDAGOGY" ? "bg-emerald-600 text-white shadow-sm" : "text-emerald-700 bg-emerald-50 hover:bg-emerald-100"}`}
+          >
+            <BookOpen size={14} />
+            Coordination & APC
+          </button>
           <button
             onClick={() => setActiveTab("PROGRAMS")}
             className={`px-4 py-2.5 rounded-lg text-xs font-bold uppercase tracking-wider transition-all whitespace-nowrap ${activeTab === "PROGRAMS" ? "bg-white shadow-sm border border-slate-200 text-emerald-700" : "text-slate-500 hover:text-gray-700 hover:bg-slate-100"}`}
@@ -63,6 +86,13 @@ export function DirectorDashboard() {
             Orientation & Sanctions
           </button>
           <button
+            onClick={() => setActiveTab("CAISSE_DU_JOUR")}
+            className={`px-4 py-2.5 rounded-lg text-xs font-bold uppercase tracking-wider transition-all whitespace-nowrap flex items-center gap-1.5 ${activeTab === "CAISSE_DU_JOUR" ? "bg-amber-600 text-white shadow-sm" : "text-amber-800 bg-amber-50 hover:bg-amber-100"}`}
+          >
+            <Banknote size={14} />
+            Caisse du Jour & Visa
+          </button>
+          <button
             onClick={() => setActiveTab("CALENDAR")}
             className={`px-4 py-2.5 rounded-lg text-xs font-bold uppercase tracking-wider transition-all whitespace-nowrap ${activeTab === "CALENDAR" ? "bg-white shadow-sm border border-slate-200 text-emerald-700" : "text-slate-500 hover:text-gray-700 hover:bg-slate-100"}`}
           >
@@ -71,12 +101,14 @@ export function DirectorDashboard() {
         </div>
 
         <div className="p-4 md:p-6 bg-slate-50/50">
+          {activeTab === "PEDAGOGY" && <DirectorPedagogy />}
           {activeTab === "PROGRAMS" && <DirectorPrograms />}
           {activeTab === "ACADEMIC" && <DirectorAcademic />}
           {activeTab === "TEACHERS" && <DirectorTeachers />}
           {activeTab === "EXAMS" && <DirectorExams />}
           {activeTab === "RESULTS" && <DirectorResults />}
           {activeTab === "ORIENTATION" && <DirectorOrientation />}
+          {activeTab === "CAISSE_DU_JOUR" && <CashierDailySummary />}
           {activeTab === "CALENDAR" && <SharedCalendar userRole={user?.role || "DIRECTOR_OF_STUDIES"} />}
         </div>
       </div>

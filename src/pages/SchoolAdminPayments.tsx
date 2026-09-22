@@ -11,7 +11,7 @@ import { CashierEnrollment } from "../components/CashierEnrollment";
 import { CashierSalaries } from "../components/CashierSalaries";
 import { CashierVerification } from "../components/CashierVerification";
 import { CashierDebts, parseDeadlineDate } from "../components/CashierDebts";
-import { PaymentActorBadge } from "../components/PaymentActorBadge";
+import { PaymentActorBadge, resolvePaymentActor } from "../components/PaymentActorBadge";
 
 const getTranchesForLevel = (level: string) => {
   if (["Maternelle 1", "Maternelle 2"].includes(level)) {
@@ -498,20 +498,29 @@ export function SchoolAdminPayments() {
   const confirmPayment = async () => {
     if (!selectedStudent || totalAmount <= 0) return;
     
-    const reference = 'PAY-' + Date.now();
+    const isDirecteur = user?.role === "SCHOOL_ADMIN" || user?.role === "DIRECTOR_OF_STUDIES";
+    const roleForPayment = isDirecteur ? "SCHOOL_ADMIN" : (user?.role === "CASHIER" ? "CASHIER" : "SCHOOL_ADMIN");
+    const nameForPayment = isDirecteur ? "Directeur" : (user?.role === "CASHIER" ? "Caisse" : "Directeur");
+    const prefix = isDirecteur ? "PAY-DIR-" : (user?.role === "CASHIER" ? "PAY-CSH-" : "PAY-DIR-");
+    const reference = prefix + Date.now();
     const paymentYear = payFilterYear || selectedStudent.academic_year || selectedStudent.academicYear || "2024-2025";
     const items = currentPaymentItemsTemplate.map(i => ({ 
       id: i.id, 
       name: i.name, 
       amount: i.amount,
-      academic_year: paymentYear
+      academic_year: paymentYear,
+      recorded_by_role: roleForPayment,
+      recorded_by_name: nameForPayment
     }));
 
     const schoolId = user?.schoolId || selectedStudent.schoolId || (selectedStudent as any).school_id;
     const parentId = selectedStudent.parentId || (selectedStudent as any).parent_id || null;
 
-    const roleForPayment = user?.role === "SCHOOL_ADMIN" ? "SCHOOL_ADMIN" : (user?.role === "CASHIER" ? "CASHIER" : (user?.role || "CASHIER"));
-    const nameForPayment = user?.name || (roleForPayment === "SCHOOL_ADMIN" ? "Directeur" : "Caisse");
+    try {
+      const map = JSON.parse(localStorage.getItem('payment_initiators_map') || '{}');
+      map[reference] = roleForPayment;
+      localStorage.setItem('payment_initiators_map', JSON.stringify(map));
+    } catch (e) {}
 
     const payload: any = {
        school_id: schoolId,
@@ -530,6 +539,14 @@ export function SchoolAdminPayments() {
     };
 
     let { data: inserted, error } = await supabase.from('payments').insert(payload).select().single();
+    if (inserted?.id) {
+      try {
+        const map = JSON.parse(localStorage.getItem('payment_initiators_map') || '{}');
+        map[inserted.id] = roleForPayment;
+        map[reference] = roleForPayment;
+        localStorage.setItem('payment_initiators_map', JSON.stringify(map));
+      } catch (e) {}
+    }
 
     // Fallbacks if optional columns don't exist in Supabase schema cache
     if (error && error.message && (error.message.includes("recorded_by") || error.message.includes("Could not find the 'recorded_by"))) {
@@ -744,17 +761,10 @@ export function SchoolAdminPayments() {
 
     // Actor filter
     if (filterActor !== "ALL") {
-      const role = ((p as any).recorded_by_role || (p as any).recordedByRole || "").toUpperCase();
-      if (filterActor === "PARENT") {
-        const isParent = role === "PARENT" || Boolean(p.parentId || (p as any).parent_id);
-        if (!isParent) return false;
-      } else if (filterActor === "CAISSE") {
-        const isCaisse = role === "CASHIER" || (!p.parentId && !(p as any).parent_id && (p.network === "ESPÈCES" || p.network === "CASH" || !p.network));
-        if (!isCaisse) return false;
-      } else if (filterActor === "DIRECTEUR") {
-        const isDir = role === "SCHOOL_ADMIN" || role === "DIRECTEUR";
-        if (!isDir) return false;
-      }
+      const actorInfo = resolvePaymentActor(p, students, profiles);
+      if (filterActor === "PARENT" && actorInfo.role !== "PARENT") return false;
+      if (filterActor === "CAISSE" && actorInfo.role !== "CASHIER") return false;
+      if (filterActor === "DIRECTEUR" && actorInfo.role !== "DIRECTEUR") return false;
     }
     
     return matchSearch && matchType && matchClass;
@@ -868,9 +878,9 @@ export function SchoolAdminPayments() {
 
              <select value={filterActor} onChange={e => setFilterActor(e.target.value)} className="px-3 py-1.5 border border-slate-200 rounded-md text-xs font-semibold focus:ring-emerald-500 outline-none">
                <option value="ALL">Tous les initiateurs</option>
-               <option value="PARENT">👤 Par Parent</option>
-               <option value="CAISSE">💼 Par Caisse</option>
-               <option value="DIRECTEUR">🏫 Par Directeur</option>
+               <option value="PARENT">👤 Parent d'élève</option>
+               <option value="CAISSE">💼 Caisse</option>
+               <option value="DIRECTEUR">🏫 Directeur</option>
              </select>
              <div className="relative">
                <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />

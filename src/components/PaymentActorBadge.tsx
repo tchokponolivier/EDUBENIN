@@ -1,18 +1,131 @@
 import React from "react";
-import { UserCheck, ShieldCheck, Banknote, User } from "lucide-react";
+import { ShieldCheck, Banknote, User } from "lucide-react";
 
 export type ActorRole = "PARENT" | "CASHIER" | "SCHOOL_ADMIN" | "DIRECTOR_OF_STUDIES" | "SECRETARY" | string;
 
 export interface ActorInfo {
-  role: "PARENT" | "CASHIER" | "DIRECTEUR" | "ADMIN" | "SECRETARY";
-  label: string;
+  role: "PARENT" | "CASHIER" | "DIRECTEUR" | "SECRETARY";
+  label: "Parent d'élève" | "Caisse" | "Directeur" | "Secrétariat";
   name?: string;
   badgeClass: string;
   icon: React.ReactNode;
 }
 
-export function resolvePaymentActor(payment: any, students?: any[], profiles?: any[]): ActorInfo {
-  // 1. If explicit recorded_by_role / recordedByRole
+export function resolvePaymentActor(payment: any, _students?: any[], profiles?: any[]): ActorInfo {
+  if (!payment) {
+    return {
+      role: "CAISSE" as any,
+      label: "Caisse",
+      badgeClass: "bg-emerald-50 text-emerald-700 border-emerald-200",
+      icon: <Banknote className="w-3.5 h-3.5 text-emerald-600" />
+    };
+  }
+
+  // 1. Check persistent localStorage map first
+  try {
+    const raw = localStorage.getItem('payment_initiators_map');
+    if (raw) {
+      const map = JSON.parse(raw);
+      const storedRole = (payment.reference && map[payment.reference]) || (payment.id && map[payment.id]);
+      if (storedRole) {
+        const u = String(storedRole).toUpperCase();
+        if (u === "SCHOOL_ADMIN" || u === "DIRECTEUR" || u === "DIRECTOR") {
+          return {
+            role: "DIRECTEUR",
+            label: "Directeur",
+            name: "Directeur",
+            badgeClass: "bg-purple-50 text-purple-700 border-purple-200",
+            icon: <ShieldCheck className="w-3.5 h-3.5 text-purple-600" />
+          };
+        }
+        if (u === "CASHIER" || u === "CAISSE" || u === "CAISSIER") {
+          return {
+            role: "CASHIER",
+            label: "Caisse",
+            name: "Caisse",
+            badgeClass: "bg-emerald-50 text-emerald-700 border-emerald-200",
+            icon: <Banknote className="w-3.5 h-3.5 text-emerald-600" />
+          };
+        }
+        if (u === "PARENT") {
+          return {
+            role: "PARENT",
+            label: "Parent d'élève",
+            name: "Parent d'élève",
+            badgeClass: "bg-blue-50 text-blue-700 border-blue-200",
+            icon: <User className="w-3.5 h-3.5 text-blue-600" />
+          };
+        }
+      }
+    }
+  } catch (e) {}
+
+  // 2. Check reference prefix/content
+  const ref = String(payment.reference || "").toUpperCase();
+  if (ref.includes("-DIR-") || ref.startsWith("PAY-DIR") || ref.includes("DIRECTEUR")) {
+    return {
+      role: "DIRECTEUR",
+      label: "Directeur",
+      name: "Directeur",
+      badgeClass: "bg-purple-50 text-purple-700 border-purple-200",
+      icon: <ShieldCheck className="w-3.5 h-3.5 text-purple-600" />
+    };
+  }
+  if (ref.includes("-CSH-") || ref.startsWith("PAY-CSH") || ref.includes("CAISSE")) {
+    return {
+      role: "CASHIER",
+      label: "Caisse",
+      name: "Caisse",
+      badgeClass: "bg-emerald-50 text-emerald-700 border-emerald-200",
+      icon: <Banknote className="w-3.5 h-3.5 text-emerald-600" />
+    };
+  }
+  if (ref.includes("-PAR-") || ref.startsWith("PAY-PAR") || ref.includes("PARENT")) {
+    return {
+      role: "PARENT",
+      label: "Parent d'élève",
+      name: "Parent d'élève",
+      badgeClass: "bg-blue-50 text-blue-700 border-blue-200",
+      icon: <User className="w-3.5 h-3.5 text-blue-600" />
+    };
+  }
+
+  // 3. Check items array if metadata was preserved inside items
+  if (Array.isArray(payment.items) && payment.items.length > 0) {
+    const itemWithRole = payment.items.find((it: any) => it && (it.recorded_by_role || it.recordedByRole));
+    if (itemWithRole) {
+      const itemRole = String(itemWithRole.recorded_by_role || itemWithRole.recordedByRole).toUpperCase();
+      if (itemRole === "SCHOOL_ADMIN" || itemRole === "DIRECTEUR" || itemRole === "DIRECTOR") {
+        return {
+          role: "DIRECTEUR",
+          label: "Directeur",
+          name: "Directeur",
+          badgeClass: "bg-purple-50 text-purple-700 border-purple-200",
+          icon: <ShieldCheck className="w-3.5 h-3.5 text-purple-600" />
+        };
+      }
+      if (itemRole === "CASHIER" || itemRole === "CAISSE") {
+        return {
+          role: "CASHIER",
+          label: "Caisse",
+          name: "Caisse",
+          badgeClass: "bg-emerald-50 text-emerald-700 border-emerald-200",
+          icon: <Banknote className="w-3.5 h-3.5 text-emerald-600" />
+        };
+      }
+      if (itemRole === "PARENT") {
+        return {
+          role: "PARENT",
+          label: "Parent d'élève",
+          name: "Parent d'élève",
+          badgeClass: "bg-blue-50 text-blue-700 border-blue-200",
+          icon: <User className="w-3.5 h-3.5 text-blue-600" />
+        };
+      }
+    }
+  }
+
+  // 4. Explicit recorded_by_role / recordedByRole
   const rawRole = (payment.recorded_by_role || payment.recordedByRole || "").toUpperCase();
   const rawName = payment.recorded_by_name || payment.recordedByName;
 
@@ -20,44 +133,66 @@ export function resolvePaymentActor(payment: any, students?: any[], profiles?: a
     return {
       role: "PARENT",
       label: "Parent d'élève",
-      name: rawName || "Parent",
+      name: rawName || "Parent d'élève",
       badgeClass: "bg-blue-50 text-blue-700 border-blue-200",
-      icon: <User className="w-3 h-3 text-blue-600" />
+      icon: <User className="w-3.5 h-3.5 text-blue-600" />
     };
   }
 
-  if (rawRole === "CASHIER") {
+  if (rawRole === "CASHIER" || rawRole === "CAISSE" || rawRole === "CAISSIER") {
     return {
       role: "CASHIER",
       label: "Caisse",
-      name: rawName || "Caisse de l'école",
+      name: rawName || "Caisse",
       badgeClass: "bg-emerald-50 text-emerald-700 border-emerald-200",
-      icon: <Banknote className="w-3 h-3 text-emerald-600" />
+      icon: <Banknote className="w-3.5 h-3.5 text-emerald-600" />
     };
   }
 
-  if (rawRole === "SCHOOL_ADMIN" || rawRole === "DIRECTEUR" || rawRole === "DIRECTOR") {
+  if (rawRole === "SCHOOL_ADMIN" || rawRole === "DIRECTEUR" || rawRole === "DIRECTOR" || rawRole === "DIRECTOR_OF_STUDIES") {
     return {
       role: "DIRECTEUR",
-      label: "Direction / Directeur",
-      name: rawName || "Direction",
+      label: "Directeur",
+      name: rawName || "Directeur",
       badgeClass: "bg-purple-50 text-purple-700 border-purple-200",
-      icon: <ShieldCheck className="w-3 h-3 text-purple-600" />
+      icon: <ShieldCheck className="w-3.5 h-3.5 text-purple-600" />
     };
   }
 
-  if (rawRole === "SECRETARY" || rawRole === "SECRETAIRE") {
-    return {
-      role: "SECRETARY",
-      label: "Secrétariat",
-      name: rawName || "Secrétariat",
-      badgeClass: "bg-amber-50 text-amber-700 border-amber-200",
-      icon: <UserCheck className="w-3 h-3 text-amber-600" />
-    };
+  // 5. Check if recorded_by_name indicates role
+  if (rawName) {
+    const lowerName = String(rawName).toLowerCase();
+    if (lowerName.includes("directeur") || lowerName.includes("admin")) {
+      return {
+        role: "DIRECTEUR",
+        label: "Directeur",
+        name: rawName,
+        badgeClass: "bg-purple-50 text-purple-700 border-purple-200",
+        icon: <ShieldCheck className="w-3.5 h-3.5 text-purple-600" />
+      };
+    }
+    if (lowerName.includes("caisse") || lowerName.includes("caissier")) {
+      return {
+        role: "CASHIER",
+        label: "Caisse",
+        name: rawName,
+        badgeClass: "bg-emerald-50 text-emerald-700 border-emerald-200",
+        icon: <Banknote className="w-3.5 h-3.5 text-emerald-600" />
+      };
+    }
+    if (lowerName.includes("parent")) {
+      return {
+        role: "PARENT",
+        label: "Parent d'élève",
+        name: rawName,
+        badgeClass: "bg-blue-50 text-blue-700 border-blue-200",
+        icon: <User className="w-3.5 h-3.5 text-blue-600" />
+      };
+    }
   }
 
-  // 2. Check if payment recorded_by_id corresponds to a known profile
-  const recordedById = payment.recorded_by_id || payment.recordedById;
+  // 6. Check recorded_by_id in profiles
+  const recordedById = payment.recorded_by_id || payment.recordedById || payment.user_id || payment.created_by;
   if (recordedById && profiles && profiles.length > 0) {
     const prof = profiles.find((p: any) => p.id === recordedById);
     if (prof) {
@@ -65,64 +200,110 @@ export function resolvePaymentActor(payment: any, students?: any[], profiles?: a
       if (pRole === "SCHOOL_ADMIN" || pRole === "DIRECTOR_OF_STUDIES") {
         return {
           role: "DIRECTEUR",
-          label: "Direction / Directeur",
-          name: prof.full_name || rawName || "Directeur",
+          label: "Directeur",
+          name: prof.full_name || "Directeur",
           badgeClass: "bg-purple-50 text-purple-700 border-purple-200",
-          icon: <ShieldCheck className="w-3 h-3 text-purple-600" />
+          icon: <ShieldCheck className="w-3.5 h-3.5 text-purple-600" />
         };
       }
       if (pRole === "CASHIER") {
         return {
           role: "CASHIER",
           label: "Caisse",
-          name: prof.full_name || rawName || "Caisse de l'école",
+          name: prof.full_name || "Caisse",
           badgeClass: "bg-emerald-50 text-emerald-700 border-emerald-200",
-          icon: <Banknote className="w-3 h-3 text-emerald-600" />
+          icon: <Banknote className="w-3.5 h-3.5 text-emerald-600" />
         };
       }
       if (pRole === "PARENT") {
         return {
           role: "PARENT",
           label: "Parent d'élève",
-          name: prof.full_name || rawName || "Parent",
+          name: prof.full_name || "Parent",
           badgeClass: "bg-blue-50 text-blue-700 border-blue-200",
-          icon: <User className="w-3 h-3 text-blue-600" />
+          icon: <User className="w-3.5 h-3.5 text-blue-600" />
         };
       }
     }
   }
 
-  // 3. Heuristics based on payment characteristics:
-  // - Cash / Espèces is physically paid and registered at the cash register (Caisse)
-  const network = (payment.network || payment.paymentMethod || "").toUpperCase();
-  if (network === "ESPÈCES" || network === "CASH" || network.includes("ESPÈCE")) {
+  // 7. Check validated_by_role if payment was validated
+  const valRole = (payment.validated_by_role || "").toUpperCase();
+  if (valRole === "DIRECTEUR" || valRole === "SCHOOL_ADMIN") {
+    return {
+      role: "DIRECTEUR",
+      label: "Directeur",
+      name: payment.validated_by_name || "Directeur",
+      badgeClass: "bg-purple-50 text-purple-700 border-purple-200",
+      icon: <ShieldCheck className="w-3.5 h-3.5 text-purple-600" />
+    };
+  }
+  if (valRole === "CAISSE" || valRole === "CASHIER") {
     return {
       role: "CASHIER",
       label: "Caisse",
-      name: rawName || "Caisse (Espèces)",
+      name: payment.validated_by_name || "Caisse",
       badgeClass: "bg-emerald-50 text-emerald-700 border-emerald-200",
-      icon: <Banknote className="w-3 h-3 text-emerald-600" />
+      icon: <Banknote className="w-3.5 h-3.5 text-emerald-600" />
     };
   }
 
-  // - Mobile money with parent_id or without school user explicit recording is typically initiated by Parent
-  if (payment.parent_id || payment.parentId) {
+  // 8. Mobile money payments with parent_id are initiated by Parents
+  const network = (payment.network || payment.paymentMethod || "").toUpperCase();
+  const hasParentId = Boolean(payment.parent_id || payment.parentId);
+  const isMobileMoney = network.includes("MTN") || network.includes("MOOV") || network.includes("CELTIIS") || network.includes("MOBILE");
+
+  if (hasParentId && isMobileMoney) {
     return {
       role: "PARENT",
       label: "Parent d'élève",
-      name: rawName || "Parent (Mobile Money)",
+      name: "Parent d'élève",
       badgeClass: "bg-blue-50 text-blue-700 border-blue-200",
-      icon: <User className="w-3 h-3 text-blue-600" />
+      icon: <User className="w-3.5 h-3.5 text-blue-600" />
     };
   }
 
-  // Default fallback: Caisse
+  // 9. Contextual fallback based on logged-in user / account
+  // If payment was recorded at school (e.g. ESPÈCES or in SchoolAdmin interface)
+  try {
+    const authUser = JSON.parse(localStorage.getItem('auth_user') || '{}');
+    if (authUser?.role === "SCHOOL_ADMIN" || authUser?.role === "DIRECTOR_OF_STUDIES") {
+      return {
+        role: "DIRECTEUR",
+        label: "Directeur",
+        name: "Directeur",
+        badgeClass: "bg-purple-50 text-purple-700 border-purple-200",
+        icon: <ShieldCheck className="w-3.5 h-3.5 text-purple-600" />
+      };
+    }
+    if (authUser?.role === "CASHIER") {
+      return {
+        role: "CASHIER",
+        label: "Caisse",
+        name: "Caisse",
+        badgeClass: "bg-emerald-50 text-emerald-700 border-emerald-200",
+        icon: <Banknote className="w-3.5 h-3.5 text-emerald-600" />
+      };
+    }
+  } catch (e) {}
+
+  // 10. Default fallback
+  if (hasParentId) {
+    return {
+      role: "PARENT",
+      label: "Parent d'élève",
+      name: "Parent d'élève",
+      badgeClass: "bg-blue-50 text-blue-700 border-blue-200",
+      icon: <User className="w-3.5 h-3.5 text-blue-600" />
+    };
+  }
+
   return {
-    role: "CASHIER",
-    label: "Caisse",
-    name: rawName || "Caisse",
-    badgeClass: "bg-emerald-50 text-emerald-700 border-emerald-200",
-    icon: <Banknote className="w-3 h-3 text-emerald-600" />
+    role: "DIRECTEUR",
+    label: "Directeur",
+    name: "Directeur",
+    badgeClass: "bg-purple-50 text-purple-700 border-purple-200",
+    icon: <ShieldCheck className="w-3.5 h-3.5 text-purple-600" />
   };
 }
 
@@ -130,8 +311,7 @@ export function PaymentActorBadge({
   payment, 
   students, 
   profiles,
-  size = "md",
-  showName = true
+  size = "md"
 }: { 
   payment: any; 
   students?: any[]; 
@@ -142,16 +322,11 @@ export function PaymentActorBadge({
   const actor = resolvePaymentActor(payment, students, profiles);
 
   return (
-    <div className="inline-flex items-center gap-1.5" title={`Effectué par : ${actor.name || actor.label}`}>
-      <span className={`inline-flex items-center gap-1 ${size === 'sm' ? 'px-1.5 py-0.5 text-[9px]' : 'px-2 py-0.5 text-[10px]'} rounded-full font-bold border ${actor.badgeClass} shadow-2xs whitespace-nowrap`}>
+    <div className="inline-flex items-center" title={`Initié par : ${actor.label}`}>
+      <span className={`inline-flex items-center gap-1.5 ${size === 'sm' ? 'px-2 py-0.5 text-[10px]' : 'px-2.5 py-1 text-xs'} rounded-full font-bold border ${actor.badgeClass} shadow-2xs whitespace-nowrap`}>
         {actor.icon}
         <span>{actor.label}</span>
       </span>
-      {showName && actor.name && actor.name !== actor.label && (
-        <span className="text-[10px] text-slate-500 hidden lg:inline max-w-[110px] truncate" title={actor.name}>
-          ({actor.name})
-        </span>
-      )}
     </div>
   );
 }

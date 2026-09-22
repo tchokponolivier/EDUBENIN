@@ -15,7 +15,7 @@ import {
   Filter,
   Users
 } from "lucide-react";
-import { PaymentActorBadge } from "./PaymentActorBadge";
+import { PaymentActorBadge, resolvePaymentActor } from "./PaymentActorBadge";
 
 export function CashierVerification() {
   const { user } = useAuth();
@@ -245,17 +245,10 @@ export function CashierVerification() {
     if (processedFilterStatus !== "ALL" && p.status !== processedFilterStatus) return false;
 
     if (processedFilterActor !== "ALL") {
-      const role = (p.recorded_by_role || p.recordedByRole || "").toUpperCase();
-      if (processedFilterActor === "PARENT") {
-        const isParent = role === "PARENT" || Boolean(p.parent_id);
-        if (!isParent) return false;
-      } else if (processedFilterActor === "CAISSE") {
-        const isCaisse = role === "CASHIER" || (!p.parent_id && (p.network === "ESPÈCES" || p.network === "CASH"));
-        if (!isCaisse) return false;
-      } else if (processedFilterActor === "DIRECTEUR") {
-        const isDir = role === "SCHOOL_ADMIN" || role === "DIRECTEUR";
-        if (!isDir) return false;
-      }
+      const actorInfo = resolvePaymentActor(p, undefined, profiles);
+      if (processedFilterActor === "PARENT" && actorInfo.role !== "PARENT") return false;
+      if (processedFilterActor === "CAISSE" && actorInfo.role !== "CASHIER") return false;
+      if (processedFilterActor === "DIRECTEUR" && actorInfo.role !== "DIRECTEUR") return false;
     }
 
     return matchSearch;
@@ -471,9 +464,9 @@ export function CashierVerification() {
               className="px-2.5 py-1.5 border border-slate-200 rounded-md text-xs focus:ring-emerald-500 outline-none"
             >
               <option value="ALL">Tous les initiateurs</option>
-              <option value="PARENT">Par Parent</option>
-              <option value="CAISSE">Par Caisse</option>
-              <option value="DIRECTEUR">Par Directeur / Direction</option>
+              <option value="PARENT">👤 Parent d'élève</option>
+              <option value="CAISSE">💼 Caisse</option>
+              <option value="DIRECTEUR">🏫 Directeur</option>
             </select>
 
             <div className="relative">

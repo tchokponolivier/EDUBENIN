@@ -58,6 +58,17 @@ export function SchoolAdminTeachers() {
   const [newCourseCoef, setNewCourseCoef] = useState(2);
   const [editingCourse, setEditingCourse] = useState<any>(null);
 
+  // Edit Teacher State with Main Subject & Classes
+  const [editingTeacherSubject, setEditingTeacherSubject] = useState<string>("");
+  const [editingTeacherClasses, setEditingTeacherClasses] = useState<string[]>([]);
+  const [editingTeacherCoefs, setEditingTeacherCoefs] = useState<Record<string, number>>({});
+
+  // List of distinct subjects already configured in school for convenient selection
+  const existingSchoolSubjects = Array.from(new Set([
+    ...SUBJECTS,
+    ...courses.map(c => c.name)
+  ])).filter(Boolean).sort();
+
   // Helper to manage persistent course metadata (coefficient, academic_year)
   const getCoursesMeta = (schoolId: string): Record<string, { coefficient?: number; academic_year?: string }> => {
     try {
@@ -202,21 +213,142 @@ export function SchoolAdminTeachers() {
     }
   };
 
-  // Profile Edit Save
+  // Open Edit Teacher Modal with Pre-populated Main Subject & Classes
+  const openEditTeacherModal = (t: any) => {
+    setEditingTeacher(t);
+    setEditingTeacherId(t.id);
+    const currentCourses = getTeacherCourses(t);
+    const mainSubject = currentCourses.length > 0 
+      ? currentCourses[0].name 
+      : (existingSchoolSubjects[0] || SUBJECTS[0]);
+    setEditingTeacherSubject(mainSubject);
+    const classList = currentCourses.map(c => c.level);
+    setEditingTeacherClasses(classList);
+    const coefMap: Record<string, number> = {};
+    currentCourses.forEach(c => {
+      coefMap[c.level] = c.coefficient || 2;
+    });
+    setEditingTeacherCoefs(coefMap);
+  };
+
+  const handleToggleEditTeacherClass = (cls: string) => {
+    setEditingTeacherClasses(prev => {
+      if (prev.includes(cls)) {
+        return prev.filter(c => c !== cls);
+      } else {
+        return [...prev, cls];
+      }
+    });
+
+    setEditingTeacherCoefs(prev => {
+      if (prev[cls] !== undefined) {
+        const next = { ...prev };
+        delete next[cls];
+        return next;
+      } else {
+        const existing = courses.find(c => c.name.toLowerCase() === editingTeacherSubject.toLowerCase() && c.level === cls);
+        return { ...prev, [cls]: existing?.coefficient || 2 };
+      }
+    });
+  };
+
+  // Profile Edit Save - updates profile AND assigns the chosen subject & classes
   const handleSaveTeacherProfile = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!editingTeacher) return;
+    if (!editingTeacher || !user?.schoolId) return;
     try {
-      if (!editingTeacher.isInvitation) {
+      let teacherUuid = editingTeacher.id;
+
+      // 1. Update teacher profile in profiles
+      if (!editingTeacher.isInvitation && !String(editingTeacher.id).startsWith('inv_')) {
         await supabase.from('profiles').update({
           full_name: editingTeacher.full_name,
           phone: editingTeacher.phone,
           title: editingTeacher.title || "Permanent"
         }).eq('id', editingTeacher.id);
+      } else {
+        // If it was an invited teacher, ensure a real profile row exists in profiles
+        const emailToCheck = editingTeacher.email?.toLowerCase();
+        if (emailToCheck) {
+          const { data: existingProf } = await supabase.from('profiles')
+            .select('id')
+            .eq('school_id', user.schoolId)
+            .ilike('email', emailToCheck)
+            .maybeSingle();
+
+          if (existingProf?.id) {
+            teacherUuid = existingProf.id;
+            await supabase.from('profiles').update({
+              full_name: editingTeacher.full_name,
+              phone: editingTeacher.phone,
+              title: editingTeacher.title || "Invité"
+            }).eq('id', existingProf.id);
+          } else {
+            const newUuid = (editingTeacher.invitationId && !String(editingTeacher.invitationId).includes('_')) 
+              ? editingTeacher.invitationId 
+              : crypto.randomUUID();
+
+            await supabase.from('profiles').insert([{
+              id: newUuid,
+              full_name: editingTeacher.full_name || emailToCheck.split('@')[0].toUpperCase(),
+              email: emailToCheck,
+              phone: editingTeacher.phone,
+              role: 'TEACHER',
+              school_id: user.schoolId,
+              title: editingTeacher.title || 'Invité'
+            }]);
+            teacherUuid = newUuid;
+          }
+        }
       }
+
+      // 2. Update subject & classes attributions for this teacher
+      if (editingTeacherSubject) {
+        const yearToUse = filterYear !== "ALL" ? filterYear : (currentConfiguredYear || null);
+        
+        // Unlink courses previously assigned to this teacher that are not in the new selection
+        const previousCourses = getTeacherCourses(editingTeacher);
+        for (const oldC of previousCourses) {
+          if (oldC.name !== editingTeacherSubject || !editingTeacherClasses.includes(oldC.level)) {
+            await supabase.from('courses').update({ teacher_id: null }).eq('id', oldC.id);
+          }
+        }
+
+        // Assign or create the chosen classes for this subject
+        for (const cls of editingTeacherClasses) {
+          const coef = editingTeacherCoefs[cls] || 2;
+          const existingCourse = courses.find(
+            c => c.school_id === user.schoolId && 
+                 c.name.trim().toLowerCase() === editingTeacherSubject.trim().toLowerCase() && 
+                 c.level === cls
+          );
+
+          if (existingCourse) {
+            await supabase.from('courses').update({
+              teacher_id: teacherUuid
+            }).eq('id', existingCourse.id);
+
+            setCourseMeta(user.schoolId, existingCourse.id, { coefficient: coef, academic_year: yearToUse });
+            setCourseMeta(user.schoolId, `${editingTeacherSubject.trim().toLowerCase()}_${cls}`, { coefficient: coef, academic_year: yearToUse });
+          } else {
+            const { data: newRow } = await supabase.from('courses').insert([{
+              school_id: user.schoolId,
+              name: editingTeacherSubject.trim(),
+              level: cls,
+              teacher_id: teacherUuid
+            }]).select().maybeSingle();
+
+            if (newRow?.id) {
+              setCourseMeta(user.schoolId, newRow.id, { coefficient: coef, academic_year: yearToUse });
+            }
+            setCourseMeta(user.schoolId, `${editingTeacherSubject.trim().toLowerCase()}_${cls}`, { coefficient: coef, academic_year: yearToUse });
+          }
+        }
+      }
+
       setEditingTeacherId(null);
       setEditingTeacher(null);
-      fetchData();
+      await fetchData();
     } catch (err: any) {
       alert("Erreur lors de la mise à jour: " + err.message);
     }
@@ -401,12 +533,6 @@ export function SchoolAdminTeachers() {
       fetchData();
     }
   };
-
-  // List of distinct subjects already configured in school for convenient selection
-  const existingSchoolSubjects = Array.from(new Set([
-    ...SUBJECTS,
-    ...courses.map(c => c.name)
-  ])).filter(Boolean).sort();
 
   return (
     <div className="flex flex-col gap-6 animate-in fade-in">
@@ -600,12 +726,9 @@ export function SchoolAdminTeachers() {
                         </div>
                         <div className="flex items-center gap-1">
                           <button 
-                            onClick={() => {
-                              setEditingTeacher(t);
-                              setEditingTeacherId(t.id);
-                            }} 
+                            onClick={() => openEditTeacherModal(t)} 
                             className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors" 
-                            title="Modifier les coordonnées"
+                            title="Modifier le professeur & matière principale"
                           >
                             <Edit2 size={16} />
                           </button>
@@ -622,6 +745,13 @@ export function SchoolAdminTeachers() {
                       {/* Classes & Matières Section */}
                       <div className="p-4 flex-1 flex flex-col gap-4">
                         <div>
+                          {teacherCourses.length > 0 && (
+                            <div className="mb-2 px-2.5 py-1.5 bg-emerald-50 rounded-lg border border-emerald-200/80 flex items-center justify-between text-xs">
+                              <span className="font-semibold text-emerald-800">Matière principale :</span>
+                              <strong className="font-bold text-emerald-950">{teacherCourses[0].name}</strong>
+                            </div>
+                          )}
+
                           <div className="flex items-center justify-between mb-2">
                             <h4 className="text-xs font-bold uppercase tracking-wider text-slate-600 flex items-center gap-1.5">
                               <BookOpen size={14} className="text-emerald-600" />
@@ -642,10 +772,10 @@ export function SchoolAdminTeachers() {
                                 <span>Aucune matière assignée</span>
                               </div>
                               <button
-                                onClick={() => openAssignModal(t)}
+                                onClick={() => openEditTeacherModal(t)}
                                 className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-md text-xs font-bold shadow-sm transition"
                               >
-                                <Plus size={13} /> Attribuer une matière
+                                <Plus size={13} /> Choisir matière & classes
                               </button>
                             </div>
                           ) : (
@@ -812,6 +942,7 @@ export function SchoolAdminTeachers() {
         onClose={() => setShowAddModal(false)} 
         onSuccess={fetchData} 
         currentAcademicYear={currentConfiguredYear || (filterYear !== "ALL" ? filterYear : undefined)}
+        schoolSubjects={existingSchoolSubjects}
       />
 
       {/* MODAL 2: Attribution Pédagogique Professionnelle (Classes & Matières) */}
@@ -1044,6 +1175,77 @@ export function SchoolAdminTeachers() {
                   placeholder="Ex: +229 97 00 00 00"
                   className="w-full px-3 py-2 border border-slate-300 rounded-lg outline-none focus:ring-emerald-500 text-sm font-medium" 
                 />
+              </div>
+
+              {/* Matière principale créée dans le tab matières par classe */}
+              <div className="pt-2 border-t border-slate-100">
+                <label className="block text-xs font-bold text-gray-800 uppercase mb-1">
+                  Matière principale d'enseignement
+                </label>
+                <p className="text-[11px] text-slate-500 mb-2">
+                  Sélectionnez la matière créée dans la gestion des matières par classe.
+                </p>
+                <select
+                  value={editingTeacherSubject}
+                  onChange={e => setEditingTeacherSubject(e.target.value)}
+                  className="w-full px-3 py-2.5 border border-emerald-300 rounded-lg outline-none focus:ring-emerald-500 text-sm bg-white font-semibold text-emerald-950 shadow-xs"
+                >
+                  <option value="" disabled>-- Choisir une matière --</option>
+                  {existingSchoolSubjects.map(sub => (
+                    <option key={sub} value={sub}>{sub}</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Classes attribuées pour cette matière */}
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="block text-xs font-bold text-gray-800 uppercase">
+                    Classes & Coefficients ({editingTeacherClasses.length} classe(s) cochée(s))
+                  </label>
+                  <span className="text-[10px] text-emerald-600 font-bold">
+                    Attribuer pour {editingTeacherSubject || "cette matière"}
+                  </span>
+                </div>
+                <div className="border border-slate-200 rounded-lg p-2.5 bg-slate-50 max-h-48 overflow-y-auto space-y-1.5">
+                  {LEVELS.map(lvl => {
+                    const isChecked = editingTeacherClasses.includes(lvl);
+                    return (
+                      <div 
+                        key={lvl} 
+                        className={`flex items-center justify-between p-1.5 px-2.5 rounded-lg border transition ${
+                          isChecked ? "bg-emerald-50/80 border-emerald-300 shadow-xs" : "bg-white border-slate-200 hover:bg-slate-100/60"
+                        }`}
+                      >
+                        <label className="flex items-center gap-2 cursor-pointer flex-1">
+                          <input 
+                            type="checkbox" 
+                            checked={isChecked} 
+                            onChange={() => handleToggleEditTeacherClass(lvl)}
+                            className="w-4 h-4 rounded text-emerald-600 focus:ring-emerald-500" 
+                          />
+                          <span className={`text-xs font-bold ${isChecked ? "text-emerald-900" : "text-gray-700"}`}>
+                            {lvl}
+                          </span>
+                        </label>
+                        {isChecked && (
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-[11px] font-bold text-emerald-700">Coef :</span>
+                            <input 
+                              type="number" 
+                              min="1" 
+                              max="10"
+                              value={editingTeacherCoefs[lvl] || 2} 
+                              onChange={e => setEditingTeacherCoefs(prev => ({ ...prev, [lvl]: Number(e.target.value) }))}
+                              className="w-14 px-2 py-0.5 text-xs border border-emerald-300 rounded font-bold text-emerald-900 bg-white outline-none"
+                              required
+                            />
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
 
               <div className="pt-3 flex justify-end gap-2 border-t border-slate-100">

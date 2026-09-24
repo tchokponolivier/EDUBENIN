@@ -76,12 +76,26 @@ function TeacherDashboardInner() {
   // Chargement des cours assignés et données
   useEffect(() => {
     const fetchData = async () => {
-      if (!user?.schoolId || !user?.id) return;
+      if (!user) return;
       try {
+        let activeSchoolId = user.schoolId;
+        if (!activeSchoolId && user.email) {
+          try {
+            const { data: prof } = await supabase.from('profiles').select('school_id').ilike('email', user.email).maybeSingle();
+            if (prof?.school_id) activeSchoolId = prof.school_id;
+          } catch (e) {}
+        }
+        if (!activeSchoolId) {
+          try {
+            const { data: firstSchool } = await supabase.from('schools').select('id').limit(1).maybeSingle();
+            if (firstSchool?.id) activeSchoolId = firstSchool.id;
+          } catch (e) {}
+        }
+
         const [stRes, allCoursesRes, schoolRes] = await Promise.all([
-          supabase.from('students').select('*').eq('school_id', user.schoolId),
-          supabase.from('courses').select('*').eq('school_id', user.schoolId),
-          supabase.from('schools').select('*').eq('id', user.schoolId).maybeSingle()
+          activeSchoolId ? supabase.from('students').select('*').eq('school_id', activeSchoolId) : supabase.from('students').select('*'),
+          activeSchoolId ? supabase.from('courses').select('*').eq('school_id', activeSchoolId) : supabase.from('courses').select('*'),
+          activeSchoolId ? supabase.from('schools').select('*').eq('id', activeSchoolId).maybeSingle() : Promise.resolve({ data: null })
         ]);
 
         if (stRes.data) {
@@ -99,12 +113,12 @@ function TeacherDashboardInner() {
         }
 
         let inviteId: string | null = null;
-        if (user?.email && user?.schoolId) {
+        if (user?.email && activeSchoolId) {
           try {
             const { data: inv } = await supabase.from('invitations')
               .select('id')
               .eq('email', user.email.toLowerCase())
-              .eq('school_id', user.schoolId)
+              .eq('school_id', activeSchoolId)
               .maybeSingle();
             if (inv?.id) {
               inviteId = `inv_${inv.id}`;
@@ -112,32 +126,57 @@ function TeacherDashboardInner() {
           } catch (e) {}
         }
 
-        if (allCoursesRes.data) {
-          // Filtrer rigoureusement les cours attribués au professeur connecté :
-          // Par teacher_id === user.id OU email === user.email OU inv_${inv.id} OU raw invitation UUID
-          const uid = user.id ? String(user.id).toLowerCase() : "";
-          const uemail = user.email ? String(user.email).toLowerCase() : "";
-          const invId = inviteId ? String(inviteId).toLowerCase() : "";
-          const rawInvUuid = inviteId ? inviteId.replace('inv_', '').toLowerCase() : "";
+        // Collect all IDs that identify this teacher across profiles, invitations and auth
+        const uid = user.id ? String(user.id).toLowerCase() : "";
+        const uemail = user.email ? String(user.email).toLowerCase() : "";
+        const matchedTeacherIds = new Set<string>();
+        if (uid) matchedTeacherIds.add(uid);
 
+        if (uemail) {
+          try {
+            const { data: profs } = await supabase.from('profiles')
+              .select('id, email')
+              .ilike('email', uemail);
+            (profs || []).forEach((p: any) => {
+              if (p.id) matchedTeacherIds.add(String(p.id).toLowerCase());
+            });
+          } catch (e) {}
+        }
+
+        if (user.name && activeSchoolId) {
+          try {
+            const { data: nameProfs } = await supabase.from('profiles')
+              .select('id')
+              .eq('school_id', activeSchoolId)
+              .ilike('full_name', user.name.trim());
+            (nameProfs || []).forEach((p: any) => {
+              if (p.id) matchedTeacherIds.add(String(p.id).toLowerCase());
+            });
+          } catch (e) {}
+        }
+
+        if (inviteId) {
+          matchedTeacherIds.add(inviteId.toLowerCase());
+          matchedTeacherIds.add(inviteId.replace('inv_', '').toLowerCase());
+        }
+
+        if (allCoursesRes.data) {
           // Read course metadata for coefficients
           let courseMeta: Record<string, any> = {};
-          if (user?.schoolId) {
+          if (activeSchoolId) {
             try {
-              const raw = localStorage.getItem(`school_courses_meta_${user.schoolId}`);
+              const raw = localStorage.getItem(`school_courses_meta_${activeSchoolId}`);
               if (raw) courseMeta = JSON.parse(raw);
             } catch (e) {}
           }
 
-          const assignedCourses = allCoursesRes.data
+          const assignedCourses = (allCoursesRes.data || [])
             .filter((c: any) => {
               if (!c.teacher_id) return false;
               const cTid = String(c.teacher_id).toLowerCase();
               return (
-                (uid && cTid === uid) ||
+                matchedTeacherIds.has(cTid) ||
                 (uemail && cTid === uemail) ||
-                (invId && cTid === invId) ||
-                (rawInvUuid && cTid === rawInvUuid) ||
                 (c.teacher_email && uemail && String(c.teacher_email).toLowerCase() === uemail)
               );
             })

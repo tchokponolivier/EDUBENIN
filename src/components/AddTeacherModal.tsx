@@ -4,7 +4,19 @@ import { useAuth } from "../lib/auth";
 import { X, UserPlus } from "lucide-react";
 import { LEVELS, SUBJECTS } from "../types";
 
-export function AddTeacherModal({ isOpen, onClose, onSuccess, currentAcademicYear }: { isOpen: boolean, onClose: () => void, onSuccess: () => void, currentAcademicYear?: string }) {
+export function AddTeacherModal({ 
+  isOpen, 
+  onClose, 
+  onSuccess, 
+  currentAcademicYear,
+  schoolSubjects
+}: { 
+  isOpen: boolean; 
+  onClose: () => void; 
+  onSuccess: () => void; 
+  currentAcademicYear?: string;
+  schoolSubjects?: string[];
+}) {
   const { user } = useAuth();
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
@@ -15,6 +27,8 @@ export function AddTeacherModal({ isOpen, onClose, onSuccess, currentAcademicYea
     classes: [] as string[]
   });
   const [classCoefs, setClassCoefs] = useState<Record<string, number>>({});
+  
+  const subjectsToDisplay = schoolSubjects && schoolSubjects.length > 0 ? schoolSubjects : SUBJECTS;
   
   const handleToggleClass = (cls: string) => {
     setFormData(prev => {
@@ -152,9 +166,9 @@ export function AddTeacherModal({ isOpen, onClose, onSuccess, currentAcademicYea
           </div>
           <div>
             <label className="block text-xs font-bold text-gray-700 mb-1 uppercase tracking-wide">Matière enseignée</label>
-            <select required value={formData.subject} onChange={e => setFormData({...formData, subject: e.target.value})} className="w-full px-3 py-2 border border-slate-300 rounded focus:ring-emerald-500 outline-none bg-white text-sm">
+            <select required value={formData.subject} onChange={e => setFormData({...formData, subject: e.target.value})} className="w-full px-3 py-2 border border-slate-300 rounded focus:ring-emerald-500 outline-none bg-white text-sm font-medium">
               <option value="" disabled>Sélectionnez une matière</option>
-              {SUBJECTS.map(s => <option key={s} value={s}>{s}</option>)}
+              {subjectsToDisplay.map(s => <option key={s} value={s}>{s}</option>)}
             </select>
           </div>
           <div>

@@ -23,7 +23,12 @@ class MockQueryBuilder {
 
   constructor(public table) {}
 
-  select(cols = '*') { this.action = 'select'; return this; }
+  select(cols = '*') { 
+    if (!this.action || this.action === 'select') {
+      this.action = 'select'; 
+    }
+    return this; 
+  }
   insert(data) { this.action = 'insert'; this.payload = data; return this; }
   update(data) { this.action = 'update'; this.payload = data; return this; }
   upsert(data) { this.action = 'upsert'; this.payload = data; return this; }
@@ -32,6 +37,13 @@ class MockQueryBuilder {
   eq(col, val) { this.filters.push({ type: 'eq', col, val }); return this; }
   neq(col, val) { this.filters.push({ type: 'neq', col, val }); return this; }
   in(col, vals) { this.filters.push({ type: 'in', col, vals }); return this; }
+  ilike(col, val) { this.filters.push({ type: 'ilike', col, val }); return this; }
+  like(col, val) { this.filters.push({ type: 'like', col, val }); return this; }
+  is(col, val) { this.filters.push({ type: 'is', col, val }); return this; }
+  gte(col, val) { this.filters.push({ type: 'gte', col, val }); return this; }
+  lte(col, val) { this.filters.push({ type: 'lte', col, val }); return this; }
+  gt(col, val) { this.filters.push({ type: 'gt', col, val }); return this; }
+  lt(col, val) { this.filters.push({ type: 'lt', col, val }); return this; }
   or(str) { return this; }
   
   order(col, opts) { this.orderRules.push({ col, ascending: opts?.ascending !== false }); return this; }
@@ -81,15 +93,33 @@ class MockQueryBuilder {
       }
       localStorage.setItem(storageKey, JSON.stringify(data));
     }
+
+    const checkMatches = (item) => {
+      for (const f of this.filters) {
+        const itemVal = item[f.col];
+        if (f.type === 'eq' && itemVal !== f.val) return false;
+        if (f.type === 'neq' && itemVal === f.val) return false;
+        if (f.type === 'in' && !f.vals.includes(itemVal)) return false;
+        if (f.type === 'ilike') {
+          const target = String(f.val || '').replace(/%/g, '').toLowerCase();
+          if (!String(itemVal || '').toLowerCase().includes(target)) return false;
+        }
+        if (f.type === 'like') {
+          const target = String(f.val || '').replace(/%/g, '');
+          if (!String(itemVal || '').includes(target)) return false;
+        }
+        if (f.type === 'is' && itemVal !== f.val) return false;
+        if (f.type === 'gte' && Number(itemVal) < Number(f.val)) return false;
+        if (f.type === 'lte' && Number(itemVal) > Number(f.val)) return false;
+        if (f.type === 'gt' && Number(itemVal) <= Number(f.val)) return false;
+        if (f.type === 'lt' && Number(itemVal) >= Number(f.val)) return false;
+      }
+      return true;
+    };
     
     let result = null;
     if (this.action === 'select') {
-      result = [...data];
-      for (const f of this.filters) {
-        if (f.type === 'eq') result = result.filter(d => d[f.col] === f.val);
-        else if (f.type === 'neq') result = result.filter(d => d[f.col] !== f.val);
-        else if (f.type === 'in') result = result.filter(d => f.vals.includes(d[f.col]));
-      }
+      result = data.filter(checkMatches);
       for (const rule of this.orderRules) {
         result.sort((a, b) => {
           if (a[rule.col] < b[rule.col]) return rule.ascending ? -1 : 1;
@@ -106,24 +136,20 @@ class MockQueryBuilder {
       }
     } else if (this.action === 'insert') {
       const arr = Array.isArray(this.payload) ? this.payload : [this.payload];
-      const inserted = arr.map(item => ({ id: generateId(), created_at: new Date().toISOString(), ...item }));
+      const inserted = arr.map(item => ({ id: item.id || generateId(), created_at: new Date().toISOString(), ...item }));
       data.push(...inserted);
       localStorage.setItem(storageKey, JSON.stringify(data));
-      result = this.isSingle ? inserted[0] : inserted;
+      result = (this.isSingle || this.isMaybeSingle) ? inserted[0] : inserted;
     } else if (this.action === 'update') {
       result = [];
       for (let i = 0; i < data.length; i++) {
-        let match = true;
-        for (const f of this.filters) {
-          if (f.type === 'eq' && data[i][f.col] !== f.val) match = false;
-        }
-        if (match) {
+        if (checkMatches(data[i])) {
           data[i] = { ...data[i], ...this.payload };
           result.push(data[i]);
         }
       }
       localStorage.setItem(storageKey, JSON.stringify(data));
-      result = this.isSingle ? result[0] || null : result;
+      result = (this.isSingle || this.isMaybeSingle) ? (result[0] || null) : result;
     } else if (this.action === 'upsert') {
        const toUpsert = Array.isArray(this.payload) ? this.payload : [this.payload];
        for (const item of toUpsert) {
@@ -134,13 +160,7 @@ class MockQueryBuilder {
        localStorage.setItem(storageKey, JSON.stringify(data));
        result = toUpsert;
     } else if (this.action === 'delete') {
-      data = data.filter(item => {
-        let match = true;
-        for (const f of this.filters) {
-          if (f.type === 'eq' && item[f.col] !== f.val) match = false;
-        }
-        return !match;
-      });
+      data = data.filter(item => !checkMatches(item));
       localStorage.setItem(storageKey, JSON.stringify(data));
       result = [];
     }

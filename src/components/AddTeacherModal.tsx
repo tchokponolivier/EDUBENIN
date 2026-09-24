@@ -55,16 +55,47 @@ export function AddTeacherModal({ isOpen, onClose, onSuccess, currentAcademicYea
       });
       if (error) throw error;
       
-      if (formData.subject && formData.classes.length > 0) {
-          const coursesToInsert = formData.classes.map(cls => ({
-              school_id: user?.schoolId,
-              name: formData.subject,
+      if (formData.subject && formData.classes.length > 0 && user?.schoolId) {
+        let currentMeta: Record<string, any> = {};
+        try {
+          const raw = localStorage.getItem(`school_courses_meta_${user.schoolId}`);
+          if (raw) currentMeta = JSON.parse(raw);
+        } catch (e) {}
+
+        for (const cls of formData.classes) {
+          const coef = classCoefs[cls] || 1;
+          const { data: existing } = await supabase.from('courses')
+            .select('id')
+            .eq('school_id', user.schoolId)
+            .ilike('name', formData.subject.trim())
+            .eq('level', cls)
+            .maybeSingle();
+
+          if (existing) {
+            await supabase.from('courses').update({
+              teacher_id: dummyId
+            }).eq('id', existing.id);
+
+            currentMeta[existing.id] = { coefficient: coef, academic_year: currentAcademicYear || null };
+            currentMeta[`${formData.subject.trim().toLowerCase()}_${cls}`] = { coefficient: coef, academic_year: currentAcademicYear || null };
+          } else {
+            const { data: newCourse } = await supabase.from('courses').insert([{
+              school_id: user.schoolId,
+              name: formData.subject.trim(),
               level: cls,
-              teacher_id: dummyId,
-              coefficient: classCoefs[cls] || 1,
-              academic_year: currentAcademicYear || null
-          }));
-          await supabase.from('courses').insert(coursesToInsert);
+              teacher_id: dummyId
+            }]).select().maybeSingle();
+
+            if (newCourse?.id) {
+              currentMeta[newCourse.id] = { coefficient: coef, academic_year: currentAcademicYear || null };
+            }
+            currentMeta[`${formData.subject.trim().toLowerCase()}_${cls}`] = { coefficient: coef, academic_year: currentAcademicYear || null };
+          }
+        }
+
+        try {
+          localStorage.setItem(`school_courses_meta_${user.schoolId}`, JSON.stringify(currentMeta));
+        } catch (e) {}
       }
       onSuccess();
       onClose();

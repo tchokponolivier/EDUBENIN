@@ -13,7 +13,7 @@ import {
 } from "lucide-react";
 import { DirectorPrograms } from "../components/director/DirectorPrograms";
 import { DirectorAcademic } from "../components/director/DirectorAcademic";
-import { DirectorTeachers } from "../components/director/DirectorTeachers";
+import { SchoolAdminTeachers } from "./SchoolAdminTeachers";
 import { DirectorExams } from "../components/director/DirectorExams";
 import { DirectorResults } from "../components/director/DirectorResults";
 import { DirectorOrientation } from "../components/director/DirectorOrientation";
@@ -60,9 +60,10 @@ export function DirectorDashboard() {
           </button>
           <button
             onClick={() => setActiveTab("TEACHERS")}
-            className={`px-4 py-2.5 rounded-lg text-xs font-bold uppercase tracking-wider transition-all whitespace-nowrap ${activeTab === "TEACHERS" ? "bg-white shadow-sm border border-slate-200 text-emerald-700" : "text-slate-500 hover:text-gray-700 hover:bg-slate-100"}`}
+            className={`px-4 py-2.5 rounded-lg text-xs font-bold uppercase tracking-wider transition-all whitespace-nowrap flex items-center gap-1.5 ${activeTab === "TEACHERS" ? "bg-white shadow-sm border border-slate-200 text-emerald-700" : "text-slate-500 hover:text-gray-700 hover:bg-slate-100"}`}
           >
-            Enseignants & Évaluations
+            <Users size={14} />
+            Professeurs
           </button>
           <button
             onClick={() => setActiveTab("EXAMS")}
@@ -94,7 +95,7 @@ export function DirectorDashboard() {
           {activeTab === "PEDAGOGY" && <DirectorPedagogy />}
           {activeTab === "PROGRAMS" && <DirectorPrograms />}
           {activeTab === "ACADEMIC" && <DirectorAcademic />}
-          {activeTab === "TEACHERS" && <DirectorTeachers />}
+          {activeTab === "TEACHERS" && <SchoolAdminTeachers />}
           {activeTab === "EXAMS" && <DirectorExams />}
           {activeTab === "RESULTS" && <DirectorResults />}
           {activeTab === "ORIENTATION" && <DirectorOrientation />}

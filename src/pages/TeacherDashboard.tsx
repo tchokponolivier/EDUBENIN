@@ -98,19 +98,67 @@ function TeacherDashboardInner() {
           })) as any);
         }
 
+        let inviteId: string | null = null;
+        if (user?.email && user?.schoolId) {
+          try {
+            const { data: inv } = await supabase.from('invitations')
+              .select('id')
+              .eq('email', user.email.toLowerCase())
+              .eq('school_id', user.schoolId)
+              .maybeSingle();
+            if (inv?.id) {
+              inviteId = `inv_${inv.id}`;
+            }
+          } catch (e) {}
+        }
+
         if (allCoursesRes.data) {
           // Filtrer rigoureusement les cours attribués au professeur connecté :
-          // Par teacher_id === user.id OU email === user.email
-          const userIdentifier = user.id;
-          const userEmail = user.email?.toLowerCase();
-          const assignedCourses = allCoursesRes.data.filter((c: any) => {
-            return (
-              c.teacher_id === userIdentifier ||
-              (userEmail && c.teacher_id === userEmail) ||
-              (c.teacher_email && c.teacher_email.toLowerCase() === userEmail)
-            );
-          });
+          // Par teacher_id === user.id OU email === user.email OU inv_${inv.id} OU raw invitation UUID
+          const uid = user.id ? String(user.id).toLowerCase() : "";
+          const uemail = user.email ? String(user.email).toLowerCase() : "";
+          const invId = inviteId ? String(inviteId).toLowerCase() : "";
+          const rawInvUuid = inviteId ? inviteId.replace('inv_', '').toLowerCase() : "";
+
+          // Read course metadata for coefficients
+          let courseMeta: Record<string, any> = {};
+          if (user?.schoolId) {
+            try {
+              const raw = localStorage.getItem(`school_courses_meta_${user.schoolId}`);
+              if (raw) courseMeta = JSON.parse(raw);
+            } catch (e) {}
+          }
+
+          const assignedCourses = allCoursesRes.data
+            .filter((c: any) => {
+              if (!c.teacher_id) return false;
+              const cTid = String(c.teacher_id).toLowerCase();
+              return (
+                (uid && cTid === uid) ||
+                (uemail && cTid === uemail) ||
+                (invId && cTid === invId) ||
+                (rawInvUuid && cTid === rawInvUuid) ||
+                (c.teacher_email && uemail && String(c.teacher_email).toLowerCase() === uemail)
+              );
+            })
+            .map((c: any) => {
+              const m = courseMeta[c.id] || courseMeta[`${c.name?.trim().toLowerCase()}_${c.level}`] || {};
+              return {
+                ...c,
+                coefficient: m.coefficient || c.coefficient || 2
+              };
+            });
+
           setMyCourses(assignedCourses);
+
+          // Synchronisation d'identifiant si assigné via email ou invitation
+          if (user.id) {
+            for (const c of assignedCourses) {
+              if (c.teacher_id !== user.id) {
+                supabase.from('courses').update({ teacher_id: user.id }).eq('id', c.id).then();
+              }
+            }
+          }
         }
 
         if (schoolRes.data) {

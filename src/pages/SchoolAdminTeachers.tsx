@@ -19,14 +19,17 @@ import {
   Sparkles,
   Search,
   Filter,
-  GraduationCap
+  GraduationCap,
+  FileSpreadsheet,
+  Save,
+  Check
 } from "lucide-react";
 import { AddTeacherModal } from "../components/AddTeacherModal";
 import { LEVELS, SUBJECTS } from "../types";
 
 export function SchoolAdminTeachers() {
   const { user } = useAuth();
-  const [activeTab, setActiveTab] = useState<"TEACHERS" | "SUBJECTS">("TEACHERS");
+  const [activeTab, setActiveTab] = useState<"TEACHERS" | "SUBJECTS" | "HOURS">("TEACHERS");
   const [teachers, setTeachers] = useState<any[]>([]);
   const [courses, setCourses] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -42,7 +45,7 @@ export function SchoolAdminTeachers() {
   const [isSavingAssignment, setIsSavingAssignment] = useState(false);
   const [assignmentFeedback, setAssignmentFeedback] = useState<string | null>(null);
 
-  // Filters
+  // Filters Tab Professeurs
   const [filterClass, setFilterClass] = useState("ALL");
   const [filterYear, setFilterYear] = useState("ALL");
   const [filterSubject, setFilterSubject] = useState("ALL");
@@ -50,13 +53,56 @@ export function SchoolAdminTeachers() {
   const [academicYears, setAcademicYears] = useState<any[]>([]);
   const [currentConfiguredYear, setCurrentConfiguredYear] = useState<string>("");
 
-  // Matières tab state (gestion des matières par classe - sans enseignant)
+  // Filters Tab Matières par classe
   const [subjectFilterClass, setSubjectFilterClass] = useState<string>("ALL");
+  const [subjectFilterYear, setSubjectFilterYear] = useState<string>("ALL");
   const [showAddCourseModal, setShowAddCourseModal] = useState(false);
   const [newCourseName, setNewCourseName] = useState(SUBJECTS[0]);
   const [newCourseLevel, setNewCourseLevel] = useState(LEVELS[0]);
   const [newCourseCoef, setNewCourseCoef] = useState(2);
   const [editingCourse, setEditingCourse] = useState<any>(null);
+
+  // Filters Tab Heures par classe
+  const [hoursFilterYear, setHoursFilterYear] = useState<string>("ALL");
+  const [hoursFilterClass, setHoursFilterClass] = useState<string>("ALL");
+  const [hoursFilterTeacher, setHoursFilterTeacher] = useState<string>("ALL");
+  const [hoursSearchTerm, setHoursSearchTerm] = useState<string>("");
+  const [savingCourseId, setSavingCourseId] = useState<string | null>(null);
+  const [hoursDrafts, setHoursDrafts] = useState<Record<string, { teacher_id?: string | null; hoursPerWeek?: number; hourlyRate?: number; academic_year?: string }>>({});
+  const [savedRowsFeedback, setSavedRowsFeedback] = useState<Record<string, boolean>>({});
+
+  const getCourseDraft = (c: any) => {
+    const d = hoursDrafts[c.id];
+    return {
+      teacher_id: d?.teacher_id !== undefined ? d.teacher_id : (c.teacher_id || ""),
+      hoursPerWeek: d?.hoursPerWeek !== undefined ? d.hoursPerWeek : (c.hoursPerWeek ?? 4),
+      hourlyRate: d?.hourlyRate !== undefined ? d.hourlyRate : (c.hourlyRate ?? 3500),
+      academic_year: d?.academic_year !== undefined ? d.academic_year : (c.academic_year || currentConfiguredYear || (academicYears[0]?.name || "2024-2025"))
+    };
+  };
+
+  const updateCourseDraft = (courseId: string, updates: Partial<{ teacher_id: string | null; hoursPerWeek: number; hourlyRate: number; academic_year: string }>) => {
+    setHoursDrafts(prev => ({
+      ...prev,
+      [courseId]: { ...prev[courseId], ...updates }
+    }));
+  };
+
+  const handleSaveSingleCourseHours = async (course: any) => {
+    const draft = getCourseDraft(course);
+    setSavingCourseId(course.id);
+    await handleSaveCourseHours(course.id, draft.teacher_id || null, draft.hoursPerWeek, draft.hourlyRate, draft.academic_year);
+    setSavedRowsFeedback(prev => ({ ...prev, [course.id]: true }));
+    setTimeout(() => {
+      setSavedRowsFeedback(prev => ({ ...prev, [course.id]: false }));
+    }, 2500);
+  };
+
+  // Bulk Edit Table Modal State
+  const [showBulkEditModal, setShowBulkEditModal] = useState(false);
+  const [bulkRows, setBulkRows] = useState<any[]>([]);
+  const [isSavingBulk, setIsSavingBulk] = useState(false);
+  const [bulkFeedback, setBulkFeedback] = useState<string | null>(null);
 
   // Edit Teacher State with Main Subject & Classes
   const [editingTeacherSubject, setEditingTeacherSubject] = useState<string>("");
@@ -69,8 +115,8 @@ export function SchoolAdminTeachers() {
     ...courses.map(c => c.name)
   ])).filter(Boolean).sort();
 
-  // Helper to manage persistent course metadata (coefficient, academic_year)
-  const getCoursesMeta = (schoolId: string): Record<string, { coefficient?: number; academic_year?: string }> => {
+  // Helper to manage persistent course metadata (coefficient, academic_year, hoursPerWeek, hourlyRate)
+  const getCoursesMeta = (schoolId: string): Record<string, { coefficient?: number; academic_year?: string; hoursPerWeek?: number; hourlyRate?: number }> => {
     try {
       const raw = localStorage.getItem(`school_courses_meta_${schoolId}`);
       return raw ? JSON.parse(raw) : {};
@@ -79,7 +125,7 @@ export function SchoolAdminTeachers() {
     }
   };
 
-  const setCourseMeta = (schoolId: string, courseIdOrKey: string, meta: { coefficient?: number; academic_year?: string }) => {
+  const setCourseMeta = (schoolId: string, courseIdOrKey: string, meta: { coefficient?: number; academic_year?: string; hoursPerWeek?: number; hourlyRate?: number }) => {
     try {
       const current = getCoursesMeta(schoolId);
       current[courseIdOrKey] = { ...current[courseIdOrKey], ...meta };
@@ -132,14 +178,16 @@ export function SchoolAdminTeachers() {
       }
       setCurrentConfiguredYear(configuredYear);
 
-      // Enrich courses with coefficients from metadata
+      // Enrich courses with coefficients, hoursPerWeek, and hourlyRate from metadata
       const meta = getCoursesMeta(user.schoolId);
       const enrichedCourses = (coursesRes.data || []).map((c: any) => {
         const m = meta[c.id] || meta[`${c.name?.trim().toLowerCase()}_${c.level}`] || {};
         return {
           ...c,
           coefficient: m.coefficient || c.coefficient || 2,
-          academic_year: m.academic_year || c.academic_year || configuredYear || null
+          academic_year: m.academic_year || c.academic_year || configuredYear || null,
+          hoursPerWeek: m.hoursPerWeek !== undefined ? m.hoursPerWeek : 4,
+          hourlyRate: m.hourlyRate !== undefined ? m.hourlyRate : 3500
         };
       });
 
@@ -179,16 +227,162 @@ export function SchoolAdminTeachers() {
   };
 
   const getTeacherStats = (t: any) => {
-    const teacherCourses = getTeacherCourses(t);
-    const hoursPerWeek = teacherCourses.length * 4;
-    const hourlyRate = 3500;
-    const monthlySalary = hoursPerWeek * 4 * hourlyRate;
-    
+    let teacherCourses = getTeacherCourses(t);
+    if (filterYear !== "ALL") {
+      teacherCourses = teacherCourses.filter(c => !c.academic_year || c.academic_year === filterYear);
+    }
+
+    let totalHours = 0;
+    let totalMonthlyPay = 0;
+
+    teacherCourses.forEach(c => {
+      const h = Number(c.hoursPerWeek) > 0 ? Number(c.hoursPerWeek) : 4;
+      const rate = Number(c.hourlyRate) > 0 ? Number(c.hourlyRate) : 3500;
+      totalHours += h;
+      totalMonthlyPay += (h * 4 * rate);
+    });
+
+    const avgHourlyRate = totalHours > 0 ? Math.round(totalMonthlyPay / (totalHours * 4)) : 3500;
+
     return {
       courses: teacherCourses,
-      hoursPerWeek,
-      monthlySalary
+      hoursPerWeek: totalHours,
+      avgHourlyRate,
+      monthlySalary: totalMonthlyPay
     };
+  };
+
+  // Handler to update hours, hourly rate, and teacher for a course in tab HOURS
+  const handleSaveCourseHours = async (courseId: string, updatedTeacherId: string | null, hours: number, rate: number, year?: string) => {
+    if (!user?.schoolId) return;
+    setSavingCourseId(courseId);
+    try {
+      const course = courses.find(c => c.id === courseId);
+      const targetYear = year || course?.academic_year || currentConfiguredYear || filterYear;
+
+      // 1. Update teacher_id in Supabase if changed
+      if (course && course.teacher_id !== updatedTeacherId) {
+        await supabase.from('courses').update({
+          teacher_id: updatedTeacherId || null
+        }).eq('id', courseId);
+      }
+
+      // 2. Persist hours & hourly rate & academic_year in course metadata
+      setCourseMeta(user.schoolId, courseId, {
+        hoursPerWeek: Number(hours) || 4,
+        hourlyRate: Number(rate) || 3500,
+        academic_year: targetYear !== "ALL" ? targetYear : undefined
+      });
+
+      if (course) {
+        setCourseMeta(user.schoolId, `${course.name?.trim().toLowerCase()}_${course.level}`, {
+          hoursPerWeek: Number(hours) || 4,
+          hourlyRate: Number(rate) || 3500,
+          academic_year: targetYear !== "ALL" ? targetYear : undefined
+        });
+      }
+
+      await fetchData();
+    } catch (err: any) {
+      alert("Erreur lors de l'enregistrement des heures: " + err.message);
+    } finally {
+      setSavingCourseId(null);
+    }
+  };
+
+  // Bulk Edit Table Open & Save
+  const openBulkEditModal = () => {
+    const rows = courses.map(c => ({
+      id: c.id,
+      name: c.name,
+      level: c.level,
+      teacher_id: c.teacher_id || "",
+      academic_year: c.academic_year || currentConfiguredYear || (academicYears[0]?.name || "2024-2025"),
+      hoursPerWeek: c.hoursPerWeek !== undefined ? c.hoursPerWeek : 4,
+      hourlyRate: c.hourlyRate !== undefined ? c.hourlyRate : 3500,
+      coefficient: c.coefficient !== undefined ? c.coefficient : 2,
+      isNew: false
+    }));
+    setBulkRows(rows);
+    setBulkFeedback(null);
+    setShowBulkEditModal(true);
+  };
+
+  const handleAddBulkRow = () => {
+    setBulkRows(prev => [
+      ...prev,
+      {
+        id: `temp_${Date.now()}`,
+        name: SUBJECTS[0],
+        level: LEVELS[0],
+        teacher_id: teachers[0]?.id || "",
+        academic_year: currentConfiguredYear || (academicYears[0]?.name || "2024-2025"),
+        hoursPerWeek: 4,
+        hourlyRate: 3500,
+        coefficient: 2,
+        isNew: true
+      }
+    ]);
+  };
+
+  const handleRemoveBulkRow = (index: number) => {
+    setBulkRows(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const handleSaveBulkEdit = async () => {
+    if (!user?.schoolId) return;
+    setIsSavingBulk(true);
+    try {
+      for (const row of bulkRows) {
+        let actualId = row.id;
+        const teacherVal = row.teacher_id ? row.teacher_id : null;
+
+        if (row.isNew || String(row.id).startsWith("temp_")) {
+          // Insert new course in Supabase
+          const { data: inserted } = await supabase.from('courses').insert([{
+            school_id: user.schoolId,
+            name: row.name.trim(),
+            level: row.level,
+            teacher_id: teacherVal
+          }]).select().maybeSingle();
+
+          if (inserted?.id) {
+            actualId = inserted.id;
+          }
+        } else {
+          // Update existing course in Supabase
+          await supabase.from('courses').update({
+            name: row.name.trim(),
+            level: row.level,
+            teacher_id: teacherVal
+          }).eq('id', row.id);
+        }
+
+        // Save metadata (coefficient, hoursPerWeek, hourlyRate, academic_year)
+        setCourseMeta(user.schoolId, actualId, {
+          coefficient: Number(row.coefficient) || 2,
+          academic_year: row.academic_year,
+          hoursPerWeek: Number(row.hoursPerWeek) || 4,
+          hourlyRate: Number(row.hourlyRate) || 3500
+        });
+        setCourseMeta(user.schoolId, `${row.name.trim().toLowerCase()}_${row.level}`, {
+          coefficient: Number(row.coefficient) || 2,
+          academic_year: row.academic_year,
+          hoursPerWeek: Number(row.hoursPerWeek) || 4,
+          hourlyRate: Number(row.hourlyRate) || 3500
+        });
+      }
+
+      setBulkFeedback("Toutes les informations ont été enregistrées avec succès dans la base !");
+      await fetchData();
+      setTimeout(() => {
+        setShowBulkEditModal(false);
+      }, 1200);
+    } catch (err: any) {
+      alert("Erreur lors de l'enregistrement en tableau: " + err.message);
+    } finally {
+      setIsSavingBulk(false);
+    }
   };
 
   const handleDeleteTeacher = async (t: any) => {
@@ -541,22 +735,32 @@ export function SchoolAdminTeachers() {
         <div>
           <h1 className="text-2xl font-bold text-gray-800 flex items-center gap-2">
             <User className="text-emerald-600" />
-            Gestion des Professeurs & Matières
+            Gestion des Professeurs, Heures & Matières
           </h1>
           <p className="text-slate-500 mt-1">
-            Gérez vos enseignants, attribuez professionnellement les classes et paramétrez les matières officielles.
+            Gérez vos enseignants, attribuez les heures par classe, paramétrez les taux horaires et les matières officielles.
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
-          {activeTab === "TEACHERS" ? (
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            onClick={openBulkEditModal}
+            className="flex items-center gap-2 bg-indigo-600 text-white px-3.5 py-2.5 rounded-lg font-bold uppercase tracking-wider text-xs hover:bg-indigo-700 transition shadow-sm"
+            title="Modifier toutes les informations dans un tableau interactif"
+          >
+            <FileSpreadsheet size={15} /> Modifier tout dans un tableau
+          </button>
+
+          {activeTab === "TEACHERS" && (
             <button 
               onClick={() => setShowAddModal(true)} 
               className="flex items-center gap-2 bg-emerald-600 text-white px-4 py-2.5 rounded-lg font-bold uppercase tracking-wider text-xs hover:bg-emerald-700 transition shadow-sm"
             >
               <Plus size={16} /> Inscrire un professeur
             </button>
-          ) : (
+          )}
+
+          {activeTab === "SUBJECTS" && (
             <button 
               onClick={() => {
                 setEditingCourse(null);
@@ -565,6 +769,15 @@ export function SchoolAdminTeachers() {
               className="flex items-center gap-2 bg-emerald-600 text-white px-4 py-2.5 rounded-lg font-bold uppercase tracking-wider text-xs hover:bg-emerald-700 transition shadow-sm"
             >
               <Plus size={16} /> Ajouter une matière par classe
+            </button>
+          )}
+
+          {activeTab === "HOURS" && (
+            <button 
+              onClick={openBulkEditModal} 
+              className="flex items-center gap-2 bg-emerald-600 text-white px-4 py-2.5 rounded-lg font-bold uppercase tracking-wider text-xs hover:bg-emerald-700 transition shadow-sm"
+            >
+              <Plus size={16} /> Ajouter attribution / cours
             </button>
           )}
         </div>
@@ -594,6 +807,17 @@ export function SchoolAdminTeachers() {
           <Layers size={16} />
           Matières par Classe ({courses.length})
         </button>
+        <button
+          onClick={() => setActiveTab("HOURS")}
+          className={`py-3 px-6 font-bold text-xs uppercase tracking-wider border-b-2 flex items-center gap-2 transition-colors ${
+            activeTab === "HOURS"
+              ? "border-emerald-600 text-emerald-600 bg-emerald-50/50"
+              : "border-transparent text-slate-500 hover:text-gray-700 hover:bg-slate-50"
+          }`}
+        >
+          <Clock size={16} />
+          Heures par Classe
+        </button>
       </div>
 
       {/* Tab Professeurs */}
@@ -613,6 +837,19 @@ export function SchoolAdminTeachers() {
             </div>
 
             <div className="flex flex-wrap items-center gap-3">
+              {/* Filtre Année Scolaire */}
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-semibold text-slate-500">Année :</span>
+                <select 
+                  value={filterYear} 
+                  onChange={e => setFilterYear(e.target.value)} 
+                  className="px-3 py-1.5 border border-slate-200 rounded-lg text-xs font-medium text-gray-700 bg-white"
+                >
+                  <option value="ALL">Toutes les années</option>
+                  {academicYears.map(y => <option key={y.id} value={y.name}>{y.name}</option>)}
+                </select>
+              </div>
+
               <div className="flex items-center gap-2">
                 <span className="text-xs font-semibold text-slate-500">Classe :</span>
                 <select 
@@ -853,19 +1090,44 @@ export function SchoolAdminTeachers() {
       {activeTab === "SUBJECTS" && (
         <div className="space-y-4">
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
-            <div className="flex items-center gap-3">
-              <span className="text-xs font-bold uppercase tracking-wider text-slate-600">Filtrer par classe :</span>
-              <select 
-                value={subjectFilterClass} 
-                onChange={e => setSubjectFilterClass(e.target.value)} 
-                className="px-3 py-1.5 border border-slate-300 rounded text-xs font-bold text-gray-800 bg-white focus:ring-emerald-500 focus:border-emerald-500 outline-none"
-              >
-                <option value="ALL">Toutes les classes</option>
-                {LEVELS.map(l => <option key={l} value={l}>{l}</option>)}
-              </select>
+            <div className="flex flex-wrap items-center gap-3">
+              {/* Filtre Année Scolaire */}
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-bold uppercase tracking-wider text-slate-600">Année :</span>
+                <select 
+                  value={subjectFilterYear} 
+                  onChange={e => setSubjectFilterYear(e.target.value)} 
+                  className="px-3 py-1.5 border border-slate-300 rounded text-xs font-bold text-gray-800 bg-white focus:ring-emerald-500 focus:border-emerald-500 outline-none"
+                >
+                  <option value="ALL">Toutes les années</option>
+                  {academicYears.map(y => <option key={y.id} value={y.name}>{y.name}</option>)}
+                </select>
+              </div>
+
+              {/* Filtre Classe */}
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-bold uppercase tracking-wider text-slate-600">Filtrer par classe :</span>
+                <select 
+                  value={subjectFilterClass} 
+                  onChange={e => setSubjectFilterClass(e.target.value)} 
+                  className="px-3 py-1.5 border border-slate-300 rounded text-xs font-bold text-gray-800 bg-white focus:ring-emerald-500 focus:border-emerald-500 outline-none"
+                >
+                  <option value="ALL">Toutes les classes</option>
+                  {LEVELS.map(l => <option key={l} value={l}>{l}</option>)}
+                </select>
+              </div>
             </div>
-            <div className="text-xs text-slate-500 font-medium">
-              Total : {courses.filter(c => subjectFilterClass === "ALL" || c.level === subjectFilterClass).length} matière(s) configurée(s)
+
+            <div className="flex items-center gap-3">
+              <span className="text-xs text-slate-500 font-medium">
+                Total : {courses.filter(c => (subjectFilterClass === "ALL" || c.level === subjectFilterClass) && (subjectFilterYear === "ALL" || !c.academic_year || c.academic_year === subjectFilterYear)).length} matière(s) configurée(s)
+              </span>
+              <button
+                onClick={openBulkEditModal}
+                className="flex items-center gap-1.5 text-xs font-bold text-indigo-600 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 px-3 py-1.5 rounded-lg transition"
+              >
+                <FileSpreadsheet size={14} /> Modifier en tableau
+              </button>
             </div>
           </div>
 
@@ -876,13 +1138,14 @@ export function SchoolAdminTeachers() {
                   <tr>
                     <th className="px-6 py-3.5">Matière</th>
                     <th className="px-6 py-3.5">Classe</th>
+                    <th className="px-6 py-3.5">Année Scolaire</th>
                     <th className="px-6 py-3.5 text-center">Coefficient Officiel</th>
                     <th className="px-6 py-3.5 text-right">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-200">
                   {courses
-                    .filter(c => subjectFilterClass === "ALL" || c.level === subjectFilterClass)
+                    .filter(c => (subjectFilterClass === "ALL" || c.level === subjectFilterClass) && (subjectFilterYear === "ALL" || !c.academic_year || c.academic_year === subjectFilterYear))
                     .map(course => (
                       <tr key={course.id} className="hover:bg-slate-50/80 transition-colors">
                         <td className="px-6 py-4 font-bold text-gray-800 flex items-center gap-2">
@@ -892,6 +1155,11 @@ export function SchoolAdminTeachers() {
                         <td className="px-6 py-4">
                           <span className="px-2.5 py-1 bg-slate-100 text-slate-800 rounded-md text-xs font-bold border border-slate-200">
                             {course.level}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4">
+                          <span className="px-2 py-0.5 bg-blue-50 text-blue-700 rounded text-xs font-medium border border-blue-100">
+                            {course.academic_year || currentConfiguredYear || "En cours"}
                           </span>
                         </td>
                         <td className="px-6 py-4 text-center">
@@ -905,14 +1173,14 @@ export function SchoolAdminTeachers() {
                               onClick={() => {
                                 setEditingCourse(course);
                                 setShowAddCourseModal(true);
-                              }}
+                              }} 
                               className="p-1.5 text-blue-600 hover:bg-blue-50 rounded transition"
                               title="Modifier la matière ou le coefficient"
                             >
                               <Edit2 size={15} />
                             </button>
                             <button 
-                              onClick={() => handleDeleteCourse(course.id)}
+                              onClick={() => handleDeleteCourse(course.id)} 
                               className="p-1.5 text-red-600 hover:bg-red-50 rounded transition"
                               title="Supprimer la matière"
                             >
@@ -922,10 +1190,353 @@ export function SchoolAdminTeachers() {
                         </td>
                       </tr>
                     ))}
-                  {courses.filter(c => subjectFilterClass === "ALL" || c.level === subjectFilterClass).length === 0 && (
+                  {courses.filter(c => (subjectFilterClass === "ALL" || c.level === subjectFilterClass) && (subjectFilterYear === "ALL" || !c.academic_year || c.academic_year === subjectFilterYear)).length === 0 && (
                     <tr>
-                      <td colSpan={4} className="py-12 text-center text-slate-400 italic">
+                      <td colSpan={5} className="py-12 text-center text-slate-400 italic">
                         Aucune matière configurée pour ce filtre. Cliquez sur "Ajouter une matière par classe" pour commencer.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Tab 3: Heures par classe & Attribution des Taux Horaires */}
+      {activeTab === "HOURS" && (
+        <div className="space-y-6 animate-in fade-in">
+          {/* Filters Bar */}
+          <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex flex-col md:flex-row gap-4 justify-between items-stretch md:items-center">
+            <div className="relative flex-1 max-w-md">
+              <input
+                type="text"
+                placeholder="Rechercher matière, classe ou professeur..."
+                value={hoursSearchTerm}
+                onChange={e => setHoursSearchTerm(e.target.value)}
+                className="w-full pl-9 pr-4 py-2 border border-slate-200 rounded-lg text-xs font-medium focus:ring-emerald-500 focus:border-emerald-500 outline-none"
+              />
+              <Search size={15} className="absolute left-3 top-2.5 text-slate-400" />
+            </div>
+
+            <div className="flex flex-wrap items-center gap-3">
+              {/* Filtre Année Scolaire */}
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-semibold text-slate-500">Année :</span>
+                <select 
+                  value={hoursFilterYear} 
+                  onChange={e => setHoursFilterYear(e.target.value)} 
+                  className="px-3 py-1.5 border border-slate-200 rounded-lg text-xs font-medium text-gray-700 bg-white focus:ring-emerald-500 outline-none"
+                >
+                  <option value="ALL">Toutes les années</option>
+                  {academicYears.map(y => <option key={y.id} value={y.name}>{y.name}</option>)}
+                </select>
+              </div>
+
+              {/* Filtre Classe */}
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-semibold text-slate-500">Classe :</span>
+                <select 
+                  value={hoursFilterClass} 
+                  onChange={e => setHoursFilterClass(e.target.value)} 
+                  className="px-3 py-1.5 border border-slate-200 rounded-lg text-xs font-medium text-gray-700 bg-white focus:ring-emerald-500 outline-none"
+                >
+                  <option value="ALL">Toutes les classes</option>
+                  {LEVELS.map(l => <option key={l} value={l}>{l}</option>)}
+                </select>
+              </div>
+
+              {/* Filtre Professeur */}
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-semibold text-slate-500">Professeur :</span>
+                <select 
+                  value={hoursFilterTeacher} 
+                  onChange={e => setHoursFilterTeacher(e.target.value)} 
+                  className="px-3 py-1.5 border border-slate-200 rounded-lg text-xs font-medium text-gray-700 bg-white focus:ring-emerald-500 outline-none"
+                >
+                  <option value="ALL">Tous les professeurs</option>
+                  <option value="UNASSIGNED">⚠️ Non assigné</option>
+                  {teachers.map(t => (
+                    <option key={t.id} value={t.id}>{t.full_name || t.email}</option>
+                  ))}
+                </select>
+              </div>
+
+              <button
+                onClick={openBulkEditModal}
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-bold transition shadow-xs"
+              >
+                <FileSpreadsheet size={14} /> Modifier tout en tableau
+              </button>
+            </div>
+          </div>
+
+          {/* KPI Summary Cards for Tab Heures par classe */}
+          {(() => {
+            const filtered = courses.filter(c => {
+              if (hoursFilterYear !== "ALL" && c.academic_year && c.academic_year !== hoursFilterYear) return false;
+              if (hoursFilterClass !== "ALL" && c.level !== hoursFilterClass) return false;
+              if (hoursFilterTeacher === "UNASSIGNED" && c.teacher_id) return false;
+              if (hoursFilterTeacher !== "ALL" && hoursFilterTeacher !== "UNASSIGNED") {
+                const assignedT = teachers.find(t => t.id === hoursFilterTeacher);
+                const isAssigned = c.teacher_id === hoursFilterTeacher || (assignedT?.email && c.teacher_email === assignedT.email);
+                if (!isAssigned) return false;
+              }
+              if (hoursSearchTerm) {
+                const q = hoursSearchTerm.toLowerCase();
+                const matchCourse = c.name?.toLowerCase().includes(q) || c.level?.toLowerCase().includes(q);
+                const assignedT = teachers.find(t => t.id === c.teacher_id || (c.teacher_email && t.email === c.teacher_email));
+                const matchTeacher = assignedT?.full_name?.toLowerCase().includes(q) || assignedT?.email?.toLowerCase().includes(q);
+                if (!matchCourse && !matchTeacher) return false;
+              }
+              return true;
+            });
+
+            let totalH = 0;
+            let totalSalaryMonthly = 0;
+            let assignedCount = 0;
+
+            filtered.forEach(c => {
+              const draft = getCourseDraft(c);
+              const h = Number(draft.hoursPerWeek) || 0;
+              const rate = Number(draft.hourlyRate) || 0;
+              totalH += h;
+              totalSalaryMonthly += (h * 4 * rate);
+              if (draft.teacher_id) assignedCount++;
+            });
+
+            const avgRate = totalH > 0 ? Math.round(totalSalaryMonthly / (totalH * 4)) : 3500;
+
+            return (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex items-center gap-3">
+                  <div className="w-11 h-11 bg-blue-100 text-blue-700 rounded-xl flex items-center justify-center font-bold">
+                    <Clock size={22} />
+                  </div>
+                  <div>
+                    <div className="text-[11px] uppercase font-bold text-slate-400">Total Heures / Semaine</div>
+                    <div className="text-xl font-black text-gray-800">{totalH} h</div>
+                    <div className="text-[11px] text-slate-500 font-medium">{totalH * 4} h / mois</div>
+                  </div>
+                </div>
+
+                <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex items-center gap-3">
+                  <div className="w-11 h-11 bg-emerald-100 text-emerald-700 rounded-xl flex items-center justify-center font-bold">
+                    <Banknote size={22} />
+                  </div>
+                  <div>
+                    <div className="text-[11px] uppercase font-bold text-slate-400">Masse Salariale / Mois</div>
+                    <div className="text-xl font-black text-emerald-700">{totalSalaryMonthly.toLocaleString()} F</div>
+                    <div className="text-[11px] text-slate-500 font-medium">Estimée (4 sem/m)</div>
+                  </div>
+                </div>
+
+                <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex items-center gap-3">
+                  <div className="w-11 h-11 bg-purple-100 text-purple-700 rounded-xl flex items-center justify-center font-bold">
+                    <Calculator size={22} />
+                  </div>
+                  <div>
+                    <div className="text-[11px] uppercase font-bold text-slate-400">Taux Horaire Moyen</div>
+                    <div className="text-xl font-black text-gray-800">{avgRate.toLocaleString()} F</div>
+                    <div className="text-[11px] text-slate-500 font-medium">Par heure de cours</div>
+                  </div>
+                </div>
+
+                <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex items-center gap-3">
+                  <div className="w-11 h-11 bg-amber-100 text-amber-700 rounded-xl flex items-center justify-center font-bold">
+                    <GraduationCap size={22} />
+                  </div>
+                  <div>
+                    <div className="text-[11px] uppercase font-bold text-slate-400">Attributions Cours</div>
+                    <div className="text-xl font-black text-gray-800">{assignedCount} / {filtered.length}</div>
+                    <div className="text-[11px] text-slate-500 font-medium">
+                      {filtered.length - assignedCount} non assigné(s)
+                    </div>
+                  </div>
+                </div>
+              </div>
+            );
+          })()}
+
+          {/* Table: Cours, Heures, Taux & Professeurs Assignés */}
+          <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+            <div className="p-4 border-b border-slate-100 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 bg-slate-50/70">
+              <div>
+                <h3 className="font-bold text-gray-800 flex items-center gap-2 text-sm">
+                  <Clock size={16} className="text-emerald-600" />
+                  Tableau d'attribution des heures et taux horaires par matière & classe
+                </h3>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  Chaque modification met instantanément à jour la fiche du professeur dans le tab Professeurs.
+                </p>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => {
+                    setEditingCourse(null);
+                    setShowAddCourseModal(true);
+                  }}
+                  className="px-3 py-1.5 bg-slate-200 hover:bg-slate-300 text-slate-800 rounded-lg text-xs font-bold transition flex items-center gap-1"
+                >
+                  <Plus size={14} /> Nouveau cours
+                </button>
+              </div>
+            </div>
+
+            <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-slate-200 text-left text-xs">
+                <thead className="bg-slate-50 text-[10px] uppercase font-bold text-slate-500 tracking-wider">
+                  <tr>
+                    <th className="px-5 py-3.5">Matière</th>
+                    <th className="px-4 py-3.5">Classe</th>
+                    <th className="px-4 py-3.5">Année</th>
+                    <th className="px-5 py-3.5">Professeur Assigné</th>
+                    <th className="px-4 py-3.5 text-center">Heures / Sem.</th>
+                    <th className="px-5 py-3.5 text-center">Prix / Heure (FCFA)</th>
+                    <th className="px-5 py-3.5 text-right">Salaire Mensuel Est.</th>
+                    <th className="px-5 py-3.5 text-center">Action</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-200">
+                  {courses
+                    .filter(c => {
+                      if (hoursFilterYear !== "ALL" && c.academic_year && c.academic_year !== hoursFilterYear) return false;
+                      if (hoursFilterClass !== "ALL" && c.level !== hoursFilterClass) return false;
+                      if (hoursFilterTeacher === "UNASSIGNED" && c.teacher_id) return false;
+                      if (hoursFilterTeacher !== "ALL" && hoursFilterTeacher !== "UNASSIGNED") {
+                        const assignedT = teachers.find(t => t.id === hoursFilterTeacher);
+                        const isAssigned = c.teacher_id === hoursFilterTeacher || (assignedT?.email && c.teacher_email === assignedT.email);
+                        if (!isAssigned) return false;
+                      }
+                      if (hoursSearchTerm) {
+                        const q = hoursSearchTerm.toLowerCase();
+                        const matchCourse = c.name?.toLowerCase().includes(q) || c.level?.toLowerCase().includes(q);
+                        const assignedT = teachers.find(t => t.id === c.teacher_id || (c.teacher_email && t.email === c.teacher_email));
+                        const matchTeacher = assignedT?.full_name?.toLowerCase().includes(q) || assignedT?.email?.toLowerCase().includes(q);
+                        if (!matchCourse && !matchTeacher) return false;
+                      }
+                      return true;
+                    })
+                    .map(course => {
+                      const draft = getCourseDraft(course);
+                      const isSaving = savingCourseId === course.id;
+                      const isSaved = savedRowsFeedback[course.id];
+                      const monthlyEst = (Number(draft.hoursPerWeek) || 0) * 4 * (Number(draft.hourlyRate) || 0);
+
+                      return (
+                        <tr key={course.id} className="hover:bg-slate-50/80 transition-colors">
+                          {/* Matière */}
+                          <td className="px-5 py-3.5 font-bold text-gray-800">
+                            <div className="flex items-center gap-2">
+                              <BookOpen size={15} className="text-emerald-600 shrink-0" />
+                              <span className="font-bold">{course.name}</span>
+                              <span className="text-[10px] text-slate-400 font-semibold">(c.{course.coefficient || 2})</span>
+                            </div>
+                          </td>
+
+                          {/* Classe */}
+                          <td className="px-4 py-3.5">
+                            <span className="px-2.5 py-1 bg-slate-100 text-slate-800 rounded-md text-xs font-bold border border-slate-200">
+                              {course.level}
+                            </span>
+                          </td>
+
+                          {/* Année */}
+                          <td className="px-4 py-3.5">
+                            <span className="px-2 py-0.5 bg-blue-50 text-blue-700 rounded text-xs font-semibold border border-blue-100">
+                              {draft.academic_year || "En cours"}
+                            </span>
+                          </td>
+
+                          {/* Professeur Assigné (Interactif) */}
+                          <td className="px-5 py-3.5">
+                            <select
+                              value={draft.teacher_id || ""}
+                              onChange={e => updateCourseDraft(course.id, { teacher_id: e.target.value })}
+                              className={`w-full min-w-[170px] px-2.5 py-1.5 border rounded-lg text-xs font-medium outline-none transition ${
+                                draft.teacher_id
+                                  ? "border-emerald-300 bg-emerald-50/50 text-emerald-950 font-bold"
+                                  : "border-amber-300 bg-amber-50/60 text-amber-900"
+                              }`}
+                            >
+                              <option value="">⚠️ Non assigné</option>
+                              {teachers.map(t => (
+                                <option key={t.id} value={t.id}>
+                                  {t.full_name || t.email} ({t.title || (t.isInvitation ? "Invité" : "Permanent")})
+                                </option>
+                              ))}
+                            </select>
+                          </td>
+
+                          {/* Heures / Semaine */}
+                          <td className="px-4 py-3.5 text-center">
+                            <div className="inline-flex items-center justify-center gap-1">
+                              <input
+                                type="number"
+                                min="1"
+                                max="40"
+                                value={draft.hoursPerWeek}
+                                onChange={e => updateCourseDraft(course.id, { hoursPerWeek: Number(e.target.value) })}
+                                className="w-16 px-2 py-1 text-center font-bold text-gray-800 bg-white border border-slate-300 rounded-lg outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 text-xs"
+                              />
+                              <span className="text-slate-400 font-semibold">h</span>
+                            </div>
+                          </td>
+
+                          {/* Prix de l'heure */}
+                          <td className="px-5 py-3.5 text-center">
+                            <div className="inline-flex items-center justify-center gap-1">
+                              <input
+                                type="number"
+                                min="500"
+                                step="250"
+                                value={draft.hourlyRate}
+                                onChange={e => updateCourseDraft(course.id, { hourlyRate: Number(e.target.value) })}
+                                className="w-24 px-2 py-1 text-right font-bold text-emerald-900 bg-white border border-slate-300 rounded-lg outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 text-xs"
+                              />
+                              <span className="text-slate-400 font-semibold text-[11px]">F/h</span>
+                            </div>
+                          </td>
+
+                          {/* Salaire Mensuel Estimé */}
+                          <td className="px-5 py-3.5 text-right font-black text-emerald-700">
+                            <div>{monthlyEst.toLocaleString()} F</div>
+                            <div className="text-[10px] text-slate-400 font-normal">{(draft.hoursPerWeek || 0) * 4} h/mois</div>
+                          </td>
+
+                          {/* Actions */}
+                          <td className="px-5 py-3.5 text-center">
+                            <button
+                              type="button"
+                              onClick={() => handleSaveSingleCourseHours(course)}
+                              disabled={isSaving}
+                              className={`px-3 py-1.5 rounded-lg font-bold text-xs transition flex items-center justify-center gap-1 mx-auto shadow-xs ${
+                                isSaved
+                                  ? "bg-emerald-600 text-white"
+                                  : "bg-emerald-50 text-emerald-700 border border-emerald-300 hover:bg-emerald-600 hover:text-white"
+                              }`}
+                            >
+                              {isSaving ? (
+                                <div className="w-3.5 h-3.5 border-2 border-emerald-600 border-t-transparent rounded-full animate-spin"></div>
+                              ) : isSaved ? (
+                                <>
+                                  <Check size={13} /> Enregistré
+                                </>
+                              ) : (
+                                <>
+                                  <Save size={13} /> Enregistrer
+                                </>
+                              )}
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  {courses.length === 0 && (
+                    <tr>
+                      <td colSpan={8} className="py-12 text-center text-slate-400 italic">
+                        Aucune matière ou cours configuré. Cliquez sur "Ajouter une matière par classe" pour commencer.
                       </td>
                     </tr>
                   )}
@@ -1356,6 +1967,284 @@ export function SchoolAdminTeachers() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL 5: Modifier Toutes les Informations dans un Tableau Interactif */}
+      {showBulkEditModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-slate-900/60 backdrop-blur-xs animate-in fade-in">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-6xl overflow-hidden animate-in zoom-in-95 max-h-[94vh] flex flex-col border border-slate-200">
+            {/* Header */}
+            <div className="p-4 sm:p-5 border-b border-slate-200 bg-slate-900 text-white flex justify-between items-center shrink-0">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-indigo-600/80 rounded-xl flex items-center justify-center text-white shrink-0">
+                  <FileSpreadsheet size={22} />
+                </div>
+                <div>
+                  <h3 className="font-bold text-base sm:text-lg text-white flex items-center gap-2">
+                    Tableau de Modification Globale (Professeurs, Heures & Matières)
+                  </h3>
+                  <p className="text-slate-300 text-xs mt-0.5">
+                    Modifiez directement dans ce tableau toutes les attributions de classes, matières, heures et prix de l'heure.
+                  </p>
+                </div>
+              </div>
+              <button 
+                onClick={() => setShowBulkEditModal(false)} 
+                className="text-slate-400 hover:text-white p-1.5 rounded-lg hover:bg-slate-800 transition"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            {/* Feedback message */}
+            {bulkFeedback && (
+              <div className="p-3 mx-4 mt-3 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-xl text-xs font-semibold flex items-center gap-2 shrink-0">
+                <CheckCircle size={16} className="text-emerald-600 shrink-0" />
+                <span>{bulkFeedback}</span>
+              </div>
+            )}
+
+            {/* Toolbar */}
+            <div className="p-3 px-4 border-b border-slate-200 bg-slate-50 flex flex-wrap justify-between items-center gap-3 shrink-0">
+              <div className="flex items-center gap-2 text-xs text-slate-600 font-medium">
+                <span className="font-bold text-gray-800">{bulkRows.length} ligne(s)</span> configurée(s) dans l'établissement
+              </div>
+              <button
+                type="button"
+                onClick={handleAddBulkRow}
+                className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold transition flex items-center gap-1.5 shadow-xs"
+              >
+                <Plus size={14} /> Ajouter une nouvelle ligne
+              </button>
+            </div>
+
+            {/* Table */}
+            <div className="flex-1 overflow-auto p-4">
+              <table className="min-w-full divide-y divide-slate-200 text-left text-xs border border-slate-200 rounded-lg overflow-hidden">
+                <thead className="bg-slate-100 text-[10px] uppercase font-bold text-slate-600 tracking-wider sticky top-0 z-10">
+                  <tr>
+                    <th className="px-3 py-2.5 text-center w-10">#</th>
+                    <th className="px-3 py-2.5 min-w-[160px]">Matière</th>
+                    <th className="px-3 py-2.5 min-w-[120px]">Classe</th>
+                    <th className="px-3 py-2.5 min-w-[130px]">Année Scolaire</th>
+                    <th className="px-3 py-2.5 min-w-[200px]">Professeur Assigné</th>
+                    <th className="px-3 py-2.5 text-center min-w-[90px]">Heures/Sem.</th>
+                    <th className="px-3 py-2.5 text-center min-w-[110px]">Taux/H (FCFA)</th>
+                    <th className="px-3 py-2.5 text-center min-w-[70px]">Coef.</th>
+                    <th className="px-3 py-2.5 text-right min-w-[110px]">Salaire/Mois</th>
+                    <th className="px-3 py-2.5 text-center w-12">Action</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-200 bg-white">
+                  {bulkRows.map((row, idx) => {
+                    const rowMonthly = (Number(row.hoursPerWeek) || 0) * 4 * (Number(row.hourlyRate) || 0);
+
+                    return (
+                      <tr key={row.id || idx} className="hover:bg-slate-50/70 transition-colors">
+                        <td className="px-3 py-2 text-center text-slate-400 font-bold">{idx + 1}</td>
+
+                        {/* Matière */}
+                        <td className="px-3 py-2">
+                          <input
+                            type="text"
+                            list="bulkSubjectsList"
+                            value={row.name}
+                            onChange={e => {
+                              const val = e.target.value;
+                              setBulkRows(prev => prev.map((r, i) => i === idx ? { ...r, name: val } : r));
+                            }}
+                            className="w-full px-2.5 py-1.5 border border-slate-300 rounded-lg text-xs font-semibold text-gray-800 bg-white outline-none focus:ring-2 focus:ring-indigo-500"
+                            placeholder="Matière..."
+                            required
+                          />
+                        </td>
+
+                        {/* Classe */}
+                        <td className="px-3 py-2">
+                          <select
+                            value={row.level}
+                            onChange={e => {
+                              const val = e.target.value;
+                              setBulkRows(prev => prev.map((r, i) => i === idx ? { ...r, level: val } : r));
+                            }}
+                            className="w-full px-2 py-1.5 border border-slate-300 rounded-lg text-xs font-bold text-gray-800 bg-white outline-none focus:ring-2 focus:ring-indigo-500"
+                          >
+                            {LEVELS.map(l => (
+                              <option key={l} value={l}>{l}</option>
+                            ))}
+                          </select>
+                        </td>
+
+                        {/* Année Scolaire */}
+                        <td className="px-3 py-2">
+                          <select
+                            value={row.academic_year || currentConfiguredYear || "2024-2025"}
+                            onChange={e => {
+                              const val = e.target.value;
+                              setBulkRows(prev => prev.map((r, i) => i === idx ? { ...r, academic_year: val } : r));
+                            }}
+                            className="w-full px-2 py-1.5 border border-slate-300 rounded-lg text-xs font-medium text-gray-800 bg-white outline-none focus:ring-2 focus:ring-indigo-500"
+                          >
+                            {academicYears.map(y => (
+                              <option key={y.id} value={y.name}>{y.name}</option>
+                            ))}
+                            {academicYears.length === 0 && (
+                              <option value="2024-2025">2024-2025</option>
+                            )}
+                          </select>
+                        </td>
+
+                        {/* Professeur Assigné */}
+                        <td className="px-3 py-2">
+                          <select
+                            value={row.teacher_id || ""}
+                            onChange={e => {
+                              const val = e.target.value;
+                              setBulkRows(prev => prev.map((r, i) => i === idx ? { ...r, teacher_id: val } : r));
+                            }}
+                            className={`w-full px-2.5 py-1.5 border rounded-lg text-xs font-semibold outline-none focus:ring-2 focus:ring-indigo-500 ${
+                              row.teacher_id
+                                ? "border-emerald-300 bg-emerald-50/60 text-emerald-950 font-bold"
+                                : "border-amber-300 bg-amber-50/60 text-amber-900"
+                            }`}
+                          >
+                            <option value="">⚠️ Non assigné</option>
+                            {teachers.map(t => (
+                              <option key={t.id} value={t.id}>
+                                {t.full_name || t.email} ({t.title || (t.isInvitation ? "Invité" : "Permanent")})
+                              </option>
+                            ))}
+                          </select>
+                        </td>
+
+                        {/* Heures / Sem. */}
+                        <td className="px-3 py-2 text-center">
+                          <input
+                            type="number"
+                            min="1"
+                            max="40"
+                            value={row.hoursPerWeek}
+                            onChange={e => {
+                              const val = Number(e.target.value);
+                              setBulkRows(prev => prev.map((r, i) => i === idx ? { ...r, hoursPerWeek: val } : r));
+                            }}
+                            className="w-16 px-1.5 py-1 text-center font-bold text-gray-800 bg-white border border-slate-300 rounded-lg outline-none focus:ring-2 focus:ring-indigo-500 text-xs"
+                          />
+                        </td>
+
+                        {/* Taux horaire */}
+                        <td className="px-3 py-2 text-center">
+                          <input
+                            type="number"
+                            min="500"
+                            step="250"
+                            value={row.hourlyRate}
+                            onChange={e => {
+                              const val = Number(e.target.value);
+                              setBulkRows(prev => prev.map((r, i) => i === idx ? { ...r, hourlyRate: val } : r));
+                            }}
+                            className="w-20 px-1.5 py-1 text-right font-bold text-emerald-900 bg-white border border-slate-300 rounded-lg outline-none focus:ring-2 focus:ring-indigo-500 text-xs"
+                          />
+                        </td>
+
+                        {/* Coef */}
+                        <td className="px-3 py-2 text-center">
+                          <input
+                            type="number"
+                            min="1"
+                            max="10"
+                            value={row.coefficient}
+                            onChange={e => {
+                              const val = Number(e.target.value);
+                              setBulkRows(prev => prev.map((r, i) => i === idx ? { ...r, coefficient: val } : r));
+                            }}
+                            className="w-12 px-1 py-1 text-center font-bold text-gray-800 bg-white border border-slate-300 rounded-lg outline-none focus:ring-2 focus:ring-indigo-500 text-xs"
+                          />
+                        </td>
+
+                        {/* Salaire Mensuel */}
+                        <td className="px-3 py-2 text-right font-black text-emerald-700">
+                          {rowMonthly.toLocaleString()} F
+                        </td>
+
+                        {/* Action Supprimer */}
+                        <td className="px-3 py-2 text-center">
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveBulkRow(idx)}
+                            className="p-1 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded transition"
+                            title="Retirer cette ligne"
+                          >
+                            <Trash2 size={15} />
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                  {bulkRows.length === 0 && (
+                    <tr>
+                      <td colSpan={10} className="py-12 text-center text-slate-400 italic">
+                        Aucune ligne dans le tableau. Cliquez sur "Ajouter une nouvelle ligne" pour débuter.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+
+              <datalist id="bulkSubjectsList">
+                {existingSchoolSubjects.map(s => (
+                  <option key={s} value={s} />
+                ))}
+              </datalist>
+            </div>
+
+            {/* Footer Summary & Action Buttons */}
+            <div className="p-4 border-t border-slate-200 bg-slate-50 flex flex-col sm:flex-row justify-between items-center gap-4 shrink-0">
+              <div className="flex items-center gap-6 text-xs">
+                <div className="flex items-center gap-2">
+                  <span className="text-slate-500 font-medium">Total Heures :</span>
+                  <span className="font-bold text-gray-900 bg-white px-2.5 py-1 rounded-lg border border-slate-200">
+                    {bulkRows.reduce((acc, r) => acc + (Number(r.hoursPerWeek) || 0), 0)} h / sem.
+                  </span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-slate-500 font-medium">Masse Salariale Mensuelle :</span>
+                  <span className="font-black text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-lg border border-emerald-200">
+                    {bulkRows.reduce((acc, r) => acc + ((Number(r.hoursPerWeek) || 0) * 4 * (Number(r.hourlyRate) || 0)), 0).toLocaleString()} FCFA
+                  </span>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2.5">
+                <button
+                  type="button"
+                  onClick={() => setShowBulkEditModal(false)}
+                  className="px-4 py-2 text-xs font-bold text-slate-600 hover:bg-slate-200 rounded-xl transition"
+                >
+                  Fermer
+                </button>
+                <button
+                  type="button"
+                  onClick={handleSaveBulkEdit}
+                  disabled={isSavingBulk || bulkRows.length === 0}
+                  className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white rounded-xl text-xs font-bold uppercase tracking-wider transition shadow-sm flex items-center gap-2"
+                >
+                  {isSavingBulk ? (
+                    <>
+                      <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                      <span>Enregistrement...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Save size={15} />
+                      <span>Enregistrer toutes les modifications</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}

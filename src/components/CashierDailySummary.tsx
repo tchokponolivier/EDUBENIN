@@ -42,8 +42,11 @@ interface DailyRemittance {
 
 export function CashierDailySummary() {
   const { user } = useAuth();
-  const isDirector = user?.role === "SCHOOL_ADMIN";
+  const isDirector = user?.role === "SCHOOL_ADMIN" || user?.role === "DIRECTOR_OF_STUDIES" || user?.role === "SUPER_ADMIN";
   const isCashier = user?.role === "CASHIER";
+
+  // Mode: Point journalier (07h30-23h00) ou Registre Multi-Dates
+  const [activeTab, setActiveTab] = useState<"DAILY" | "ALL_TRANSACTIONS">("DAILY");
 
   // Default to today
   const todayStr = useMemo(() => new Date().toISOString().split("T")[0], []);
@@ -63,6 +66,14 @@ export function CashierDailySummary() {
   // Director validation modal/note
   const [directorNote, setDirectorNote] = useState("");
   const [showDirectorModal, setShowDirectorModal] = useState(false);
+
+  // Multi-dates search & filters state
+  const [filterStartDate, setFilterStartDate] = useState<string>("");
+  const [filterEndDate, setFilterEndDate] = useState<string>("");
+  const [filterFlowType, setFilterFlowType] = useState<"ALL" | "IN" | "OUT">("ALL");
+  const [filterNetwork, setFilterNetwork] = useState<string>("ALL");
+  const [searchFilter, setSearchFilter] = useState<string>("");
+  const [filterValidationStatus, setFilterValidationStatus] = useState<"ALL" | "CONFIRMED" | "PENDING">("ALL");
 
   // Fetch data
   const fetchData = async () => {
@@ -201,6 +212,93 @@ export function CashierDailySummary() {
     return remittances.find(r => r.date === selectedDate);
   }, [remittances, selectedDate]);
 
+  // Consolidated transactions across all dates
+  const consolidatedTransactions = useMemo(() => {
+    const list: any[] = [];
+    payments.forEach(p => {
+      if (p.status !== "COMPLETED") return;
+      const d = p.created_at ? new Date(p.created_at) : (p.date ? new Date(p.date) : null);
+      const dateStr = d && !isNaN(d.getTime()) ? d.toISOString().split("T")[0] : "";
+      const remit = remittances.find(r => r.date === dateStr);
+      list.push({
+        id: `p-${p.id}`,
+        rawId: p.id,
+        type: "IN",
+        date: d,
+        dateStr,
+        amount: Number(p.amount) || 0,
+        reference: p.reference || "ENC-" + String(p.id).substring(0, 6),
+        network: p.network || "Espèces",
+        description: p.student_name ? `Paiement scolarité • ${p.student_name} (${p.class || p.level || ""})` : "Encaissement scolarité",
+        cashier: p.cashier_name || "Caisse",
+        isConfirmed: Boolean(remit?.director_confirmed),
+        confirmedBy: remit?.director_confirmed_by,
+        raw: p
+      });
+    });
+
+    expenses.forEach(e => {
+      const d = e.created_at ? new Date(e.created_at) : (e.expense_date ? new Date(e.expense_date) : null);
+      const dateStr = d && !isNaN(d.getTime()) ? d.toISOString().split("T")[0] : "";
+      const remit = remittances.find(r => r.date === dateStr);
+      list.push({
+        id: `e-${e.id}`,
+        rawId: e.id,
+        type: "OUT",
+        date: d,
+        dateStr,
+        amount: Number(e.amount) || 0,
+        reference: e.reference || "DEC-" + String(e.id).substring(0, 6),
+        network: e.payment_method || "Espèces",
+        description: `${e.description || "Dépense"} • ${e.category || "Général"}`,
+        cashier: e.author_name || "Caisse",
+        isConfirmed: Boolean(remit?.director_confirmed),
+        confirmedBy: remit?.director_confirmed_by,
+        raw: e
+      });
+    });
+
+    // Sort descending by date/time
+    return list.sort((a, b) => {
+      const timeA = a.date ? a.date.getTime() : 0;
+      const timeB = b.date ? b.date.getTime() : 0;
+      return timeB - timeA;
+    });
+  }, [payments, expenses, remittances]);
+
+  // Filtered multi-date transactions
+  const filteredMultiTransactions = useMemo(() => {
+    return consolidatedTransactions.filter(tx => {
+      if (filterFlowType !== "ALL" && tx.type !== filterFlowType) return false;
+      if (filterNetwork !== "ALL" && tx.network?.toLowerCase() !== filterNetwork.toLowerCase()) return false;
+      if (filterValidationStatus === "CONFIRMED" && !tx.isConfirmed) return false;
+      if (filterValidationStatus === "PENDING" && tx.isConfirmed) return false;
+      
+      if (filterStartDate && tx.dateStr < filterStartDate) return false;
+      if (filterEndDate && tx.dateStr > filterEndDate) return false;
+
+      if (searchFilter.trim()) {
+        const q = searchFilter.toLowerCase();
+        const matchRef = tx.reference?.toLowerCase().includes(q);
+        const matchDesc = tx.description?.toLowerCase().includes(q);
+        const matchCashier = tx.cashier?.toLowerCase().includes(q);
+        const matchDate = tx.dateStr?.includes(q);
+        if (!matchRef && !matchDesc && !matchCashier && !matchDate) return false;
+      }
+      return true;
+    });
+  }, [consolidatedTransactions, filterFlowType, filterNetwork, filterValidationStatus, filterStartDate, filterEndDate, searchFilter]);
+
+  const multiTotalIn = useMemo(() => {
+    return filteredMultiTransactions.filter(t => t.type === "IN").reduce((sum, t) => sum + t.amount, 0);
+  }, [filteredMultiTransactions]);
+
+  const multiTotalOut = useMemo(() => {
+    return filteredMultiTransactions.filter(t => t.type === "OUT").reduce((sum, t) => sum + t.amount, 0);
+  }, [filteredMultiTransactions]);
+
+  const multiNetBalance = multiTotalIn - multiTotalOut;
+
   // Save remittance
   const saveRemittances = (updated: DailyRemittance[]) => {
     setRemittances(updated);
@@ -306,21 +404,21 @@ export function CashierDailySummary() {
         <div>
           <div className="flex items-center gap-2 mb-1">
             <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold uppercase tracking-wider bg-emerald-100 text-emerald-800 border border-emerald-200">
-              Guichet Journalier (07h30 - 23h00)
+              Guichet & Opérations Journalières
             </span>
             {currentRemittance?.director_confirmed ? (
               <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold uppercase tracking-wider bg-emerald-600 text-white flex items-center gap-1 shadow-sm">
-                <CheckCircle size={12} /> Confirmé par Direction
+                <CheckCircle size={12} /> Validé par la Direction
               </span>
             ) : (
-              <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold uppercase tracking-wider bg-amber-100 text-amber-800 border border-amber-200 flex items-center gap-1">
-                <Clock size={12} /> En attente de confirmation physique
+              <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold uppercase tracking-wider bg-amber-500 text-white flex items-center gap-1 shadow-sm">
+                <Clock size={12} /> Non Validé (En attente du Directeur)
               </span>
             )}
           </div>
-          <h2 className="text-xl font-black text-gray-800">Point de Caisse du Jour</h2>
+          <h2 className="text-xl font-black text-gray-800">Caisse du Jour & Registre des Flux</h2>
           <p className="text-xs text-slate-500">
-            Collecte stricte des flux enregistrés entre 07h30 et 23h00 avec pointage physique de clôture.
+            Clôture journalière (07h30 - 23h00) avec visa du Directeur et registre complet des entrées/sorties filtrables par date.
           </p>
         </div>
 
@@ -379,42 +477,87 @@ export function CashierDailySummary() {
         </div>
       </div>
 
-      {/* Quick Day Chips */}
-      <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-thin">
-        <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider shrink-0 mr-1">
-          Historique rapide :
-        </span>
-        {recentDays.map(dStr => {
-          const isSelected = dStr === selectedDate;
-          const isToday = dStr === todayStr;
-          const dayRemit = remittances.find(r => r.date === dStr);
-          const isConfirmed = dayRemit?.director_confirmed;
-          const dateObj = new Date(dStr + "T00:00:00");
-          const label = isToday ? "Aujourd'hui" : dateObj.toLocaleDateString("fr-FR", { weekday: "short", day: "numeric", month: "short" });
+      {/* Mode Switcher: Point de Caisse du Jour vs Registre Toutes les Entrées & Sorties */}
+      <div className="flex border-b border-slate-200 bg-white rounded-xl p-1 shadow-sm gap-1">
+        <button
+          onClick={() => setActiveTab("DAILY")}
+          className={`flex-1 py-2.5 text-xs font-bold rounded-lg uppercase tracking-wider transition flex items-center justify-center gap-2 ${
+            activeTab === "DAILY" ? "bg-emerald-600 text-white shadow-sm" : "text-slate-600 hover:bg-slate-100"
+          }`}
+        >
+          <Clock size={15} /> Point de Caisse Journalier ({new Date(selectedDate + "T00:00:00").toLocaleDateString("fr-FR")})
+        </button>
 
-          return (
-            <button
-              key={dStr}
-              onClick={() => setSelectedDate(dStr)}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap transition flex items-center gap-1.5 ${
-                isSelected 
-                  ? "bg-slate-800 text-white shadow-sm" 
-                  : "bg-white text-slate-600 hover:bg-slate-100 border border-slate-200"
-              }`}
-            >
-              <span>{label}</span>
-              {isConfirmed ? (
-                <span className="w-2 h-2 rounded-full bg-emerald-500" title="Validé par la direction" />
-              ) : dayRemit ? (
-                <span className="w-2 h-2 rounded-full bg-amber-400" title="Remise enregistrée, en attente" />
-              ) : null}
-            </button>
-          );
-        })}
+        <button
+          onClick={() => setActiveTab("ALL_TRANSACTIONS")}
+          className={`flex-1 py-2.5 text-xs font-bold rounded-lg uppercase tracking-wider transition flex items-center justify-center gap-2 ${
+            activeTab === "ALL_TRANSACTIONS" ? "bg-emerald-600 text-white shadow-sm" : "text-slate-600 hover:bg-slate-100"
+          }`}
+        >
+          <FileText size={15} /> Toutes les Entrées & Sorties (Toutes Dates & Filtres)
+        </button>
       </div>
 
-      {/* KPI Cards for the day */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+      {/* Quick Day Chips with CLEAR COLORS (Green for validated by Director, Orange for non-validated) */}
+      <div className="bg-white p-3.5 rounded-xl border border-slate-200 shadow-sm">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1 mb-2">
+          <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+            Historique des Dates (Couleurs : Vert = Validé par le Directeur | Orange = Non validé) :
+          </span>
+          <div className="flex items-center gap-3 text-[11px] font-semibold">
+            <span className="flex items-center gap-1 text-emerald-800">
+              <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 inline-block" /> Validé (Vert)
+            </span>
+            <span className="flex items-center gap-1 text-amber-800">
+              <span className="w-2.5 h-2.5 rounded-full bg-amber-500 inline-block" /> Non validé (Orange)
+            </span>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-thin">
+          {recentDays.map(dStr => {
+            const isSelected = dStr === selectedDate;
+            const isToday = dStr === todayStr;
+            const dayRemit = remittances.find(r => r.date === dStr);
+            const isConfirmed = Boolean(dayRemit?.director_confirmed);
+            const dateObj = new Date(dStr + "T00:00:00");
+            const label = isToday ? "Aujourd'hui" : dateObj.toLocaleDateString("fr-FR", { weekday: "short", day: "numeric", month: "short" });
+
+            return (
+              <button
+                key={dStr}
+                onClick={() => setSelectedDate(dStr)}
+                className={`px-3 py-2 rounded-lg text-xs font-bold whitespace-nowrap transition flex items-center gap-2 border-2 ${
+                  isConfirmed
+                    ? isSelected
+                      ? "bg-emerald-600 text-white border-emerald-600 ring-2 ring-emerald-400 shadow-md"
+                      : "bg-emerald-50 text-emerald-900 border-emerald-300 hover:bg-emerald-100"
+                    : isSelected
+                      ? "bg-amber-600 text-white border-amber-600 ring-2 ring-amber-400 shadow-md"
+                      : "bg-amber-50 text-amber-950 border-amber-300 hover:bg-amber-100"
+                }`}
+              >
+                <span>{label}</span>
+                {isConfirmed ? (
+                  <span className={`px-1.5 py-0.2 rounded text-[10px] font-black uppercase flex items-center gap-0.5 ${isSelected ? 'bg-emerald-800 text-emerald-100' : 'bg-emerald-200 text-emerald-900'}`}>
+                    <CheckCircle size={10} /> Validé
+                  </span>
+                ) : (
+                  <span className={`px-1.5 py-0.2 rounded text-[10px] font-black uppercase flex items-center gap-0.5 ${isSelected ? 'bg-amber-800 text-amber-100' : 'bg-amber-200 text-amber-900'}`}>
+                    <Clock size={10} /> Non validé
+                  </span>
+                )}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+
+      {activeTab === "DAILY" && (
+        <>
+          {/* KPI Cards for the day */}
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
           <div className="flex items-center justify-between">
             <span className="text-xs font-bold uppercase tracking-wider text-slate-500">Entrées (Recettes)</span>
@@ -534,8 +677,8 @@ export function CashierDailySummary() {
               {currentRemittance ? "Modifier Remise" : "Déclarer Remise"}
             </button>
 
-            {/* Director button */}
-            {isDirector && (
+            {/* Director button - ONLY FOR DIRECTOR, NEVER CASHIER */}
+            {isDirector && !isCashier && (
               <button
                 onClick={() => {
                   setDirectorNote(currentRemittance?.director_note || "");
@@ -552,6 +695,12 @@ export function CashierDailySummary() {
               </button>
             )}
           </div>
+
+          {isCashier && (
+            <p className="text-[10px] text-amber-800 bg-amber-100/70 p-1.5 rounded border border-amber-200 mt-2">
+              ℹ️ <strong>Rôle Caisse :</strong> Vous déclarez la remise. Le bouton de validation de clôture n'apparaît que chez le Directeur.
+            </p>
+          )}
         </div>
       </div>
 
@@ -723,8 +872,308 @@ export function CashierDailySummary() {
           </div>
         </div>
       </div>
+      </>
+      )}
 
-      {/* Modal: Cashier Remittance Declaration */}
+      {/* TAB 2: TOUTES LES ENTRÉES ET SORTIES (REGISTRE MULTI-DATES ET FILTRAGE PAR DATE) */}
+      {activeTab === "ALL_TRANSACTIONS" && (
+        <div className="space-y-6">
+          {/* Filters Bar */}
+          <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm space-y-4">
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-3 border-b border-slate-100 pb-3">
+              <div>
+                <h3 className="font-bold text-gray-800 text-sm flex items-center gap-2">
+                  <Filter size={16} className="text-emerald-600" />
+                  Filtres du Registre Global Multi-Dates
+                </h3>
+                <p className="text-[11px] text-slate-500">
+                  Consultez et filtrez l'ensemble des encaissements et décaissements de toutes les dates.
+                </p>
+              </div>
+
+              {/* Quick Date Presets */}
+              <div className="flex flex-wrap items-center gap-1.5">
+                <button
+                  onClick={() => {
+                    setFilterStartDate(todayStr);
+                    setFilterEndDate(todayStr);
+                  }}
+                  className="px-2.5 py-1 text-[11px] font-bold rounded bg-slate-100 text-slate-700 hover:bg-slate-200 transition"
+                >
+                  Aujourd'hui
+                </button>
+                <button
+                  onClick={() => {
+                    const d = new Date();
+                    d.setDate(d.getDate() - 1);
+                    const yStr = d.toISOString().split("T")[0];
+                    setFilterStartDate(yStr);
+                    setFilterEndDate(yStr);
+                  }}
+                  className="px-2.5 py-1 text-[11px] font-bold rounded bg-slate-100 text-slate-700 hover:bg-slate-200 transition"
+                >
+                  Hier
+                </button>
+                <button
+                  onClick={() => {
+                    const d = new Date();
+                    d.setDate(d.getDate() - 7);
+                    setFilterStartDate(d.toISOString().split("T")[0]);
+                    setFilterEndDate(todayStr);
+                  }}
+                  className="px-2.5 py-1 text-[11px] font-bold rounded bg-slate-100 text-slate-700 hover:bg-slate-200 transition"
+                >
+                  7 derniers jours
+                </button>
+                <button
+                  onClick={() => {
+                    const d = new Date();
+                    const firstDay = new Date(d.getFullYear(), d.getMonth(), 1).toISOString().split("T")[0];
+                    setFilterStartDate(firstDay);
+                    setFilterEndDate(todayStr);
+                  }}
+                  className="px-2.5 py-1 text-[11px] font-bold rounded bg-slate-100 text-slate-700 hover:bg-slate-200 transition"
+                >
+                  Ce mois
+                </button>
+                <button
+                  onClick={() => {
+                    setFilterStartDate("");
+                    setFilterEndDate("");
+                  }}
+                  className="px-2.5 py-1 text-[11px] font-bold rounded bg-emerald-50 text-emerald-800 hover:bg-emerald-100 transition border border-emerald-200"
+                >
+                  Toutes les dates
+                </button>
+              </div>
+            </div>
+
+            {/* Filter Inputs Grid */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
+              {/* Date Début */}
+              <div>
+                <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">
+                  Date de Début
+                </label>
+                <div className="flex items-center gap-1.5 px-3 py-2 border border-slate-300 rounded-lg bg-white">
+                  <Calendar size={14} className="text-slate-400" />
+                  <input
+                    type="date"
+                    value={filterStartDate}
+                    onChange={e => setFilterStartDate(e.target.value)}
+                    className="w-full text-xs font-semibold text-gray-800 outline-none"
+                  />
+                </div>
+              </div>
+
+              {/* Date Fin */}
+              <div>
+                <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">
+                  Date de Fin
+                </label>
+                <div className="flex items-center gap-1.5 px-3 py-2 border border-slate-300 rounded-lg bg-white">
+                  <Calendar size={14} className="text-slate-400" />
+                  <input
+                    type="date"
+                    value={filterEndDate}
+                    onChange={e => setFilterEndDate(e.target.value)}
+                    className="w-full text-xs font-semibold text-gray-800 outline-none"
+                  />
+                </div>
+              </div>
+
+              {/* Type de flux */}
+              <div>
+                <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">
+                  Type de Flux
+                </label>
+                <select
+                  value={filterFlowType}
+                  onChange={e => setFilterFlowType(e.target.value as any)}
+                  className="w-full px-3 py-2 border border-slate-300 rounded-lg text-xs font-semibold text-gray-800 bg-white outline-none"
+                >
+                  <option value="ALL">Tous les flux (+ et -)</option>
+                  <option value="IN">Entrées uniquement (+)</option>
+                  <option value="OUT">Sorties uniquement (-)</option>
+                </select>
+              </div>
+
+              {/* Statut Validation Direction */}
+              <div>
+                <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">
+                  Statut Visa Direction
+                </label>
+                <select
+                  value={filterValidationStatus}
+                  onChange={e => setFilterValidationStatus(e.target.value as any)}
+                  className="w-full px-3 py-2 border border-slate-300 rounded-lg text-xs font-semibold text-gray-800 bg-white outline-none"
+                >
+                  <option value="ALL">Tous les statuts</option>
+                  <option value="CONFIRMED">Validés par le Directeur (Vert)</option>
+                  <option value="PENDING">Non validés (Orange)</option>
+                </select>
+              </div>
+
+              {/* Recherche libre */}
+              <div>
+                <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">
+                  Recherche
+                </label>
+                <div className="relative">
+                  <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                  <input
+                    type="text"
+                    placeholder="Élève, réf, motif, caissier..."
+                    value={searchFilter}
+                    onChange={e => setSearchFilter(e.target.value)}
+                    className="w-full pl-8 pr-3 py-2 border border-slate-300 rounded-lg text-xs outline-none"
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Filtered KPIs */}
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+              <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">Total Recettes Filtrées</span>
+              <div className="text-xl font-black text-emerald-600 mt-1">
+                +{multiTotalIn.toLocaleString()} <span className="text-xs font-medium text-slate-400">FCFA</span>
+              </div>
+            </div>
+
+            <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+              <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">Total Dépenses Filtrées</span>
+              <div className="text-xl font-black text-rose-600 mt-1">
+                -{multiTotalOut.toLocaleString()} <span className="text-xs font-medium text-slate-400">FCFA</span>
+              </div>
+            </div>
+
+            <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+              <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">Solde Net de la Période</span>
+              <div className={`text-xl font-black mt-1 ${multiNetBalance >= 0 ? "text-emerald-700" : "text-rose-700"}`}>
+                {multiNetBalance >= 0 ? "+" : ""}{multiNetBalance.toLocaleString()} <span className="text-xs font-medium text-slate-400">FCFA</span>
+              </div>
+            </div>
+
+            <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex items-center justify-between">
+              <div>
+                <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">Nombre d'opérations</span>
+                <div className="text-xl font-black text-gray-800 mt-1">
+                  {filteredMultiTransactions.length}
+                </div>
+              </div>
+              <button
+                onClick={() => window.print()}
+                className="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-bold uppercase tracking-wider flex items-center gap-1.5 transition"
+              >
+                <Printer size={14} /> Imprimer
+              </button>
+            </div>
+          </div>
+
+          {/* Master Table */}
+          <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+            <div className="p-4 border-b border-slate-100 flex justify-between items-center bg-slate-50">
+              <h3 className="font-bold text-gray-800 text-sm">
+                Registre des Opérations Multi-Dates ({filteredMultiTransactions.length} résultat{filteredMultiTransactions.length > 1 ? "s" : ""})
+              </h3>
+            </div>
+
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs border-collapse">
+                <thead className="bg-slate-50 text-[10px] text-slate-500 font-bold uppercase tracking-wider border-b border-slate-100">
+                  <tr>
+                    <th className="px-4 py-3">Date & Heure</th>
+                    <th className="px-4 py-3">Statut Clôture</th>
+                    <th className="px-4 py-3">Sens</th>
+                    <th className="px-4 py-3">Référence & Mode</th>
+                    <th className="px-4 py-3">Description / Tiers</th>
+                    <th className="px-4 py-3">Caissier / Auteur</th>
+                    <th className="px-4 py-3 text-right">Montant (FCFA)</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {filteredMultiTransactions.length === 0 ? (
+                    <tr>
+                      <td colSpan={7} className="px-4 py-12 text-center text-slate-400 text-xs">
+                        Aucun flux financier ne correspond aux filtres sélectionnés.
+                      </td>
+                    </tr>
+                  ) : (
+                    filteredMultiTransactions.map(tx => {
+                      const dateStr = tx.date && !isNaN(tx.date.getTime()) 
+                        ? tx.date.toLocaleDateString("fr-FR", { day: "2-digit", month: "2-digit", year: "numeric" }) 
+                        : tx.dateStr || "-";
+                      const timeStr = tx.date && !isNaN(tx.date.getTime()) 
+                        ? tx.date.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" }) 
+                        : "";
+
+                      return (
+                        <tr key={tx.id} className="hover:bg-slate-50/80 transition-colors">
+                          <td className="px-4 py-3 whitespace-nowrap">
+                            <span className="font-bold text-gray-800 block">{dateStr}</span>
+                            <span className="text-[10px] text-slate-400 font-mono">{timeStr}</span>
+                          </td>
+
+                          {/* Statut Visa Clôture Date */}
+                          <td className="px-4 py-3 whitespace-nowrap">
+                            {tx.isConfirmed ? (
+                              <span className="px-2 py-0.5 rounded text-[10px] font-black uppercase bg-emerald-100 text-emerald-800 border border-emerald-300 flex items-center gap-1 w-fit">
+                                <CheckCircle size={11} className="text-emerald-600" /> Validé
+                              </span>
+                            ) : (
+                              <span className="px-2 py-0.5 rounded text-[10px] font-black uppercase bg-amber-100 text-amber-900 border border-amber-300 flex items-center gap-1 w-fit">
+                                <Clock size={11} className="text-amber-600" /> Non validé
+                              </span>
+                            )}
+                          </td>
+
+                          {/* Sens */}
+                          <td className="px-4 py-3 whitespace-nowrap">
+                            {tx.type === "IN" ? (
+                              <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-emerald-50 text-emerald-700 border border-emerald-200">
+                                Entrée (+)
+                              </span>
+                            ) : (
+                              <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-rose-50 text-rose-700 border border-rose-200">
+                                Sortie (-)
+                              </span>
+                            )}
+                          </td>
+
+                          {/* Réf & Mode */}
+                          <td className="px-4 py-3 whitespace-nowrap">
+                            <span className="font-mono font-bold text-gray-700 block text-[11px]">{tx.reference}</span>
+                            <span className="text-[10px] text-slate-400 uppercase tracking-wider">{tx.network}</span>
+                          </td>
+
+                          {/* Description */}
+                          <td className="px-4 py-3">
+                            <span className="font-medium text-gray-800 block text-xs">{tx.description}</span>
+                          </td>
+
+                          {/* Caissier */}
+                          <td className="px-4 py-3 whitespace-nowrap text-slate-600 text-xs">
+                            {tx.cashier}
+                          </td>
+
+                          {/* Montant */}
+                          <td className={`px-4 py-3 text-right font-mono font-black text-sm whitespace-nowrap ${
+                            tx.type === "IN" ? "text-emerald-700" : "text-rose-700"
+                          }`}>
+                            {tx.type === "IN" ? "+" : "-"}{tx.amount.toLocaleString()} F
+                          </td>
+                        </tr>
+                      );
+                    })
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
       {showSubmitModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in">
           <div className="bg-white rounded-xl shadow-2xl w-full max-w-md overflow-hidden border border-slate-200">

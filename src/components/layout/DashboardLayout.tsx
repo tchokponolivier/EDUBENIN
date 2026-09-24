@@ -42,7 +42,7 @@ export function DashboardLayout({ children }: { children: ReactNode }) {
       case "SCHOOL_ADMIN":
         return [
           { name: "Tableau de bord", href: "/school-admin", icon: LayoutDashboard },
-          { name: "Caisse du Jour (Visa)", href: "/school-admin/payments?tab=DAILY_SUMMARY", icon: Clock },
+          { name: "Caisse du Jour", href: "/school-admin/payments?tab=DAILY_SUMMARY", icon: Clock },
           { name: "Finances & Caisse", href: "/school-admin/payments?tab=DASHBOARD", icon: Banknote },
           { name: "Inscriptions & Élèves", href: "/school-admin/students?tab=STUDENTS", icon: Users },
           { name: "Liste des Élèves", href: "/school-admin/students-list", icon: Users },

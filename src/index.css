@@ -111,15 +111,19 @@
   body * {
     visibility: hidden;
   }
-  #bulletin-print-area, #bulletin-print-area *, #commitment-print-area, #commitment-print-area *, #receipt-print-area, #receipt-print-area * {
+  #bulletin-print-area, #bulletin-print-area *, #commitment-print-area, #commitment-print-area *, #receipt-print-area, #receipt-print-area *, #teacher-grades-print-area, #teacher-grades-print-area * {
     visibility: visible;
   }
-  #bulletin-print-area, #commitment-print-area, #receipt-print-area {
+  #bulletin-print-area, #commitment-print-area, #receipt-print-area, #teacher-grades-print-area {
     position: absolute;
     left: 0;
     top: 0;
     width: 100%;
     margin: 0;
     padding: 0;
+    background: white !important;
+    color: black !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
   }
 }

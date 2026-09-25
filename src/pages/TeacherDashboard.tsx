@@ -4,7 +4,8 @@ import { useAuth } from "../lib/auth";
 import { 
   Users, Save, LayoutGrid, ArrowLeft, Plus, 
   CheckSquare, Edit2, X, CheckCircle2, AlertCircle, 
-  Printer, Trash2, BookOpen
+  Printer, Trash2, BookOpen, Calendar, Award, Sparkles,
+  Download, Eye
 } from "lucide-react";
 import { supabase } from "../lib/supabase";
 import { TeacherAttendance } from "../components/TeacherAttendance";
@@ -37,6 +38,48 @@ export function TeacherDashboard() {
   return <ErrorBoundary><TeacherDashboardInner /></ErrorBoundary>;
 }
 
+// Table officielle des appréciations demandée pour les moyennes générales
+export function getGradeAppreciation(avgGen: number | null): string {
+  if (avgGen === null || isNaN(avgGen)) return '';
+  const rounded = Math.min(20, Math.max(0, Math.round(avgGen)));
+  switch (rounded) {
+    case 0:
+      return "Nul";
+    case 1:
+    case 2:
+    case 3:
+      return "Très insuffisant";
+    case 4:
+    case 5:
+    case 6:
+      return "Insuffisant";
+    case 7:
+    case 8:
+      return "Faible";
+    case 9:
+      return "Insuffisant";
+    case 10:
+    case 11:
+      return "Moyen";
+    case 12:
+      return "Assez bien";
+    case 13:
+    case 14:
+      return "Bien";
+    case 15:
+    case 16:
+      return "Très bien";
+    case 17:
+    case 18:
+    case 19:
+      return "Excellent";
+    case 20:
+      return "Exceptionnel";
+    default:
+      return rounded >= 10 ? "Moyen" : "Insuffisant";
+  }
+}
+
 // Structure des notes pour un élève et un cours :
 // interros: string[] (ex: ['14', '16']), devoirs: string[] (ex: ['12', '15']),
 // avgInterro: string, avgDevoir: string, avgGeneral: string, app: string
@@ -57,6 +100,8 @@ function TeacherDashboardInner() {
   const [selectedCourseId, setSelectedCourseId] = useState<string | null>(null);
   const [myCourses, setMyCourses] = useState<any[]>([]);
   const [schoolSettings, setSchoolSettings] = useState<any>(null);
+  const [academicYears, setAcademicYears] = useState<any[]>([]);
+  const [selectedAcademicYear, setSelectedAcademicYear] = useState<string>("2024-2025");
   
   // Nombre d'interrogations et devoirs configurés pour la matière/classe en cours
   const [numInterros, setNumInterros] = useState<number>(2);
@@ -72,6 +117,7 @@ function TeacherDashboardInner() {
   // Élèves inclus pour la grille
   const [includedStudents, setIncludedStudents] = useState<string[]>([]);
   const [period, setPeriod] = useState<string>("1er Trimestre");
+  const [showPrintModal, setShowPrintModal] = useState<boolean>(false);
 
   // Chargement des cours assignés et données
   useEffect(() => {
@@ -92,10 +138,11 @@ function TeacherDashboardInner() {
           } catch (e) {}
         }
 
-        const [stRes, allCoursesRes, schoolRes] = await Promise.all([
+        const [stRes, allCoursesRes, schoolRes, yearsRes] = await Promise.all([
           activeSchoolId ? supabase.from('students').select('*').eq('school_id', activeSchoolId) : supabase.from('students').select('*'),
           activeSchoolId ? supabase.from('courses').select('*').eq('school_id', activeSchoolId) : supabase.from('courses').select('*'),
-          activeSchoolId ? supabase.from('schools').select('*').eq('id', activeSchoolId).maybeSingle() : Promise.resolve({ data: null })
+          activeSchoolId ? supabase.from('schools').select('*').eq('id', activeSchoolId).maybeSingle() : Promise.resolve({ data: null }),
+          activeSchoolId ? supabase.from('academic_years').select('id, name').eq('school_id', activeSchoolId) : Promise.resolve({ data: [] })
         ]);
 
         if (stRes.data) {
@@ -110,6 +157,29 @@ function TeacherDashboardInner() {
             educmasterNumber: d.educmasterNumber, 
             gender: d.gender
           })) as any);
+        }
+
+        if (yearsRes.data && yearsRes.data.length > 0) {
+          setAcademicYears(yearsRes.data);
+        }
+
+        let configuredYear = "";
+        if (activeSchoolId) {
+          try {
+            const savedExtra = localStorage.getItem('schoolSettings_extra_' + activeSchoolId);
+            if (savedExtra) {
+              const parsed = JSON.parse(savedExtra);
+              if (parsed.academicYear) configuredYear = parsed.academicYear;
+            }
+          } catch (e) {}
+        }
+        if (!configuredYear && schoolRes.data?.academic_year) {
+          configuredYear = schoolRes.data.academic_year;
+        }
+        if (configuredYear) {
+          setSelectedAcademicYear(configuredYear);
+        } else if (yearsRes.data && yearsRes.data[0]?.name) {
+          setSelectedAcademicYear(yearsRes.data[0].name);
         }
 
         let inviteId: string | null = null;
@@ -129,16 +199,18 @@ function TeacherDashboardInner() {
         // Collect all IDs that identify this teacher across profiles, invitations and auth
         const uid = user.id ? String(user.id).toLowerCase() : "";
         const uemail = user.email ? String(user.email).toLowerCase() : "";
+        const uname = user.name ? user.name.trim().toLowerCase() : "";
         const matchedTeacherIds = new Set<string>();
         if (uid) matchedTeacherIds.add(uid);
 
         if (uemail) {
           try {
             const { data: profs } = await supabase.from('profiles')
-              .select('id, email')
+              .select('id, email, full_name')
               .ilike('email', uemail);
             (profs || []).forEach((p: any) => {
               if (p.id) matchedTeacherIds.add(String(p.id).toLowerCase());
+              if (p.email) matchedTeacherIds.add(String(p.email).toLowerCase());
             });
           } catch (e) {}
         }
@@ -146,11 +218,12 @@ function TeacherDashboardInner() {
         if (user.name && activeSchoolId) {
           try {
             const { data: nameProfs } = await supabase.from('profiles')
-              .select('id')
+              .select('id, full_name, email')
               .eq('school_id', activeSchoolId)
               .ilike('full_name', user.name.trim());
             (nameProfs || []).forEach((p: any) => {
               if (p.id) matchedTeacherIds.add(String(p.id).toLowerCase());
+              if (p.email) matchedTeacherIds.add(String(p.email).toLowerCase());
             });
           } catch (e) {}
         }
@@ -161,7 +234,7 @@ function TeacherDashboardInner() {
         }
 
         if (allCoursesRes.data) {
-          // Read course metadata for coefficients
+          // Read course metadata for coefficients, hours and direct teacher assignments
           let courseMeta: Record<string, any> = {};
           if (activeSchoolId) {
             try {
@@ -172,19 +245,27 @@ function TeacherDashboardInner() {
 
           const assignedCourses = (allCoursesRes.data || [])
             .filter((c: any) => {
-              if (!c.teacher_id) return false;
-              const cTid = String(c.teacher_id).toLowerCase();
+              const cTid = c.teacher_id ? String(c.teacher_id).toLowerCase() : "";
+              const cEmail = c.teacher_email ? String(c.teacher_email).toLowerCase() : "";
+              const m = courseMeta[c.id] || courseMeta[`${c.name?.trim().toLowerCase()}_${c.level}`] || {};
+              const mTid = m.teacher_id ? String(m.teacher_id).toLowerCase() : "";
+              const mEmail = m.teacher_email ? String(m.teacher_email).toLowerCase() : "";
+
               return (
-                matchedTeacherIds.has(cTid) ||
-                (uemail && cTid === uemail) ||
-                (c.teacher_email && uemail && String(c.teacher_email).toLowerCase() === uemail)
+                (cTid && matchedTeacherIds.has(cTid)) ||
+                (cTid && uemail && cTid === uemail) ||
+                (cEmail && uemail && cEmail === uemail) ||
+                (mTid && matchedTeacherIds.has(mTid)) ||
+                (mTid && uemail && mTid === uemail) ||
+                (mEmail && uemail && mEmail === uemail)
               );
             })
             .map((c: any) => {
               const m = courseMeta[c.id] || courseMeta[`${c.name?.trim().toLowerCase()}_${c.level}`] || {};
               return {
                 ...c,
-                coefficient: m.coefficient || c.coefficient || 2
+                coefficient: m.coefficient || c.coefficient || 2,
+                academic_year: m.academic_year || c.academic_year || configuredYear || "2024-2025"
               };
             });
 
@@ -248,10 +329,11 @@ function TeacherDashboardInner() {
     }
   }, [selectedClass, classStudents]);
 
-  // Fonction de calcul de notes selon la règle exacte spécifiée par l'utilisateur :
+  // Fonction de calcul de notes selon la règle exacte :
   // - Moyenne Interro = somme des interros / nombre d'interros saisies
   // - Moyenne Devoir = somme des devoirs / nombre de devoirs saisis
   // - Moyenne Générale = (Moyenne Interro + Moyenne Devoir) / 2
+  // - Observation / Appréciation : table officielle stricte 0/20 à 20/20
   const calculateCourseAverages = (interros: string[], devoirs: string[]) => {
     let sumInt = 0;
     let countInt = 0;
@@ -289,16 +371,7 @@ function TeacherDashboardInner() {
       avgGen = avgDev;
     }
 
-    let appreciation = '';
-    if (avgGen !== null) {
-      if (avgGen >= 18) appreciation = 'Excellent';
-      else if (avgGen >= 16) appreciation = 'Très Bien';
-      else if (avgGen >= 14) appreciation = 'Bien';
-      else if (avgGen >= 12) appreciation = 'Assez Bien';
-      else if (avgGen >= 10) appreciation = 'Passable';
-      else if (avgGen >= 8) appreciation = 'Insuffisant';
-      else appreciation = 'Faible';
-    }
+    const appreciation = getGradeAppreciation(avgGen);
 
     return {
       avgInterro: avgInt !== null ? avgInt.toFixed(2) : '',
@@ -308,28 +381,59 @@ function TeacherDashboardInner() {
     };
   };
 
-  // Chargement des notes de la classe depuis la base de données
+  // Clé unique pour persister localement les notes de façon strictement isolée par période et année
+  const getPeriodStorageKey = (schoolId: string, cls: string, year: string, prd: string) => {
+    return `school_teacher_grades_${schoolId}_${cls}_${year}_${prd}`;
+  };
+
+  // Chargement des notes de la classe depuis la base de données & stockage local
   useEffect(() => {
     const fetchClassGrades = async () => {
       if (!user?.schoolId || !selectedClass) return;
       try {
+        const storageKey = getPeriodStorageKey(user.schoolId, selectedClass, selectedAcademicYear, period);
+        let cachedGrades: Record<string, Record<string, CourseGradeState>> = {};
+        try {
+          const raw = localStorage.getItem(storageKey);
+          if (raw) cachedGrades = JSON.parse(raw);
+        } catch (e) {}
+
         const { data: dbGrades } = await supabase
           .from('grades')
           .select('*')
           .eq('school_id', user.schoolId);
 
-        const loaded: Record<string, Record<string, CourseGradeState>> = {};
+        const loaded: Record<string, Record<string, CourseGradeState>> = JSON.parse(JSON.stringify(cachedGrades));
         let maxIntFound = 2;
         let maxDevFound = 2;
 
         if (dbGrades && dbGrades.length > 0) {
           dbGrades.forEach((g: any) => {
             const evalType = g.evaluation_type || '';
-            const parts = evalType.split('_');
-            const evalKey = parts[0]?.toUpperCase(); // INT1, INT2, DEV1, DEV2...
-            const evalPeriod = parts.length > 1 ? parts.slice(1).join('_') : '';
+            
+            // Format 1: INT1#1er Trimestre#2024-2025
+            // Format 2: INT1_1er Trimestre (rétrocompatible)
+            let isCurrentPeriod = false;
+            let evalKey = '';
 
-            if (!evalPeriod || evalPeriod === period) {
+            if (evalType.includes('#')) {
+              const parts = evalType.split('#');
+              evalKey = parts[0]?.toUpperCase() || '';
+              const gPeriod = parts[1] || '';
+              const gYear = parts[2] || '';
+              if (gPeriod === period && (!gYear || gYear === selectedAcademicYear)) {
+                isCurrentPeriod = true;
+              }
+            } else if (evalType.includes('_')) {
+              const parts = evalType.split('_');
+              evalKey = parts[0]?.toUpperCase() || '';
+              const gPeriod = parts.slice(1).join('_');
+              if (gPeriod === period) {
+                isCurrentPeriod = true;
+              }
+            }
+
+            if (isCurrentPeriod) {
               if (!loaded[g.student_id]) loaded[g.student_id] = {};
               if (!loaded[g.student_id][g.course_id]) {
                 loaded[g.student_id][g.course_id] = {
@@ -364,21 +468,29 @@ function TeacherDashboardInner() {
               }
             }
           });
-
-          // Recalculer les moyennes
-          Object.keys(loaded).forEach(stId => {
-            Object.keys(loaded[stId]).forEach(cId => {
-              const item = loaded[stId][cId];
-              const calculated = calculateCourseAverages(item.interros, item.devoirs);
-              item.avgInterro = calculated.avgInterro;
-              item.avgDevoir = calculated.avgDevoir;
-              item.avgGeneral = calculated.avgGeneral;
-              if (!item.app && calculated.appreciation) {
-                item.app = calculated.appreciation;
-              }
-            });
-          });
         }
+
+        // Recalculer les moyennes et appliquer les appréciations officielles
+        Object.keys(loaded).forEach(stId => {
+          Object.keys(loaded[stId]).forEach(cId => {
+            const item = loaded[stId][cId];
+            const calculated = calculateCourseAverages(item.interros, item.devoirs);
+            item.avgInterro = calculated.avgInterro;
+            item.avgDevoir = calculated.avgDevoir;
+            item.avgGeneral = calculated.avgGeneral;
+            if (!item.app && calculated.appreciation) {
+              item.app = calculated.appreciation;
+            }
+          });
+        });
+
+        // Calculer les colonnes max pour ce trimestre
+        Object.values(loaded).forEach(stMap => {
+          Object.values(stMap).forEach(cState => {
+            if (cState.interros.length > maxIntFound) maxIntFound = cState.interros.length;
+            if (cState.devoirs.length > maxDevFound) maxDevFound = cState.devoirs.length;
+          });
+        });
 
         setNumInterros(Math.max(2, maxIntFound));
         setNumDevoirs(Math.max(2, maxDevFound));
@@ -390,7 +502,7 @@ function TeacherDashboardInner() {
     };
 
     fetchClassGrades();
-  }, [user, selectedClass, period]);
+  }, [user?.schoolId, selectedClass, period, selectedAcademicYear]);
 
   // Modification d'une note d'interrogation
   const handleInterroChange = (studentId: string, courseId: string, index: number, value: string) => {
@@ -421,7 +533,7 @@ function TeacherDashboardInner() {
             avgInterro: calculated.avgInterro,
             avgDevoir: calculated.avgDevoir,
             avgGeneral: calculated.avgGeneral,
-            app: courseGrades.app || calculated.appreciation
+            app: calculated.appreciation || courseGrades.app
           }
         }
       };
@@ -457,14 +569,14 @@ function TeacherDashboardInner() {
             avgInterro: calculated.avgInterro,
             avgDevoir: calculated.avgDevoir,
             avgGeneral: calculated.avgGeneral,
-            app: courseGrades.app || calculated.appreciation
+            app: calculated.appreciation || courseGrades.app
           }
         }
       };
     });
   };
 
-  // Modification de l'observation / appréciation
+  // Modification manuelle de l'observation / appréciation
   const handleAppreciationChange = (studentId: string, courseId: string, value: string) => {
     setGrades(prev => {
       const studentGrades = prev[studentId] || {};
@@ -489,9 +601,9 @@ function TeacherDashboardInner() {
     });
   };
 
-  // Sauvegarde des notes dans Supabase
+  // Sauvegarde des notes strictement isolée par trimestre et année scolaire
   const handleSaveGrades = async () => {
-    if (!user?.schoolId) return;
+    if (!user?.schoolId || !selectedClass) return;
     setIsSaving(true);
     try {
       const gradesToInsert: any[] = [];
@@ -510,10 +622,10 @@ function TeacherDashboardInner() {
                   school_id: user.schoolId,
                   student_id: studentId,
                   course_id: courseId,
-                  evaluation_type: `INT${idx + 1}_${period}`,
+                  evaluation_type: `INT${idx + 1}#${period}#${selectedAcademicYear}`,
                   score: score,
                   max_score: 20,
-                  appreciation: data.app || '',
+                  appreciation: data.app || getGradeAppreciation(data.avgGeneral ? parseFloat(data.avgGeneral) : null),
                   grade_date: now
                 });
               }
@@ -529,10 +641,10 @@ function TeacherDashboardInner() {
                   school_id: user.schoolId,
                   student_id: studentId,
                   course_id: courseId,
-                  evaluation_type: `DEV${idx + 1}_${period}`,
+                  evaluation_type: `DEV${idx + 1}#${period}#${selectedAcademicYear}`,
                   score: score,
                   max_score: 20,
-                  appreciation: data.app || '',
+                  appreciation: data.app || getGradeAppreciation(data.avgGeneral ? parseFloat(data.avgGeneral) : null),
                   grade_date: now
                 });
               }
@@ -541,16 +653,24 @@ function TeacherDashboardInner() {
         });
       });
 
-      // Supprimer les évaluations existantes correspondantes pour cette période et ce cours
+      // 1. Sauvegarde dans localStorage pour garantir que changer de trimestre ne perde jamais rien
+      const storageKey = getPeriodStorageKey(user.schoolId, selectedClass, selectedAcademicYear, period);
+      localStorage.setItem(storageKey, JSON.stringify(grades));
+
+      // 2. Supprimer les évaluations existantes UNIQUEMENT pour ce trimestre et cette année scolaire
       const { data: existingGrades } = await supabase
         .from('grades')
         .select('*')
         .eq('school_id', user.schoolId);
 
       if (existingGrades) {
-        const keysToReplace = new Set(gradesToInsert.map(g => `${g.student_id}_${g.course_id}_${g.evaluation_type}`));
         for (const eg of existingGrades) {
-          if (keysToReplace.has(`${eg.student_id}_${eg.course_id}_${eg.evaluation_type}`)) {
+          const evalType = eg.evaluation_type || '';
+          const matchesThisPeriodAndYear = 
+            (evalType.includes('#') && evalType.includes(`#${period}#${selectedAcademicYear}`)) ||
+            (!evalType.includes('#') && evalType.endsWith(`_${period}`));
+
+          if (matchesThisPeriodAndYear && grades[eg.student_id]?.[eg.course_id]) {
             await supabase.from('grades').delete().eq('id', eg.id);
           }
         }
@@ -565,6 +685,7 @@ function TeacherDashboardInner() {
       setSaveSuccess(true);
       setTimeout(() => setSaveSuccess(false), 3000);
     } catch (err: any) {
+      console.error(err);
       alert("Erreur lors de la sauvegarde: " + err.message);
     } finally {
       setIsSaving(false);
@@ -734,20 +855,50 @@ function TeacherDashboardInner() {
                 )}
               </div>
 
-              {/* Barre de contrôle : Période, Gestion des colonnes et Actions */}
+              {/* Barre de contrôle : Année Scolaire, Période, Gestion des colonnes et Actions */}
               <div className="flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-4 mb-6 bg-slate-50 p-4 rounded-xl border border-slate-200">
                 <div className="flex flex-wrap items-center gap-4">
+                  {/* Sélecteur Année Scolaire (avant saisie) */}
                   <div className="flex items-center gap-2">
-                    <span className="text-xs font-bold uppercase tracking-wider text-slate-600">Période :</span>
+                    <Calendar size={15} className="text-emerald-600" />
+                    <span className="text-xs font-bold uppercase tracking-wider text-slate-600">Année :</span>
+                    <select 
+                      value={selectedAcademicYear} 
+                      onChange={e => {
+                        if (isEditingGrades && !window.confirm("Vous avez des modifications en cours pour cette année. Changer quand même d'année ?")) return;
+                        setSelectedAcademicYear(e.target.value);
+                        setIsEditingGrades(false);
+                      }} 
+                      disabled={isEditingGrades}
+                      className="px-3 py-1.5 border border-slate-300 rounded text-xs font-bold text-gray-800 focus:ring-emerald-500 outline-none bg-white shadow-sm"
+                    >
+                      {academicYears.map(y => (
+                        <option key={y.id} value={y.name}>{y.name}</option>
+                      ))}
+                      {academicYears.length === 0 && (
+                        <option value="2024-2025">2024-2025</option>
+                      )}
+                    </select>
+                  </div>
+
+                  {/* Sélecteur Trimestre / Période (avant saisie) */}
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-bold uppercase tracking-wider text-slate-600">Trimestre :</span>
                     <select 
                       value={period} 
-                      onChange={e => setPeriod(e.target.value)} 
+                      onChange={e => {
+                        if (isEditingGrades && !window.confirm("Vous avez des modifications en cours pour ce trimestre. Changer quand même de période ?")) return;
+                        setPeriod(e.target.value);
+                        setIsEditingGrades(false);
+                      }} 
                       disabled={isEditingGrades}
                       className="px-3 py-1.5 border border-slate-300 rounded text-xs font-bold text-gray-800 focus:ring-emerald-500 outline-none bg-white shadow-sm"
                     >
                       <option value="1er Trimestre">1er Trimestre</option>
                       <option value="2ème Trimestre">2ème Trimestre</option>
                       <option value="3ème Trimestre">3ème Trimestre</option>
+                      <option value="1er Semestre">1er Semestre</option>
+                      <option value="2ème Semestre">2ème Semestre</option>
                     </select>
                   </div>
 
@@ -827,11 +978,11 @@ function TeacherDashboardInner() {
                   )}
 
                   <button 
-                    onClick={() => window.print()} 
-                    className="flex items-center gap-2 px-3 py-2 bg-slate-800 text-white rounded text-xs font-bold uppercase tracking-wider hover:bg-slate-700 transition shadow-sm"
-                    title="Imprimer la grille récapitulative"
+                    onClick={() => setShowPrintModal(true)} 
+                    className="flex items-center gap-2 px-3.5 py-2 bg-slate-800 text-white rounded text-xs font-bold uppercase tracking-wider hover:bg-slate-700 transition shadow-sm"
+                    title="Aperçu avant impression et export PDF"
                   >
-                    <Printer size={16} /> Imprimer
+                    <Printer size={16} /> Imprimer / PDF
                   </button>
                 </div>
               </div>
@@ -968,14 +1119,26 @@ function TeacherDashboardInner() {
 
                               {/* Observation */}
                               <td className="p-1 border border-slate-200">
-                                <input 
-                                  type="text" 
-                                  disabled={!isIncluded || !isEditingGrades} 
-                                  placeholder="Observation..." 
-                                  className="w-full text-xs p-1.5 outline-none focus:ring-1 ring-emerald-500 rounded bg-white border border-slate-200 disabled:bg-transparent disabled:border-transparent disabled:cursor-not-allowed" 
-                                  value={sCourseGrades.app || ''} 
-                                  onChange={e => handleAppreciationChange(student.id, currentCourse.id, e.target.value)} 
-                                />
+                                <div className="flex items-center gap-1.5">
+                                  <input 
+                                    type="text" 
+                                    disabled={!isIncluded || !isEditingGrades} 
+                                    placeholder="Observation..." 
+                                    className="w-full text-xs p-1.5 outline-none focus:ring-1 ring-emerald-500 rounded bg-white border border-slate-200 disabled:bg-transparent disabled:border-transparent disabled:cursor-not-allowed font-medium text-slate-700" 
+                                    value={sCourseGrades.app || ''} 
+                                    onChange={e => handleAppreciationChange(student.id, currentCourse.id, e.target.value)} 
+                                  />
+                                  {sCourseGrades.app && (
+                                    <span className={`px-2 py-0.5 rounded text-[10px] font-bold whitespace-nowrap shrink-0 ${
+                                      sCourseGrades.app === 'Nul' || sCourseGrades.app === 'Très insuffisant' ? 'bg-red-100 text-red-800' :
+                                      sCourseGrades.app === 'Insuffisant' || sCourseGrades.app === 'Faible' ? 'bg-amber-100 text-amber-800' :
+                                      sCourseGrades.app === 'Moyen' || sCourseGrades.app === 'Assez bien' ? 'bg-blue-100 text-blue-800' :
+                                      'bg-emerald-100 text-emerald-800'
+                                    }`}>
+                                      {sCourseGrades.app}
+                                    </span>
+                                  )}
+                                </div>
                               </td>
                             </tr>
                           );
@@ -997,6 +1160,377 @@ function TeacherDashboardInner() {
             </div>
           )}
         </>
+      )}
+
+      {/* MODAL : Aperçu Avant Impression & Export PDF */}
+      {showPrintModal && currentCourse && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-slate-900/60 backdrop-blur-xs animate-in fade-in">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-5xl overflow-hidden animate-in zoom-in-95 max-h-[95vh] flex flex-col border border-slate-200">
+            {/* Header */}
+            <div className="p-4 sm:p-5 border-b border-slate-200 bg-slate-900 text-white flex justify-between items-center shrink-0">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-emerald-600 rounded-xl flex items-center justify-center text-white shrink-0">
+                  <Printer size={22} />
+                </div>
+                <div>
+                  <h3 className="font-bold text-base sm:text-lg text-white flex items-center gap-2">
+                    Aperçu de la Grille des Notes & Relevé Officiel
+                  </h3>
+                  <p className="text-slate-300 text-xs mt-0.5">
+                    Classe : {selectedClass} • Matière : {currentCourse.name} • {period} • {selectedAcademicYear}
+                  </p>
+                </div>
+              </div>
+              <button 
+                onClick={() => setShowPrintModal(false)} 
+                className="text-slate-400 hover:text-white p-1.5 rounded-lg hover:bg-slate-800 transition"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            {/* Document Preview */}
+            <div className="flex-1 overflow-auto p-4 sm:p-8 bg-slate-100 flex justify-center">
+              <div className="w-full max-w-4xl bg-white shadow-lg p-6 sm:p-10 border border-slate-200 rounded-lg text-slate-800 font-sans space-y-6">
+                {/* En-tête officiel */}
+                <div className="border-b-2 border-slate-800 pb-4">
+                  <div className="flex justify-between items-start gap-4">
+                    <div>
+                      <h4 className="font-black text-lg text-slate-900 uppercase tracking-tight">
+                        {schoolSettings?.name || "Établissement Scolaire"}
+                      </h4>
+                      <p className="text-xs text-slate-500 font-medium">Direction des Études & Suivi Pédagogique</p>
+                      {schoolSettings?.address && (
+                        <p className="text-[11px] text-slate-400">{schoolSettings.address}</p>
+                      )}
+                    </div>
+                    <div className="text-right">
+                      <div className="text-xs font-bold uppercase text-slate-700">Année Scolaire : {selectedAcademicYear}</div>
+                      <div className="text-xs font-extrabold text-emerald-800 bg-emerald-50 px-2.5 py-1 rounded inline-block mt-1 border border-emerald-200">
+                        {period}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="text-center mt-4">
+                    <h2 className="text-lg font-black uppercase tracking-wider text-slate-900 underline underline-offset-4">
+                      Relevé de Notes & Fiche Récapitulative d'Évaluation
+                    </h2>
+                    <div className="flex flex-wrap justify-center items-center gap-4 text-xs font-semibold text-slate-700 mt-2">
+                      <span>Classe : <strong>{selectedClass}</strong></span>
+                      <span>•</span>
+                      <span>Matière : <strong>{currentCourse.name}</strong> (Coeff : {currentCourse.coefficient || 1})</span>
+                      <span>•</span>
+                      <span>Professeur : <strong>{user?.name || "Enseignant"}</strong></span>
+                      <span>•</span>
+                      <span>Date : <strong>{new Date().toLocaleDateString('fr-FR')}</strong></span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Tableau */}
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left border-collapse border border-slate-400 text-xs">
+                    <thead className="bg-slate-800 text-[10px] uppercase text-white font-bold tracking-wider">
+                      <tr>
+                        <th className="px-2 py-2 border border-slate-700 text-center w-8">N°</th>
+                        <th className="px-3 py-2 border border-slate-700">Nom et Prénoms</th>
+                        {Array.from({ length: numInterros }).map((_, i) => (
+                          <th key={`prev-int-${i}`} className="px-2 py-2 border border-slate-700 text-center">
+                            Int {i + 1}
+                          </th>
+                        ))}
+                        <th className="px-2 py-2 border border-slate-700 text-center bg-emerald-900 text-white font-bold">
+                          Moy. Int
+                        </th>
+                        {Array.from({ length: numDevoirs }).map((_, i) => (
+                          <th key={`prev-dev-${i}`} className="px-2 py-2 border border-slate-700 text-center">
+                            Dev {i + 1}
+                          </th>
+                        ))}
+                        <th className="px-2 py-2 border border-slate-700 text-center bg-blue-900 text-white font-bold">
+                          Moy. Dev
+                        </th>
+                        <th className="px-3 py-2 border border-slate-700 text-center bg-slate-900 text-amber-300 font-black">
+                          Moy. Générale
+                        </th>
+                        <th className="px-3 py-2 border border-slate-700 text-left">Observation / Appréciation</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-300 text-xs">
+                      {classStudents
+                        .filter(s => includedStudents.includes(s.id))
+                        .map((student, idx) => {
+                          const sGrades = grades[student.id]?.[currentCourse.id] || {
+                            interros: [],
+                            devoirs: [],
+                            avgInterro: '',
+                            avgDevoir: '',
+                            avgGeneral: '',
+                            app: ''
+                          };
+                          return (
+                            <tr key={student.id} className="hover:bg-slate-50">
+                              <td className="px-2 py-1.5 border border-slate-300 text-center font-bold text-slate-500">{idx + 1}</td>
+                              <td className="px-3 py-1.5 border border-slate-300 font-bold uppercase text-slate-900">
+                                {student.lastName} {student.firstName}
+                              </td>
+                              {Array.from({ length: numInterros }).map((_, i) => (
+                                <td key={`prev-td-int-${i}`} className="px-2 py-1.5 border border-slate-300 text-center">
+                                  {sGrades.interros[i] || '-'}
+                                </td>
+                              ))}
+                              <td className="px-2 py-1.5 border border-slate-300 text-center font-bold text-emerald-800 bg-emerald-50/50">
+                                {sGrades.avgInterro || '-'}
+                              </td>
+                              {Array.from({ length: numDevoirs }).map((_, i) => (
+                                <td key={`prev-td-dev-${i}`} className="px-2 py-1.5 border border-slate-300 text-center">
+                                  {sGrades.devoirs[i] || '-'}
+                                </td>
+                              ))}
+                              <td className="px-2 py-1.5 border border-slate-300 text-center font-bold text-blue-800 bg-blue-50/50">
+                                {sGrades.avgDevoir || '-'}
+                              </td>
+                              <td className="px-3 py-1.5 border border-slate-300 text-center font-black text-slate-900 bg-amber-50/60">
+                                {sGrades.avgGeneral ? `${sGrades.avgGeneral} / 20` : '-'}
+                              </td>
+                              <td className="px-3 py-1.5 border border-slate-300 font-semibold text-slate-800">
+                                {sGrades.app || '-'}
+                              </td>
+                            </tr>
+                          );
+                        })}
+                    </tbody>
+                  </table>
+                </div>
+
+                {/* Synthèse statistique */}
+                {(() => {
+                  const evStudents = classStudents.filter(s => includedStudents.includes(s.id));
+                  const validAvgs = evStudents
+                    .map(s => {
+                      const g = grades[s.id]?.[currentCourse.id];
+                      const val = g?.avgGeneral ? parseFloat(g.avgGeneral) : null;
+                      return val !== null && !isNaN(val) ? val : null;
+                    })
+                    .filter((v): v is number => v !== null);
+
+                  const count = evStudents.length;
+                  const sum = validAvgs.reduce((a, b) => a + b, 0);
+                  const avg = validAvgs.length > 0 ? (sum / validAvgs.length).toFixed(2) : "0.00";
+                  const max = validAvgs.length > 0 ? Math.max(...validAvgs).toFixed(2) : "0.00";
+                  const min = validAvgs.length > 0 ? Math.min(...validAvgs).toFixed(2) : "0.00";
+                  const pass = validAvgs.filter(v => v >= 10).length;
+                  const rate = validAvgs.length > 0 ? Math.round((pass / validAvgs.length) * 100) : 0;
+
+                  return (
+                    <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 p-3 bg-slate-50 border border-slate-300 rounded-lg text-center text-xs">
+                      <div>
+                        <div className="text-[10px] text-slate-500 uppercase font-bold">Effectif Évalué</div>
+                        <div className="font-extrabold text-slate-800 text-sm">{count} élève(s)</div>
+                      </div>
+                      <div>
+                        <div className="text-[10px] text-slate-500 uppercase font-bold">Moyenne de Classe</div>
+                        <div className="font-extrabold text-emerald-700 text-sm">{avg} / 20</div>
+                      </div>
+                      <div>
+                        <div className="text-[10px] text-slate-500 uppercase font-bold">Plus Forte Moyenne</div>
+                        <div className="font-extrabold text-blue-700 text-sm">{max} / 20</div>
+                      </div>
+                      <div>
+                        <div className="text-[10px] text-slate-500 uppercase font-bold">Plus Faible Moyenne</div>
+                        <div className="font-extrabold text-rose-700 text-sm">{min} / 20</div>
+                      </div>
+                      <div>
+                        <div className="text-[10px] text-slate-500 uppercase font-bold">Taux Réussite (≥ 10)</div>
+                        <div className="font-extrabold text-emerald-800 text-sm">{rate}% ({pass}/{count})</div>
+                      </div>
+                    </div>
+                  );
+                })()}
+
+                {/* Signatures */}
+                <div className="pt-8 border-t border-slate-300 grid grid-cols-2 gap-8 text-xs">
+                  <div>
+                    <p className="font-bold text-slate-800 uppercase">L'Enseignant de la matière :</p>
+                    <p className="text-slate-600 font-semibold mt-1">{user?.name || "Nom de l'Enseignant"}</p>
+                    <div className="mt-12 text-[10px] text-slate-400 italic">Signature & Date :</div>
+                  </div>
+                  <div className="text-right">
+                    <p className="font-bold text-slate-800 uppercase">Le Directeur des Études / La Direction :</p>
+                    <div className="mt-14 text-[10px] text-slate-400 italic">Visa & Cachet officiel :</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Footer Buttons */}
+            <div className="p-4 border-t border-slate-200 bg-white flex justify-end items-center gap-3 shrink-0">
+              <button 
+                onClick={() => setShowPrintModal(false)}
+                className="px-4 py-2 border border-slate-300 text-slate-700 rounded-xl text-xs font-bold hover:bg-slate-50 transition"
+              >
+                Fermer
+              </button>
+              <button 
+                onClick={() => {
+                  window.print();
+                }}
+                className="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold uppercase tracking-wider transition shadow-sm flex items-center gap-2"
+              >
+                <Printer size={16} /> Lancer l'impression / Enregistrer en PDF
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* DÉDIÉ IMPRESSION (@media print) : Éléments imprimés garantis avec #teacher-grades-print-area */}
+      {currentCourse && (
+        <div id="teacher-grades-print-area" className="hidden print:block p-8 bg-white text-black font-sans">
+          {/* En-tête officiel */}
+          <div className="border-b-2 border-black pb-4 mb-4">
+            <div className="flex justify-between items-start">
+              <div>
+                <h1 className="text-xl font-black uppercase tracking-tight text-black">
+                  {schoolSettings?.name || "ÉTABLISSEMENT SCOLAIRE"}
+                </h1>
+                <p className="text-xs font-semibold text-black uppercase">Direction des Études & Contrôle Pédagogique</p>
+                {schoolSettings?.address && <p className="text-[11px] text-black">{schoolSettings.address}</p>}
+              </div>
+              <div className="text-right">
+                <p className="text-xs font-bold uppercase">Année Scolaire : {selectedAcademicYear}</p>
+                <p className="text-xs font-extrabold uppercase mt-1">Période : {period}</p>
+              </div>
+            </div>
+
+            <div className="text-center mt-3">
+              <h2 className="text-base font-black uppercase underline tracking-wider text-black">
+                RELEVÉ RÉCAPITULATIF DES NOTES & OBSERVATIONS
+              </h2>
+              <div className="flex justify-center gap-4 text-xs font-bold text-black mt-1">
+                <span>Classe : {selectedClass}</span>
+                <span>•</span>
+                <span>Matière : {currentCourse.name} (Coeff : {currentCourse.coefficient || 1})</span>
+                <span>•</span>
+                <span>Professeur : {user?.name || "Enseignant"}</span>
+                <span>•</span>
+                <span>Date : {new Date().toLocaleDateString('fr-FR')}</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Table imprimée */}
+          <table className="w-full text-left border-collapse border border-black text-xs mb-4">
+            <thead>
+              <tr className="bg-gray-200 text-black font-bold uppercase text-[10px]">
+                <th className="px-2 py-1.5 border border-black text-center w-8">N°</th>
+                <th className="px-3 py-1.5 border border-black">Nom et Prénoms de l'Élève</th>
+                {Array.from({ length: numInterros }).map((_, i) => (
+                  <th key={`print-int-${i}`} className="px-2 py-1.5 border border-black text-center">
+                    Int {i + 1}
+                  </th>
+                ))}
+                <th className="px-2 py-1.5 border border-black text-center font-bold">Moy. Int</th>
+                {Array.from({ length: numDevoirs }).map((_, i) => (
+                  <th key={`print-dev-${i}`} className="px-2 py-1.5 border border-black text-center">
+                    Dev {i + 1}
+                  </th>
+                ))}
+                <th className="px-2 py-1.5 border border-black text-center font-bold">Moy. Dev</th>
+                <th className="px-3 py-1.5 border border-black text-center font-black">Moy. Générale / 20</th>
+                <th className="px-3 py-1.5 border border-black">Observation / Appréciation</th>
+              </tr>
+            </thead>
+            <tbody>
+              {classStudents
+                .filter(s => includedStudents.includes(s.id))
+                .map((student, idx) => {
+                  const sGrades = grades[student.id]?.[currentCourse.id] || {
+                    interros: [],
+                    devoirs: [],
+                    avgInterro: '',
+                    avgDevoir: '',
+                    avgGeneral: '',
+                    app: ''
+                  };
+                  return (
+                    <tr key={student.id}>
+                      <td className="px-2 py-1 border border-black text-center font-bold">{idx + 1}</td>
+                      <td className="px-3 py-1 border border-black font-bold uppercase">
+                        {student.lastName} {student.firstName}
+                      </td>
+                      {Array.from({ length: numInterros }).map((_, i) => (
+                        <td key={`ptd-int-${i}`} className="px-2 py-1 border border-black text-center">
+                          {sGrades.interros[i] || '-'}
+                        </td>
+                      ))}
+                      <td className="px-2 py-1 border border-black text-center font-bold">
+                        {sGrades.avgInterro || '-'}
+                      </td>
+                      {Array.from({ length: numDevoirs }).map((_, i) => (
+                        <td key={`ptd-dev-${i}`} className="px-2 py-1 border border-black text-center">
+                          {sGrades.devoirs[i] || '-'}
+                        </td>
+                      ))}
+                      <td className="px-2 py-1 border border-black text-center font-bold">
+                        {sGrades.avgDevoir || '-'}
+                      </td>
+                      <td className="px-3 py-1 border border-black text-center font-black">
+                        {sGrades.avgGeneral ? `${sGrades.avgGeneral} / 20` : '-'}
+                      </td>
+                      <td className="px-3 py-1 border border-black font-semibold">
+                        {sGrades.app || '-'}
+                      </td>
+                    </tr>
+                  );
+                })}
+            </tbody>
+          </table>
+
+          {/* Synthèse imprimée */}
+          {(() => {
+            const evStudents = classStudents.filter(s => includedStudents.includes(s.id));
+            const validAvgs = evStudents
+              .map(s => {
+                const g = grades[s.id]?.[currentCourse.id];
+                const val = g?.avgGeneral ? parseFloat(g.avgGeneral) : null;
+                return val !== null && !isNaN(val) ? val : null;
+              })
+              .filter((v): v is number => v !== null);
+
+            const count = evStudents.length;
+            const sum = validAvgs.reduce((a, b) => a + b, 0);
+            const avg = validAvgs.length > 0 ? (sum / validAvgs.length).toFixed(2) : "0.00";
+            const max = validAvgs.length > 0 ? Math.max(...validAvgs).toFixed(2) : "0.00";
+            const min = validAvgs.length > 0 ? Math.min(...validAvgs).toFixed(2) : "0.00";
+            const pass = validAvgs.filter(v => v >= 10).length;
+            const rate = validAvgs.length > 0 ? Math.round((pass / validAvgs.length) * 100) : 0;
+
+            return (
+              <div className="grid grid-cols-5 gap-2 p-2 border border-black text-center text-xs mb-6">
+                <div>Effectif : <strong>{count}</strong></div>
+                <div>Moyenne classe : <strong>{avg} / 20</strong></div>
+                <div>Plus forte : <strong>{max} / 20</strong></div>
+                <div>Plus faible : <strong>{min} / 20</strong></div>
+                <div>Réussite : <strong>{rate}% ({pass}/{count})</strong></div>
+              </div>
+            );
+          })()}
+
+          {/* Signatures imprimées */}
+          <div className="grid grid-cols-2 gap-12 text-xs pt-4">
+            <div>
+              <p className="font-bold uppercase">L'Enseignant de la matière :</p>
+              <p className="font-semibold">{user?.name || "Enseignant"}</p>
+              <div className="mt-14 text-[10px] italic">Signature :</div>
+            </div>
+            <div className="text-right">
+              <p className="font-bold uppercase">Le Directeur des Études / La Direction :</p>
+              <div className="mt-16 text-[10px] italic">Cachet & Visa officiel :</div>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Autres onglets */}

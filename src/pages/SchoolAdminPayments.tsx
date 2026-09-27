@@ -98,9 +98,14 @@ const getTranchesForLevel = (level: string) => {
 export function SchoolAdminPayments() {
   const { user } = useAuth();
   const location = useLocation();
+  const isDirectorOfStudies = user?.role === "DIRECTOR_OF_STUDIES";
   const [activeTab, setActiveTab] = useState<"INSCRIPTIONS" | "DAILY_SUMMARY" | "PAYMENTS" | "EXPENSES" | "SALARIES" | "DASHBOARD" | "VERIFICATION" | "CREANCES">(() => {
     const params = new URLSearchParams(location.search);
     const tab = params.get('tab');
+    if (user?.role === "DIRECTOR_OF_STUDIES") {
+      if (tab === "SALARIES") return "SALARIES";
+      return "CREANCES";
+    }
     const validTabs = ["INSCRIPTIONS", "DAILY_SUMMARY", "PAYMENTS", "EXPENSES", "SALARIES", "DASHBOARD", "VERIFICATION", "CREANCES"];
     if (tab && validTabs.includes(tab)) return tab as any;
     return "PAYMENTS";
@@ -113,9 +118,14 @@ export function SchoolAdminPayments() {
   React.useEffect(() => {
     const params = new URLSearchParams(location.search);
     const tab = params.get('tab');
+    if (isDirectorOfStudies) {
+      if (tab === "SALARIES") setActiveTab("SALARIES");
+      else setActiveTab("CREANCES");
+      return;
+    }
     const validTabs = ["INSCRIPTIONS", "DAILY_SUMMARY", "PAYMENTS", "EXPENSES", "SALARIES", "DASHBOARD", "VERIFICATION", "CREANCES"];
     if (tab && validTabs.includes(tab)) setActiveTab(tab as any);
-  }, [location.search]);
+  }, [location.search, isDirectorOfStudies]);
   const [payments, setPayments] = useState<Payment[]>([]);
   const [students, setStudents] = useState<Student[]>([]);
   const [profiles, setProfiles] = useState<any[]>([]);
@@ -779,63 +789,86 @@ export function SchoolAdminPayments() {
           <p className="text-xs text-slate-500 mt-1">Supervisez et enregistrez les transactions depuis la caisse</p>
         </div>
         
-        <div className="flex p-1 bg-slate-100 overflow-x-auto whitespace-nowrap hide-scrollbar rounded-lg shrink-0 overflow-x-auto max-w-full">
-          <button 
-            onClick={() => setActiveTab("DAILY_SUMMARY")} 
-            className={`px-4 py-2 rounded text-xs whitespace-nowrap shrink-0 font-bold uppercase tracking-wider transition-colors flex items-center gap-1.5 ${activeTab === "DAILY_SUMMARY" ? "bg-emerald-600 text-white shadow-sm" : "text-emerald-700 hover:text-emerald-900 bg-emerald-50 hover:bg-emerald-100"}`}
-          >
-            <Clock size={13} />
-            <span>Caisse du Jour</span>
-          </button>
-          <button 
-            onClick={() => setActiveTab("VERIFICATION")} 
-            className={`px-4 py-2 rounded text-xs whitespace-nowrap shrink-0 font-bold uppercase tracking-wider transition-colors flex items-center gap-1.5 ${activeTab === "VERIFICATION" ? "bg-white shadow-sm text-gray-700" : "text-slate-500 hover:text-gray-700"}`}
-          >
-            <span>Vérifications</span>
-            {pendingCount > 0 && (
-              <span className="px-1.5 py-0.5 bg-amber-500 text-white text-[10px] rounded-full font-bold animate-pulse">
-                {pendingCount}
-              </span>
-            )}
-          </button>
-          <button 
-            onClick={() => setActiveTab("PAYMENTS")} 
- 
-            className={`px-4 py-2 rounded text-xs whitespace-nowrap shrink-0 font-bold uppercase tracking-wider transition-colors ${activeTab === "PAYMENTS" ? "bg-white shadow-sm text-gray-700" : "text-slate-500 hover:text-gray-700"}`}
-          >
-            Encaissements
-          </button>
-          <button 
-            onClick={() => setActiveTab("CREANCES")} 
-            className={`px-4 py-2 rounded text-xs whitespace-nowrap shrink-0 font-bold uppercase tracking-wider transition-colors flex items-center gap-1.5 ${activeTab === "CREANCES" ? "bg-white shadow-sm text-gray-700" : "text-slate-500 hover:text-gray-700"}`}
-          >
-            <span>Créances</span>
-            {overdueCountGlobal > 0 && (
-              <span className="px-1.5 py-0.5 bg-rose-500 text-white text-[10px] rounded-full font-bold animate-pulse flex items-center gap-0.5" title={`${overdueCountGlobal} élève(s) avec date limite dépassée`}>
-                <AlertTriangle size={10} />
-                {overdueCountGlobal}
-              </span>
-            )}
-          </button>
-          <button 
-            onClick={() => setActiveTab("EXPENSES")} 
-            className={`px-4 py-2 rounded text-xs whitespace-nowrap shrink-0 font-bold uppercase tracking-wider transition-colors ${activeTab === "EXPENSES" ? "bg-white shadow-sm text-gray-700" : "text-slate-500 hover:text-gray-700"}`}
-          >
-            Dépenses
-          </button>
-          <button 
-            onClick={() => setActiveTab("SALARIES")} 
-            className={`px-4 py-2 rounded text-xs whitespace-nowrap shrink-0 font-bold uppercase tracking-wider transition-colors ${activeTab === "SALARIES" ? "bg-white shadow-sm text-gray-700" : "text-slate-500 hover:text-gray-700"}`}
-          >
-            Salaires
-          </button>
-          <button 
-            onClick={() => setActiveTab("DASHBOARD")} 
-            className={`px-4 py-2 rounded text-xs whitespace-nowrap shrink-0 font-bold uppercase tracking-wider transition-colors ${activeTab === "DASHBOARD" ? "bg-white shadow-sm text-gray-700" : "text-slate-500 hover:text-gray-700"}`}
-          >
-            Tableau de Bord
-          </button>
-        </div>
+        {isDirectorOfStudies ? (
+          <div className="flex p-1 bg-slate-100 overflow-x-auto whitespace-nowrap hide-scrollbar rounded-lg shrink-0">
+            <button 
+              onClick={() => setActiveTab("CREANCES")} 
+              className={`px-4 py-2 rounded text-xs whitespace-nowrap shrink-0 font-bold uppercase tracking-wider transition-colors flex items-center gap-1.5 ${activeTab === "CREANCES" ? "bg-emerald-600 text-white shadow-sm" : "text-slate-600 hover:text-gray-900 bg-white"}`}
+            >
+              <span>Créances</span>
+              {overdueCountGlobal > 0 && (
+                <span className="px-1.5 py-0.5 bg-rose-500 text-white text-[10px] rounded-full font-bold animate-pulse flex items-center gap-0.5" title={`${overdueCountGlobal} élève(s) avec date limite dépassée`}>
+                  <AlertTriangle size={10} />
+                  {overdueCountGlobal}
+                </span>
+              )}
+            </button>
+            <button 
+              onClick={() => setActiveTab("SALARIES")} 
+              className={`px-4 py-2 rounded text-xs whitespace-nowrap shrink-0 font-bold uppercase tracking-wider transition-colors flex items-center gap-1.5 ${activeTab === "SALARIES" ? "bg-emerald-600 text-white shadow-sm" : "text-slate-600 hover:text-gray-900 bg-white"}`}
+            >
+              Salaires
+            </button>
+          </div>
+        ) : (
+          <div className="flex p-1 bg-slate-100 overflow-x-auto whitespace-nowrap hide-scrollbar rounded-lg shrink-0 overflow-x-auto max-w-full">
+            <button 
+              onClick={() => setActiveTab("DAILY_SUMMARY")} 
+              className={`px-4 py-2 rounded text-xs whitespace-nowrap shrink-0 font-bold uppercase tracking-wider transition-colors flex items-center gap-1.5 ${activeTab === "DAILY_SUMMARY" ? "bg-emerald-600 text-white shadow-sm" : "text-emerald-700 hover:text-emerald-900 bg-emerald-50 hover:bg-emerald-100"}`}
+            >
+              <Clock size={13} />
+              <span>Caisse du Jour</span>
+            </button>
+            <button 
+              onClick={() => setActiveTab("VERIFICATION")} 
+              className={`px-4 py-2 rounded text-xs whitespace-nowrap shrink-0 font-bold uppercase tracking-wider transition-colors flex items-center gap-1.5 ${activeTab === "VERIFICATION" ? "bg-white shadow-sm text-gray-700" : "text-slate-500 hover:text-gray-700"}`}
+            >
+              <span>Vérifications</span>
+              {pendingCount > 0 && (
+                <span className="px-1.5 py-0.5 bg-amber-500 text-white text-[10px] rounded-full font-bold animate-pulse">
+                  {pendingCount}
+                </span>
+              )}
+            </button>
+            <button 
+              onClick={() => setActiveTab("PAYMENTS")} 
+   
+              className={`px-4 py-2 rounded text-xs whitespace-nowrap shrink-0 font-bold uppercase tracking-wider transition-colors ${activeTab === "PAYMENTS" ? "bg-white shadow-sm text-gray-700" : "text-slate-500 hover:text-gray-700"}`}
+            >
+              Encaissements
+            </button>
+            <button 
+              onClick={() => setActiveTab("CREANCES")} 
+              className={`px-4 py-2 rounded text-xs whitespace-nowrap shrink-0 font-bold uppercase tracking-wider transition-colors flex items-center gap-1.5 ${activeTab === "CREANCES" ? "bg-white shadow-sm text-gray-700" : "text-slate-500 hover:text-gray-700"}`}
+            >
+              <span>Créances</span>
+              {overdueCountGlobal > 0 && (
+                <span className="px-1.5 py-0.5 bg-rose-500 text-white text-[10px] rounded-full font-bold animate-pulse flex items-center gap-0.5" title={`${overdueCountGlobal} élève(s) avec date limite dépassée`}>
+                  <AlertTriangle size={10} />
+                  {overdueCountGlobal}
+                </span>
+              )}
+            </button>
+            <button 
+              onClick={() => setActiveTab("EXPENSES")} 
+              className={`px-4 py-2 rounded text-xs whitespace-nowrap shrink-0 font-bold uppercase tracking-wider transition-colors ${activeTab === "EXPENSES" ? "bg-white shadow-sm text-gray-700" : "text-slate-500 hover:text-gray-700"}`}
+            >
+              Dépenses
+            </button>
+            <button 
+              onClick={() => setActiveTab("SALARIES")} 
+              className={`px-4 py-2 rounded text-xs whitespace-nowrap shrink-0 font-bold uppercase tracking-wider transition-colors ${activeTab === "SALARIES" ? "bg-white shadow-sm text-gray-700" : "text-slate-500 hover:text-gray-700"}`}
+            >
+              Salaires
+            </button>
+            <button 
+              onClick={() => setActiveTab("DASHBOARD")} 
+              className={`px-4 py-2 rounded text-xs whitespace-nowrap shrink-0 font-bold uppercase tracking-wider transition-colors ${activeTab === "DASHBOARD" ? "bg-white shadow-sm text-gray-700" : "text-slate-500 hover:text-gray-700"}`}
+            >
+              Tableau de Bord
+            </button>
+          </div>
+        )}
 
         {activeTab === "PAYMENTS" && (
           <div className="flex items-center gap-2">

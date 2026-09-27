@@ -21,6 +21,8 @@ import { ParentSupport } from './pages/ParentSupport';
 import { ParentProspectus } from './pages/ParentProspectus';
 import { TeacherDashboard } from './pages/TeacherDashboard';
 import { DirectorDashboard } from './pages/DirectorDashboard';
+import { DirectorAnnouncements } from './pages/DirectorAnnouncements';
+import { DirectorBulletins } from './pages/DirectorBulletins';
 import { TeacherProfile } from './pages/TeacherProfile';
 import { SchoolOnboarding } from './pages/SchoolOnboarding';
 import { LoadingSkeleton } from './components/layout/LoadingSkeleton';
@@ -102,11 +104,12 @@ export default function App() {
           <Route path="/school-admin/onboarding" element={<ProtectedRoute allowedRoles={['SCHOOL_ADMIN']} withLayout={false}><SchoolOnboarding /></ProtectedRoute>} />
           <Route path="/school-admin" element={<ProtectedRoute allowedRoles={['SCHOOL_ADMIN']}><SchoolAdminDashboard /></ProtectedRoute>} />
           <Route path="/school-admin/payments" element={<ProtectedRoute allowedRoles={['SCHOOL_ADMIN', 'CASHIER', 'DIRECTOR_OF_STUDIES']}><SchoolAdminPayments /></ProtectedRoute>} />
-          <Route path="/school-admin/students" element={<ProtectedRoute allowedRoles={['SCHOOL_ADMIN', 'SECRETARY', 'CASHIER']}><SchoolAdminStudents /></ProtectedRoute>} />
-          <Route path="/school-admin/students-list" element={<ProtectedRoute allowedRoles={['SCHOOL_ADMIN', 'SECRETARY', 'CASHIER']}><SchoolAdminStudentList /></ProtectedRoute>} />
+          <Route path="/school-admin/students" element={<ProtectedRoute allowedRoles={['SCHOOL_ADMIN', 'SECRETARY', 'CASHIER', 'DIRECTOR_OF_STUDIES']}><SchoolAdminStudents /></ProtectedRoute>} />
+          <Route path="/school-admin/students-list" element={<ProtectedRoute allowedRoles={['SCHOOL_ADMIN', 'SECRETARY', 'CASHIER', 'DIRECTOR_OF_STUDIES']}><SchoolAdminStudentList /></ProtectedRoute>} />
           <Route path="/school-admin/teachers" element={<ProtectedRoute allowedRoles={['SCHOOL_ADMIN', 'SECRETARY', 'CASHIER', 'DIRECTOR_OF_STUDIES']}><SchoolAdminTeachers /></ProtectedRoute>} />
           <Route path="/school-admin/stats" element={<ProtectedRoute allowedRoles={['SCHOOL_ADMIN']}><SchoolAdminStats /></ProtectedRoute>} />
           <Route path="/school-admin/prospectus" element={<ProtectedRoute allowedRoles={['SCHOOL_ADMIN', 'CASHIER']}><ParentProspectus /></ProtectedRoute>} />
+          <Route path="/school-admin/bulletins" element={<ProtectedRoute allowedRoles={['SCHOOL_ADMIN', 'DIRECTOR_OF_STUDIES', 'SECRETARY']}><DirectorBulletins /></ProtectedRoute>} />
           
           <Route path="/parent" element={<ProtectedRoute allowedRoles={['PARENT']}><ParentDashboard /></ProtectedRoute>} />
           <Route path="/parent/payments" element={<ProtectedRoute allowedRoles={['PARENT']}><ParentPayments /></ProtectedRoute>} />
@@ -116,7 +119,9 @@ export default function App() {
           <Route path="/supervisor" element={<ProtectedRoute allowedRoles={['SUPERVISOR']}><SupervisorDashboard /></ProtectedRoute>} />
           
           <Route path="/teacher" element={<ProtectedRoute allowedRoles={['TEACHER']}><TeacherDashboard /></ProtectedRoute>} />
-          <Route path="/director" element={<ProtectedRoute allowedRoles={['DIRECTOR_OF_STUDIES']}><DirectorDashboard /></ProtectedRoute>} />
+          <Route path="/director" element={<ProtectedRoute allowedRoles={['DIRECTOR_OF_STUDIES', 'SCHOOL_ADMIN']}><DirectorDashboard /></ProtectedRoute>} />
+          <Route path="/director/bulletins" element={<ProtectedRoute allowedRoles={['DIRECTOR_OF_STUDIES', 'SCHOOL_ADMIN', 'SECRETARY']}><DirectorBulletins /></ProtectedRoute>} />
+          <Route path="/director/announcements" element={<ProtectedRoute allowedRoles={['DIRECTOR_OF_STUDIES', 'SCHOOL_ADMIN']}><DirectorAnnouncements /></ProtectedRoute>} />
           <Route path="/teacher/profile" element={<ProtectedRoute allowedRoles={['TEACHER']}><TeacherProfile /></ProtectedRoute>} />
         </Routes>
       </AuthProvider>

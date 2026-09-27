@@ -133,16 +133,17 @@ export function SchoolAdminTeachers() {
     } catch (e) {}
   };
 
+  const activeSchoolId = user?.schoolId || "11111111-1111-4111-8111-111111111111";
+
   const fetchData = async () => {
-    if (!user?.schoolId) return;
     setLoading(true);
     try {
       const [teachersRes, invitationsRes, coursesRes, yearsRes, schoolRes] = await Promise.all([
-        supabase.from('profiles').select('*').eq('school_id', user.schoolId).eq('role', 'TEACHER'),
-        supabase.from('invitations').select('*').eq('school_id', user.schoolId).eq('role', 'TEACHER'),
-        supabase.from('courses').select('*').eq('school_id', user.schoolId),
-        supabase.from('academic_years').select('id, name').eq('school_id', user.schoolId),
-        supabase.from('schools').select('*').eq('id', user.schoolId).maybeSingle()
+        supabase.from('profiles').select('*').eq('school_id', activeSchoolId).eq('role', 'TEACHER'),
+        supabase.from('invitations').select('*').eq('school_id', activeSchoolId).eq('role', 'TEACHER'),
+        supabase.from('courses').select('*').eq('school_id', activeSchoolId),
+        supabase.from('academic_years').select('id, name').eq('school_id', activeSchoolId),
+        supabase.from('schools').select('*').eq('id', activeSchoolId).maybeSingle()
       ]);
       
       const teacherProfiles = teachersRes.data || [];
@@ -155,7 +156,7 @@ export function SchoolAdminTeachers() {
         title: "Invité",
         isInvitation: true,
         invitationId: inv.id,
-        school_id: user.schoolId
+        school_id: activeSchoolId
       }));
 
       // Combine real profiles and pending invitations (avoiding duplicate emails)
@@ -203,7 +204,7 @@ export function SchoolAdminTeachers() {
 
   useEffect(() => {
     fetchData();
-  }, [user?.schoolId]);
+  }, [activeSchoolId]);
 
   // Robust matching helper to find all courses assigned to a teacher
   const getTeacherCourses = (t: any) => {

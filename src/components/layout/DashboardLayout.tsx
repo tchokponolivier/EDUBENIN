@@ -1,6 +1,6 @@
 import { ReactNode, useState } from "react";
 import { useAuth } from "../../lib/auth";
-import { LogOut, LayoutDashboard, Users, CreditCard, BookOpen, Building, HelpCircle, User, Menu, X, Settings, Clock, FileText, Calendar, ArrowDownToLine, Banknote, Shield, AlertCircle, ShieldAlert, Award } from "lucide-react";
+import { LogOut, LayoutDashboard, Users, CreditCard, BookOpen, Building, HelpCircle, User, Menu, X, Settings, Clock, FileText, Calendar, ArrowDownToLine, Banknote, Shield, AlertCircle, ShieldAlert, Award, Megaphone } from "lucide-react";
 import { Link, useLocation } from "react-router-dom";
 import { clsx } from "clsx";
 import { EduBeninLogo } from "../Logo";
@@ -100,9 +100,12 @@ export function DashboardLayout({ children }: { children: ReactNode }) {
         ];
       case "DIRECTOR_OF_STUDIES":
         return [
-          { name: "Direction des Études", href: "/director", icon: BookOpen },
+          { name: "Planification Académique", href: "/director", icon: Calendar },
           { name: "Professeurs", href: "/school-admin/teachers", icon: Users },
-          { name: "Finances & Caisse", href: "/school-admin/payments?tab=DASHBOARD", icon: Banknote },
+          { name: "Liste des Élèves", href: "/school-admin/students-list", icon: Users },
+          { name: "Bulletins", href: "/director/bulletins", icon: Award },
+          { name: "Finances & Caisse", href: "/school-admin/payments?tab=CREANCES", icon: Banknote },
+          { name: "Annonces", href: "/director/announcements", icon: Megaphone },
           commonSettings
         ];
       case "TEACHER":

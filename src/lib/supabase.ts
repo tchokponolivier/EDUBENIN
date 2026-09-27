@@ -73,14 +73,25 @@ class MockQueryBuilder {
           { id: "66666666-6666-4666-8666-666666666666", full_name: "Dir. Études Test", role: "DIRECTOR_OF_STUDIES", school_id: "11111111-1111-4111-8111-111111111111", email: "director@school.com" },
           { id: "77777777-7777-4777-8777-777777777777", full_name: "Professeur Test", role: "TEACHER", school_id: "11111111-1111-4111-8111-111111111111", email: "prof@school.com" }
         );
+      } else if (this.table === 'invitations') {
+        data.push(
+          { id: "inv_1", email: "prof.maths@ecole.com", role: "TEACHER", school_id: "11111111-1111-4111-8111-111111111111", created_at: new Date(Date.now() - 2 * 24 * 3600 * 1000).toISOString() },
+          { id: "inv_2", email: "prof.francais@ecole.com", role: "TEACHER", school_id: "11111111-1111-4111-8111-111111111111", created_at: new Date(Date.now() - 5 * 24 * 3600 * 1000).toISOString() },
+          { id: "inv_3", email: "prof.svt@ecole.com", role: "TEACHER", school_id: "11111111-1111-4111-8111-111111111111", created_at: new Date(Date.now() - 7 * 24 * 3600 * 1000).toISOString() }
+        );
       } else if (this.table === 'students') {
         data.push(
-          { id: "s1", parent_id: "55555555-5555-4555-8555-555555555555", school_id: "11111111-1111-4111-8111-111111111111", first_name: "Marc", last_name: "Dubois", level: "CM1", matricule: "2024-001", status: "ACTIVE", created_at: new Date().toISOString() },
-          { id: "s2", parent_id: "55555555-5555-4555-8555-555555555555", school_id: "11111111-1111-4111-8111-111111111111", first_name: "Sophie", last_name: "Dubois", level: "6ème", matricule: "2024-002", status: "ACTIVE", created_at: new Date().toISOString() }
+          { id: "s1", parent_id: "55555555-5555-4555-8555-555555555555", school_id: "11111111-1111-4111-8111-111111111111", first_name: "Marc", last_name: "Dubois", level: "6ème", matricule: "2026-001", status: "ACTIVE", gender: "MALE", studentType: "OLD", parent_phone: "+229 97 12 34 56", contacts: "+229 97 12 34 56", created_at: new Date().toISOString() },
+          { id: "s2", parent_id: "55555555-5555-4555-8555-555555555555", school_id: "11111111-1111-4111-8111-111111111111", first_name: "Sophie", last_name: "Dubois", level: "3ème", matricule: "2026-002", status: "ACTIVE", gender: "FEMALE", studentType: "OLD", parent_phone: "+229 95 44 22 11", contacts: "+229 95 44 22 11", created_at: new Date().toISOString() },
+          { id: "s3", parent_id: "55555555-5555-4555-8555-555555555555", school_id: "11111111-1111-4111-8111-111111111111", first_name: "Junior", last_name: "Kodjo", level: "Terminale D", matricule: "2026-003", status: "ACTIVE", gender: "MALE", studentType: "NEW", parent_phone: "+229 96 82 79 23", contacts: "+229 96 82 79 23", created_at: new Date().toISOString() }
         );
       } else if (this.table === 'fee_config') {
         data.push(
           { id: "f1", school_id: "11111111-1111-4111-8111-111111111111", level: "ALL", fee_type: "INSCRIPTION", amount: 25000, created_at: new Date().toISOString() }
+        );
+      } else if (this.table === 'payments') {
+        data.push(
+          { id: "p1", school_id: "11111111-1111-4111-8111-111111111111", student_id: "s1", amount: 30000, status: "COMPLETED", payment_date: new Date(Date.now() - 20 * 24 * 3600 * 1000).toISOString(), created_at: new Date(Date.now() - 20 * 24 * 3600 * 1000).toISOString(), items: [{ id: "tranche1", name: "Scolarité - Tranche 1", amount: 30000 }] }
         );
       } else if (this.table === 'courses') {
         data.push(

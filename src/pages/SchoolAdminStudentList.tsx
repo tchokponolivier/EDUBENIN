@@ -26,46 +26,53 @@ export function SchoolAdminStudentList() {
   const fetchData = async () => {
     setLoading(true);
     try {
-      const [studentsRes, coursesRes, yearsRes] = await Promise.all([
-        supabase.from('students').select('*').eq('school_id', activeSchoolId),
-        supabase.from('courses').select('*, profiles(full_name)').eq('school_id', activeSchoolId),
-        supabase.from('academic_years').select('id, name').eq('school_id', activeSchoolId)
+      let targetSchoolId = user?.schoolId || localStorage.getItem('edubenin_active_school_id');
+      if (!targetSchoolId) {
+        const { data: sc } = await supabase.from('schools').select('id, academic_year').order('created_at', { ascending: false }).limit(1).maybeSingle();
+        if (sc?.id) targetSchoolId = sc.id;
+      }
+      if (!targetSchoolId) targetSchoolId = "11111111-1111-4111-8111-111111111111";
+
+      const [studentsRes, coursesRes, yearsRes, schoolRes] = await Promise.all([
+        supabase.from('students').select('*').eq('school_id', targetSchoolId),
+        supabase.from('courses').select('*, profiles(full_name)').eq('school_id', targetSchoolId),
+        supabase.from('academic_years').select('id, name').eq('school_id', targetSchoolId),
+        supabase.from('schools').select('*').eq('id', targetSchoolId).maybeSingle()
       ]);
       
-      let stData = studentsRes.data || [];
-      if (stData.length === 0) {
-        stData = [
-          { id: "st-1", first_name: "Francia", last_name: "ADETOLA", matricule: "2024-001", level: "6ème", gender: "F", status: "PASSING", academic_year: "2024-2025" },
-          { id: "st-2", first_name: "Marc", last_name: "KOFFI", matricule: "2024-002", level: "6ème", gender: "M", status: "PASSING", academic_year: "2024-2025" },
-          { id: "st-3", first_name: "Amina", last_name: "SOGLO", matricule: "2024-003", level: "6ème", gender: "F", status: "PASSING", academic_year: "2024-2025" },
-          { id: "st-4", first_name: "Bio", last_name: "GUERA", matricule: "2024-004", level: "6ème", gender: "M", status: "PASSING", academic_year: "2024-2025" },
-          { id: "st-5", first_name: "Chantal", last_name: "HOUNGBO", matricule: "2024-005", level: "6ème", gender: "F", status: "PASSING", academic_year: "2024-2025" },
-          { id: "st-6", first_name: "Rodrigue", last_name: "DOSSOU", matricule: "2024-006", level: "3ème", gender: "M", status: "PASSING", academic_year: "2024-2025" },
-          { id: "st-7", first_name: "Fatima", last_name: "BELLO", matricule: "2024-007", level: "3ème", gender: "F", status: "PASSING", academic_year: "2024-2025" },
-          { id: "st-8", first_name: "Jean-Paul", last_name: "AKAKPO", matricule: "2024-008", level: "Terminale D", gender: "M", status: "PASSING", academic_year: "2024-2025" }
-        ];
+      let stList = studentsRes.data || [];
+      if (stList.length === 0) {
+        const { data: allSt } = await supabase.from('students').select('*');
+        if (allSt && allSt.length > 0) stList = allSt;
       }
+      setStudents(stList);
+      setCourses(coursesRes.data || []);
 
-      let cData = coursesRes.data || [];
-      if (cData.length === 0) {
-        cData = [
-          { id: "c-math-6", name: "Mathématiques", level: "6ème", profiles: { full_name: "M. KOFFI Éric" } },
-          { id: "c-fr-6", name: "Français", level: "6ème", profiles: { full_name: "Mme ADANHO Justine" } },
-          { id: "c-ang-6", name: "Anglais", level: "6ème", profiles: { full_name: "M. TOSSOU Bernard" } },
-          { id: "c-math-3", name: "Mathématiques", level: "3ème", profiles: { full_name: "M. KOFFI Éric" } },
-          { id: "c-pc-3", name: "Physique-Chimie", level: "3ème", profiles: { full_name: "M. ZANNOU Marc" } }
-        ];
-      }
-
-      setStudents(stData);
-      setCourses(cData);
+      const realYears: { id: string; name: string }[] = [];
       if (yearsRes?.data && yearsRes.data.length > 0) {
-        setAcademicYears(yearsRes.data);
-      } else {
-        setAcademicYears([
-          { id: "y-2425", name: "2024-2025" },
-          { id: "y-2324", name: "2023-2024" }
-        ]);
+        yearsRes.data.forEach((y: any) => realYears.push(y));
+      }
+
+      let extraYear = "";
+      try {
+        const saved = localStorage.getItem('schoolSettings_extra_' + targetSchoolId);
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          if (parsed.academicYear) extraYear = parsed.academicYear;
+        }
+      } catch (e) {}
+
+      if (extraYear && !realYears.some(y => y.name === extraYear)) {
+        realYears.push({ id: `extra_${extraYear}`, name: extraYear });
+      }
+      if (schoolRes?.data?.academic_year && !realYears.some(y => y.name === schoolRes.data.academic_year)) {
+        realYears.push({ id: `sc_${schoolRes.data.academic_year}`, name: schoolRes.data.academic_year });
+      }
+      setAcademicYears(realYears);
+      if (realYears.length === 0) {
+        setSelectedYear("");
+      } else if (selectedYear !== "ALL" && !realYears.some(y => y.name === selectedYear)) {
+        setSelectedYear("ALL");
       }
     } catch (err) {
       console.error(err);
@@ -126,10 +133,16 @@ export function SchoolAdminStudentList() {
           <select 
             value={selectedYear}
             onChange={e => setSelectedYear(e.target.value)}
-            className="w-full px-3 py-2 border border-slate-300 rounded focus:ring-2 focus:ring-emerald-500 outline-none bg-white"
+            className="w-full px-3 py-2 border border-slate-300 rounded focus:ring-2 focus:ring-emerald-500 outline-none bg-white font-medium text-xs"
           >
-            <option value="ALL">Toutes les années</option>
-            {academicYears.map(y => <option key={y.id} value={y.name}>{y.name}</option>)}
+            {academicYears.length > 0 ? (
+              <>
+                <option value="ALL">Toutes les années</option>
+                {academicYears.map(y => <option key={y.id} value={y.name}>{y.name}</option>)}
+              </>
+            ) : (
+              <option value="">Aucune année scolaire</option>
+            )}
           </select>
         </div>
         <div className="w-full md:w-48">

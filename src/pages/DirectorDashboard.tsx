@@ -17,10 +17,6 @@ import {
   X,
   CalendarCheck
 } from "lucide-react";
-import { DirectorPrograms } from "../components/director/DirectorPrograms";
-import { DirectorAcademic } from "../components/director/DirectorAcademic";
-import { DirectorPedagogy } from "../components/director/DirectorPedagogy";
-import { SharedCalendar } from "../components/SharedCalendar";
 
 export interface ExamSchedule {
   id: string;
@@ -118,14 +114,17 @@ const DEFAULT_SCHEDULES: ExamSchedule[] = [
 
 export function DirectorDashboard() {
   const { user } = useAuth();
-  const [activeTab, setActiveTab] = useState<"EXAMS_SCHEDULE" | "PEDAGOGY" | "PROGRAMS" | "CALENDAR">("EXAMS_SCHEDULE");
 
   const [schedules, setSchedules] = useState<ExamSchedule[]>([]);
   const [loading, setLoading] = useState(true);
   const [feedback, setFeedback] = useState<string | null>(null);
 
+  // Configured Academic Year
+  const [configuredYear, setConfiguredYear] = useState<string>("");
+  const [academicYears, setAcademicYears] = useState<{ id: string; name: string }[]>([]);
+
   // Filters
-  const [filterYear, setFilterYear] = useState<string>("2024-2025");
+  const [filterYear, setFilterYear] = useState<string>("");
   const [filterClass, setFilterClass] = useState<string>("ALL");
   const [filterPeriod, setFilterPeriod] = useState<string>("ALL");
   const [filterStatus, setFilterStatus] = useState<string>("ALL");
@@ -138,7 +137,7 @@ export function DirectorDashboard() {
   // Form State
   const [formTitle, setFormTitle] = useState("");
   const [formClasses, setFormClasses] = useState<string[]>(["6ème"]);
-  const [formAcademicYear, setFormAcademicYear] = useState("2024-2025");
+  const [formAcademicYear, setFormAcademicYear] = useState("");
   const [formPeriod, setFormPeriod] = useState<"1er Trimestre" | "2ème Trimestre" | "3ème Trimestre">("1er Trimestre");
   const [formType, setFormType] = useState<ExamSchedule["type"]>("Composition Trimestrielle");
   const [formStartDate, setFormStartDate] = useState("");
@@ -148,7 +147,7 @@ export function DirectorDashboard() {
   const [formStatus, setFormStatus] = useState<ExamSchedule["status"]>("PLANNED");
   const [formInstructions, setFormInstructions] = useState("");
 
-  const activeSchoolId = user?.schoolId || "11111111-1111-4111-8111-111111111111";
+  const activeSchoolId = user?.schoolId || localStorage.getItem('edubenin_active_school_id') || "11111111-1111-4111-8111-111111111111";
 
   // Available classes list
   const ALL_CLASSES = [
@@ -159,25 +158,72 @@ export function DirectorDashboard() {
     "Terminale A", "Terminale B", "Terminale C", "Terminale D"
   ];
 
-  // Load schedules from localStorage + fallback
+  // Load configured academic year and schedules
   useEffect(() => {
-    setLoading(true);
-    try {
-      const storageKey = `school_academic_exam_schedules_${activeSchoolId}`;
-      const raw = localStorage.getItem(storageKey);
-      if (raw) {
-        setSchedules(JSON.parse(raw));
-      } else {
+    const initData = async () => {
+      setLoading(true);
+      try {
+        let targetSchoolId = user?.schoolId || localStorage.getItem('edubenin_active_school_id');
+        if (!targetSchoolId) {
+          const { data: sc } = await supabase.from('schools').select('id, academic_year').order('created_at', { ascending: false }).limit(1).maybeSingle();
+          if (sc?.id) targetSchoolId = sc.id;
+        }
+        if (!targetSchoolId) targetSchoolId = "11111111-1111-4111-8111-111111111111";
+
+        // 1. Fetch real configured year from school settings
+        let realConfigYear = "";
+        try {
+          const savedExtra = localStorage.getItem('schoolSettings_extra_' + targetSchoolId);
+          if (savedExtra) {
+            const parsed = JSON.parse(savedExtra);
+            if (parsed.academicYear) realConfigYear = parsed.academicYear;
+          }
+        } catch (e) {}
+
+        const [schoolRes, yearsRes] = await Promise.all([
+          supabase.from('schools').select('academic_year').eq('id', targetSchoolId).maybeSingle(),
+          supabase.from('academic_years').select('id, name').eq('school_id', targetSchoolId)
+        ]);
+
+        if (!realConfigYear && schoolRes.data?.academic_year) {
+          realConfigYear = schoolRes.data.academic_year;
+        }
+
+        const realYears: { id: string; name: string }[] = [];
+        if (yearsRes.data && yearsRes.data.length > 0) {
+          yearsRes.data.forEach((y: any) => realYears.push(y));
+        }
+        if (realConfigYear && !realYears.some(y => y.name === realConfigYear)) {
+          realYears.push({ id: `sc_${realConfigYear}`, name: realConfigYear });
+        }
+
+        const effectiveYear = realConfigYear || (realYears[0]?.name) || "2026-2027";
+        setConfiguredYear(effectiveYear);
+        setAcademicYears(realYears);
+        setFilterYear(effectiveYear);
+        setFormAcademicYear(effectiveYear);
+
+        // 2. Load schedules
+        const storageKey = `school_academic_exam_schedules_${targetSchoolId}`;
+        const raw = localStorage.getItem(storageKey);
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          setSchedules(parsed);
+        } else {
+          const initial = DEFAULT_SCHEDULES.map(s => ({ ...s, academicYear: effectiveYear }));
+          setSchedules(initial);
+          localStorage.setItem(storageKey, JSON.stringify(initial));
+        }
+      } catch (err) {
+        console.error("Error loading schedules:", err);
         setSchedules(DEFAULT_SCHEDULES);
-        localStorage.setItem(storageKey, JSON.stringify(DEFAULT_SCHEDULES));
+      } finally {
+        setLoading(false);
       }
-    } catch (err) {
-      console.error("Error loading schedules:", err);
-      setSchedules(DEFAULT_SCHEDULES);
-    } finally {
-      setLoading(false);
-    }
-  }, [activeSchoolId]);
+    };
+
+    initData();
+  }, [user?.schoolId]);
 
   const saveSchedulesToStorage = (updatedList: ExamSchedule[]) => {
     setSchedules(updatedList);
@@ -344,14 +390,12 @@ export function DirectorDashboard() {
           </p>
         </div>
 
-        {activeTab === "EXAMS_SCHEDULE" && (
-          <button
-            onClick={handleOpenCreate}
-            className="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-lg text-xs font-bold uppercase tracking-wider hover:bg-emerald-700 transition shadow-sm"
-          >
-            <Plus size={16} /> Planifier un Examen
-          </button>
-        )}
+        <button
+          onClick={handleOpenCreate}
+          className="flex items-center gap-2 px-4 py-2.5 bg-emerald-600 text-white rounded-lg text-xs font-bold uppercase tracking-wider hover:bg-emerald-700 transition shadow-sm"
+        >
+          <Plus size={16} /> Planifier un Examen
+        </button>
       </div>
 
       {feedback && (
@@ -361,51 +405,24 @@ export function DirectorDashboard() {
         </div>
       )}
 
-      {/* Onglets secondaires de navigation */}
+      {/* Tableau des Dates Prévues des Examens */}
       <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-        <div className="flex p-2 bg-slate-50 border-b border-slate-200 overflow-x-auto whitespace-nowrap hide-scrollbar gap-1">
-          <button
-            onClick={() => setActiveTab("EXAMS_SCHEDULE")}
-            className={`px-4 py-2.5 rounded-lg text-xs font-bold uppercase tracking-wider transition-all whitespace-nowrap flex items-center gap-1.5 ${
-              activeTab === "EXAMS_SCHEDULE" ? "bg-emerald-600 text-white shadow-sm" : "text-emerald-800 bg-emerald-50 hover:bg-emerald-100"
-            }`}
-          >
-            <CalendarIcon size={14} />
-            Dates Prévues des Examens
-          </button>
-          <button
-            onClick={() => setActiveTab("PEDAGOGY")}
-            className={`px-4 py-2.5 rounded-lg text-xs font-bold uppercase tracking-wider transition-all whitespace-nowrap flex items-center gap-1.5 ${
-              activeTab === "PEDAGOGY" ? "bg-white shadow-sm border border-slate-200 text-emerald-700" : "text-slate-500 hover:text-gray-700 hover:bg-slate-100"
-            }`}
-          >
-            <BookOpen size={14} />
-            Coordination Pédagogique & APC
-          </button>
-          <button
-            onClick={() => setActiveTab("PROGRAMS")}
-            className={`px-4 py-2.5 rounded-lg text-xs font-bold uppercase tracking-wider transition-all whitespace-nowrap flex items-center gap-1.5 ${
-              activeTab === "PROGRAMS" ? "bg-white shadow-sm border border-slate-200 text-emerald-700" : "text-slate-500 hover:text-gray-700 hover:bg-slate-100"
-            }`}
-          >
-            <Layers size={14} />
-            Programmes & Compétences
-          </button>
-          <button
-            onClick={() => setActiveTab("CALENDAR")}
-            className={`px-4 py-2.5 rounded-lg text-xs font-bold uppercase tracking-wider transition-all whitespace-nowrap flex items-center gap-1.5 ${
-              activeTab === "CALENDAR" ? "bg-white shadow-sm border border-slate-200 text-emerald-700" : "text-slate-500 hover:text-gray-700 hover:bg-slate-100"
-            }`}
-          >
-            <Clock size={14} />
-            Calendrier Général
-          </button>
+        <div className="px-6 py-4 bg-slate-50 border-b border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="flex items-center gap-2">
+            <CalendarIcon className="text-emerald-600" size={18} />
+            <h2 className="text-sm font-bold text-gray-800 uppercase tracking-wider">
+              Dates Prévues des Examens & Compositions
+            </h2>
+          </div>
+          {configuredYear && (
+            <span className="text-xs bg-emerald-100 text-emerald-800 border border-emerald-200 px-3 py-1 rounded-full font-bold">
+              Année Scolaire Active : {configuredYear}
+            </span>
+          )}
         </div>
 
-        {/* CONTENU ONGLETS */}
         <div className="p-4 md:p-6 bg-slate-50/50">
-          {activeTab === "EXAMS_SCHEDULE" && (
-            <div className="space-y-6">
+          <div className="space-y-6">
               {/* KPIs de planification */}
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                 <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs">
@@ -445,9 +462,13 @@ export function DirectorDashboard() {
                     className="w-full px-3 py-2 border border-slate-300 rounded-lg text-xs font-semibold focus:ring-2 focus:ring-emerald-500 outline-none bg-white"
                   >
                     <option value="ALL">Toutes les années</option>
-                    <option value="2024-2025">2024-2025</option>
-                    <option value="2023-2024">2023-2024</option>
-                    <option value="2025-2026">2025-2026</option>
+                    {academicYears.length > 0 ? (
+                      academicYears.map(y => (
+                        <option key={y.id} value={y.name}>{y.name}</option>
+                      ))
+                    ) : configuredYear ? (
+                      <option value={configuredYear}>{configuredYear}</option>
+                    ) : null}
                   </select>
                 </div>
 
@@ -671,11 +692,6 @@ export function DirectorDashboard() {
                 </div>
               </div>
             </div>
-          )}
-
-          {activeTab === "PEDAGOGY" && <DirectorPedagogy />}
-          {activeTab === "PROGRAMS" && <DirectorPrograms />}
-          {activeTab === "CALENDAR" && <SharedCalendar userRole={user?.role || "DIRECTOR_OF_STUDIES"} />}
         </div>
       </div>
 
@@ -726,9 +742,15 @@ export function DirectorDashboard() {
                     onChange={e => setFormAcademicYear(e.target.value)}
                     className="w-full px-3 py-2 border border-slate-300 rounded-lg text-xs font-semibold focus:ring-2 focus:ring-emerald-500 outline-none bg-white"
                   >
-                    <option value="2024-2025">2024-2025</option>
-                    <option value="2023-2024">2023-2024</option>
-                    <option value="2025-2026">2025-2026</option>
+                    {academicYears.length > 0 ? (
+                      academicYears.map(y => (
+                        <option key={y.id} value={y.name}>{y.name}</option>
+                      ))
+                    ) : configuredYear ? (
+                      <option value={configuredYear}>{configuredYear}</option>
+                    ) : (
+                      <option value="">Aucune année configurée</option>
+                    )}
                   </select>
                 </div>
 

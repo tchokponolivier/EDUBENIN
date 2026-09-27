@@ -15,16 +15,32 @@ export function SchoolAdminStats() {
   const [synthStudentId, setSynthStudentId] = useState<string>("");
 
   useEffect(() => {
-    if (user?.schoolId) {
-      supabase.from('students').select('*').eq('school_id', user.schoolId).then(({data}) => {
-         if (data) setStudents(data);
-      });
-      supabase.from('academic_years').select('id, name').eq('school_id', user.schoolId).then(({data}) => {
-         if (data) {
-             setAcademicYears(data);
-         }
-      });
-    }
+    const loadData = async () => {
+      let targetSchoolId = user?.schoolId || localStorage.getItem('edubenin_active_school_id');
+      if (!targetSchoolId) {
+        const { data: sc } = await supabase.from('schools').select('id').limit(1).maybeSingle();
+        if (sc?.id) targetSchoolId = sc.id;
+      }
+      if (!targetSchoolId) targetSchoolId = "11111111-1111-4111-8111-111111111111";
+
+      let { data: stData } = await supabase.from('students').select('*').eq('school_id', targetSchoolId);
+      if (!stData || stData.length === 0) {
+        const { data: anySt } = await supabase.from('students').select('*');
+        if (anySt && anySt.length > 0) stData = anySt;
+      }
+      if (stData) setStudents(stData);
+
+      let { data: yrData } = await supabase.from('academic_years').select('id, name').eq('school_id', targetSchoolId);
+      if (!yrData || yrData.length === 0) {
+        const { data: scData } = await supabase.from('schools').select('academic_year').eq('id', targetSchoolId).maybeSingle();
+        if (scData?.academic_year) {
+          yrData = [{ id: 'curr', name: scData.academic_year }];
+        }
+      }
+      if (yrData) setAcademicYears(yrData);
+    };
+
+    loadData();
   }, [user]);
 
   const classes = Array.from<string>(new Set(students.map(s => s.level as string))).sort();

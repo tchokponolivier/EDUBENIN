@@ -104,6 +104,7 @@ export function DashboardLayout({ children }: { children: ReactNode }) {
           { name: "Professeurs", href: "/school-admin/teachers", icon: Users },
           { name: "Liste des Élèves", href: "/school-admin/students-list", icon: Users },
           { name: "Bulletins", href: "/director/bulletins", icon: Award },
+          { name: "Synthèse & Bilans", href: "/school-admin/stats", icon: BookOpen },
           { name: "Finances & Caisse", href: "/school-admin/payments?tab=CREANCES", icon: Banknote },
           { name: "Annonces", href: "/director/announcements", icon: Megaphone },
           commonSettings

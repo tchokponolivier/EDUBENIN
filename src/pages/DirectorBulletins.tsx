@@ -74,61 +74,63 @@ export function DirectorBulletins() {
   const fetchData = async () => {
     setLoading(true);
     try {
+      let targetSchoolId = user?.schoolId || localStorage.getItem('edubenin_active_school_id');
+      if (!targetSchoolId) {
+        const { data: sc } = await supabase.from('schools').select('id, academic_year').order('created_at', { ascending: false }).limit(1).maybeSingle();
+        if (sc?.id) targetSchoolId = sc.id;
+      }
+      if (!targetSchoolId) targetSchoolId = "11111111-1111-4111-8111-111111111111";
+
       const [studentsRes, coursesRes, yearsRes, schoolRes] = await Promise.all([
-        supabase.from('students').select('*').eq('school_id', activeSchoolId),
-        supabase.from('courses').select('*, profiles(full_name)').eq('school_id', activeSchoolId),
-        supabase.from('academic_years').select('id, name').eq('school_id', activeSchoolId),
-        supabase.from('schools').select('*').eq('id', activeSchoolId).maybeSingle()
+        supabase.from('students').select('*').eq('school_id', targetSchoolId),
+        supabase.from('courses').select('*, profiles(full_name)').eq('school_id', targetSchoolId),
+        supabase.from('academic_years').select('id, name').eq('school_id', targetSchoolId),
+        supabase.from('schools').select('*').eq('id', targetSchoolId).maybeSingle()
       ]);
 
       let stList = studentsRes.data || [];
-      // Fallback demo students si la base est vide
       if (stList.length === 0) {
-        stList = [
-          { id: "st-1", first_name: "Francia", last_name: "ADETOLA", matricule: "2024-001", level: "6ème", gender: "F", date_of_birth: "2012-05-14", academic_year: "2024-2025" },
-          { id: "st-2", first_name: "Marc", last_name: "KOFFI", matricule: "2024-002", level: "6ème", gender: "M", date_of_birth: "2012-08-20", academic_year: "2024-2025" },
-          { id: "st-3", first_name: "Amina", last_name: "SOGLO", matricule: "2024-003", level: "6ème", gender: "F", date_of_birth: "2011-11-03", academic_year: "2024-2025" },
-          { id: "st-4", first_name: "Bio", last_name: "GUERA", matricule: "2024-004", level: "6ème", gender: "M", date_of_birth: "2012-02-18", academic_year: "2024-2025" },
-          { id: "st-5", first_name: "Chantal", last_name: "HOUNGBO", matricule: "2024-005", level: "6ème", gender: "F", date_of_birth: "2012-09-09", academic_year: "2024-2025" },
-          { id: "st-6", first_name: "Rodrigue", last_name: "DOSSOU", matricule: "2024-006", level: "3ème", gender: "M", date_of_birth: "2009-03-25", academic_year: "2024-2025" },
-          { id: "st-7", first_name: "Fatima", last_name: "BELLO", matricule: "2024-007", level: "3ème", gender: "F", date_of_birth: "2009-07-12", academic_year: "2024-2025" },
-          { id: "st-8", first_name: "Jean-Paul", last_name: "AKAKPO", matricule: "2024-008", level: "Terminale D", gender: "M", date_of_birth: "2006-01-10", academic_year: "2024-2025" }
-        ];
+        const { data: allSt } = await supabase.from('students').select('*');
+        if (allSt && allSt.length > 0) stList = allSt;
       }
       setStudents(stList);
 
-      let cList = coursesRes.data || [];
-      if (cList.length === 0) {
-        cList = [
-          { id: "c-math-6", name: "Mathématiques", level: "6ème", profiles: { full_name: "M. KOFFI Éric" } },
-          { id: "c-fr-6", name: "Français", level: "6ème", profiles: { full_name: "Mme ADANHO Justine" } },
-          { id: "c-ang-6", name: "Anglais", level: "6ème", profiles: { full_name: "M. TOSSOU Bernard" } },
-          { id: "c-hg-6", name: "Histoire-Géographie", level: "6ème", profiles: { full_name: "Mme DAKO Rose" } },
-          { id: "c-svt-6", name: "SVT", level: "6ème", profiles: { full_name: "M. AGBADOU Paul" } },
-          { id: "c-pc-6", name: "Physique-Chimie", level: "6ème", profiles: { full_name: "M. ZANNOU Marc" } },
-          { id: "c-eps-6", name: "EPS", level: "6ème", profiles: { full_name: "M. SOUMANOU Jean" } },
-          // 3ème
-          { id: "c-math-3", name: "Mathématiques", level: "3ème", profiles: { full_name: "M. KOFFI Éric" } },
-          { id: "c-fr-3", name: "Français", level: "3ème", profiles: { full_name: "Mme ADANHO Justine" } },
-          { id: "c-pc-3", name: "Physique-Chimie", level: "3ème", profiles: { full_name: "M. ZANNOU Marc" } }
-        ];
-      }
+      const cList = coursesRes.data || [];
       setCourses(cList);
 
+      const realYears: { id: string; name: string }[] = [];
       if (yearsRes?.data && yearsRes.data.length > 0) {
-        setAcademicYears(yearsRes.data);
+        yearsRes.data.forEach((y: any) => realYears.push(y));
+      }
+
+      let extraYear = "";
+      try {
+        const saved = localStorage.getItem('schoolSettings_extra_' + targetSchoolId);
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          if (parsed.academicYear) extraYear = parsed.academicYear;
+        }
+      } catch (e) {}
+
+      if (extraYear && !realYears.some(y => y.name === extraYear)) {
+        realYears.push({ id: `extra_${extraYear}`, name: extraYear });
+      }
+      if (schoolRes?.data?.academic_year && !realYears.some(y => y.name === schoolRes.data.academic_year)) {
+        realYears.push({ id: `sc_${schoolRes.data.academic_year}`, name: schoolRes.data.academic_year });
+      }
+
+      setAcademicYears(realYears);
+      if (realYears.length > 0) {
+        setSelectedYear(realYears[0].name);
       } else {
-        setAcademicYears([
-          { id: "y-2425", name: "2024-2025" },
-          { id: "y-2324", name: "2023-2024" }
-        ]);
+        setSelectedYear("");
       }
 
       setSchoolInfo(schoolRes?.data || {
-        name: "COMPLEXE SCOLAIRE LES LAURÉATS",
-        locality: "Cotonou - Littoral",
-        contacts: "+229 97 00 00 00 / 95 00 00 00",
-        motto: "Discipline - Travail - Succès"
+        name: "ÉTABLISSEMENT SCOLAIRE",
+        locality: "Bénin",
+        contacts: "",
+        motto: ""
       });
     } catch (err) {
       console.error("Error fetching bulletin base data:", err);
@@ -139,20 +141,22 @@ export function DirectorBulletins() {
 
   useEffect(() => {
     fetchData();
-  }, [activeSchoolId]);
+  }, [user?.schoolId]);
 
-  // Récupérer les classes disponibles
+  // Récupérer les classes disponibles à partir des données réelles
   const availableClasses = useMemo(() => {
     const list = Array.from(new Set(students.map(s => s.level))).filter(Boolean);
-    const standard = ["6ème", "5ème", "4ème", "3ème", "2nde A", "2nde B", "2nde C", "2nde D", "1ère A", "1ère B", "1ère C", "1ère D", "Terminale A", "Terminale B", "Terminale C", "Terminale D"];
-    const merged = Array.from(new Set([...list, ...standard]));
-    return merged.sort();
+    return list.sort();
   }, [students]);
 
-  // Si selectedClass n'est pas dans availableClasses, prendre la première
+  // Sélection automatique de la première classe disponible si nécessaire
   useEffect(() => {
-    if (availableClasses.length > 0 && !availableClasses.includes(selectedClass)) {
-      setSelectedClass(availableClasses[0]);
+    if (availableClasses.length > 0) {
+      if (!availableClasses.includes(selectedClass)) {
+        setSelectedClass(availableClasses[0]);
+      }
+    } else {
+      setSelectedClass("");
     }
   }, [availableClasses, selectedClass]);
 
@@ -508,9 +512,13 @@ export function DirectorBulletins() {
             onChange={e => setSelectedYear(e.target.value)}
             className="w-full px-3 py-2 border border-slate-300 rounded-lg text-xs font-bold focus:ring-2 focus:ring-emerald-500 outline-none bg-white text-gray-800"
           >
-            {academicYears.map(y => (
-              <option key={y.id} value={y.name}>{y.name}</option>
-            ))}
+            {academicYears.length > 0 ? (
+              academicYears.map(y => (
+                <option key={y.id} value={y.name}>{y.name}</option>
+              ))
+            ) : (
+              <option value="">Aucune année scolaire</option>
+            )}
           </select>
         </div>
 

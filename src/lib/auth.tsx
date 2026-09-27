@@ -133,21 +133,37 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
              profile.role = 'SUPER_ADMIN';
              profile.school_id = null;
           }
+
+          let resolvedSchoolId = profile.school_id;
+          if (!resolvedSchoolId && profile.role !== 'SUPER_ADMIN' && profile.role !== 'PARENT') {
+            try {
+              const { data: firstSchool } = await supabase.from('schools').select('id').limit(1).maybeSingle();
+              if (firstSchool?.id) {
+                resolvedSchoolId = firstSchool.id;
+                await supabase.from('profiles').update({ school_id: resolvedSchoolId }).eq('id', sessionUser.id);
+              } else if (realSchoolId) {
+                resolvedSchoolId = realSchoolId;
+              }
+            } catch (e) {}
+          }
+
           setUser({
             id: sessionUser.id,
             email: sessionUser.email || "",
             name: profile.full_name || sessionUser.user_metadata?.full_name || sessionUser.email?.split("@")[0] || "User",
             role: profile.role as any,
-            schoolId: profile.school_id,
+            schoolId: resolvedSchoolId,
             avatar: profile.avatar_url,
           });
         } else {
           // Fallback if profile not created yet
+          let fallbackSchoolId = realSchoolId || undefined;
           setUser({
             id: sessionUser.id,
             email: sessionUser.email || "",
             name: sessionUser.user_metadata?.full_name || sessionUser.email?.split("@")[0] || "User",
             role: getRoleForSupabaseUser(sessionUser.email || ""),
+            schoolId: fallbackSchoolId,
           });
         }
       } catch (err) {

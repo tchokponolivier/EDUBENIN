@@ -107,7 +107,7 @@ export default function App() {
           <Route path="/school-admin/students" element={<ProtectedRoute allowedRoles={['SCHOOL_ADMIN', 'SECRETARY', 'CASHIER', 'DIRECTOR_OF_STUDIES']}><SchoolAdminStudents /></ProtectedRoute>} />
           <Route path="/school-admin/students-list" element={<ProtectedRoute allowedRoles={['SCHOOL_ADMIN', 'SECRETARY', 'CASHIER', 'DIRECTOR_OF_STUDIES']}><SchoolAdminStudentList /></ProtectedRoute>} />
           <Route path="/school-admin/teachers" element={<ProtectedRoute allowedRoles={['SCHOOL_ADMIN', 'SECRETARY', 'CASHIER', 'DIRECTOR_OF_STUDIES']}><SchoolAdminTeachers /></ProtectedRoute>} />
-          <Route path="/school-admin/stats" element={<ProtectedRoute allowedRoles={['SCHOOL_ADMIN']}><SchoolAdminStats /></ProtectedRoute>} />
+          <Route path="/school-admin/stats" element={<ProtectedRoute allowedRoles={['SCHOOL_ADMIN', 'DIRECTOR_OF_STUDIES']}><SchoolAdminStats /></ProtectedRoute>} />
           <Route path="/school-admin/prospectus" element={<ProtectedRoute allowedRoles={['SCHOOL_ADMIN', 'CASHIER']}><ParentProspectus /></ProtectedRoute>} />
           <Route path="/school-admin/bulletins" element={<ProtectedRoute allowedRoles={['SCHOOL_ADMIN', 'DIRECTOR_OF_STUDIES', 'SECRETARY']}><DirectorBulletins /></ProtectedRoute>} />
           

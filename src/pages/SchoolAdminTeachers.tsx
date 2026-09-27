@@ -147,45 +147,53 @@ export function SchoolAdminTeachers() {
       let targetSchoolId = user?.schoolId || localStorage.getItem('edubenin_active_school_id');
       if (!targetSchoolId) {
         const { data: sc } = await supabase.from('schools').select('id, academic_year').order('created_at', { ascending: false }).limit(1).maybeSingle();
-        if (sc?.id) targetSchoolId = sc.id;
+        if (sc?.id) {
+          targetSchoolId = sc.id;
+          localStorage.setItem('edubenin_active_school_id', sc.id);
+        }
       }
       if (!targetSchoolId) targetSchoolId = "11111111-1111-4111-8111-111111111111";
 
-      const [teachersRes, invitationsRes, coursesRes, yearsRes, schoolRes] = await Promise.all([
-        supabase.from('profiles').select('*').eq('school_id', targetSchoolId).eq('role', 'TEACHER'),
-        supabase.from('invitations').select('*').eq('school_id', targetSchoolId).order('created_at', { ascending: false }),
-        supabase.from('courses').select('*').eq('school_id', targetSchoolId),
-        supabase.from('academic_years').select('id, name').eq('school_id', targetSchoolId),
+      const [allProfilesRes, invitationsRes, coursesRes, yearsRes, schoolRes] = await Promise.all([
+        supabase.from('profiles').select('*'),
+        supabase.from('invitations').select('*').order('created_at', { ascending: false }),
+        supabase.from('courses').select('*, profiles(id, full_name, email, role)'),
+        supabase.from('academic_years').select('id, name'),
         supabase.from('schools').select('*').eq('id', targetSchoolId).maybeSingle()
       ]);
       
-      let teacherProfiles = teachersRes.data || [];
-      if (teacherProfiles.length === 0) {
-        const { data: allT } = await supabase.from('profiles').select('*').eq('role', 'TEACHER');
-        if (allT && allT.length > 0) {
-          const matched = allT.filter(t => !targetSchoolId || targetSchoolId === "11111111-1111-4111-8111-111111111111" || t.school_id === targetSchoolId || !t.school_id);
-          teacherProfiles = matched.length > 0 ? matched : allT;
-        }
+      const rawProfiles = allProfilesRes.data || [];
+      const isTeacher = (p: any) => {
+        if (!p || p.role === 'DELETED') return false;
+        const r = (p.role || '').toUpperCase();
+        const title = (p.title || '').toLowerCase();
+        return r === 'TEACHER' || r.includes('PROF') || r.includes('ENSEIGNANT') || title.includes('prof') || title === 'permanent' || title === 'vacataire' || title === 'invité';
+      };
+
+      const allTeachersInDb = rawProfiles.filter(isTeacher);
+      let teacherProfiles = allTeachersInDb.filter(t => !targetSchoolId || targetSchoolId === "11111111-1111-4111-8111-111111111111" || t.school_id === targetSchoolId || !t.school_id);
+      if (teacherProfiles.length === 0 || teacherProfiles.length < allTeachersInDb.length) {
+        teacherProfiles = allTeachersInDb;
       }
 
-      let rawInvitations = invitationsRes.data || [];
+      // Also include any teachers referenced in courses
+      (coursesRes.data || []).forEach((c: any) => {
+        if (c.profiles && isTeacher(c.profiles)) {
+          if (!teacherProfiles.some(tp => tp.id === c.profiles.id || (tp.email && tp.email.toLowerCase() === c.profiles.email?.toLowerCase()))) {
+            teacherProfiles.push(c.profiles);
+          }
+        }
+      });
+
+      const allInvs = invitationsRes.data || [];
+      let rawInvitations = allInvs.filter((i: any) => !targetSchoolId || targetSchoolId === "11111111-1111-4111-8111-111111111111" || i.school_id === targetSchoolId || !i.school_id);
       if (rawInvitations.length === 0) {
-        const { data: allInv } = await supabase.from('invitations').select('*').order('created_at', { ascending: false });
-        if (allInv && allInv.length > 0) {
-          const matched = allInv.filter(i => !targetSchoolId || targetSchoolId === "11111111-1111-4111-8111-111111111111" || i.school_id === targetSchoolId || !i.school_id);
-          rawInvitations = matched.length > 0 ? matched : allInv;
-        }
+        rawInvitations = allInvs;
       }
-
-      // No random mock teachers or mock invitations
       setAllInvitations(rawInvitations);
 
-      let allMembersData: any[] = [];
-      const { data: memRes } = await supabase.from('profiles').select('*');
-      if (memRes && memRes.length > 0) {
-        const matched = memRes.filter(m => !targetSchoolId || targetSchoolId === "11111111-1111-4111-8111-111111111111" || m.school_id === targetSchoolId || !m.school_id);
-        allMembersData = matched.length > 0 ? matched : memRes;
-      }
+      let allMembersData = rawProfiles.filter(m => m.role !== 'DELETED' && (!targetSchoolId || targetSchoolId === "11111111-1111-4111-8111-111111111111" || m.school_id === targetSchoolId || !m.school_id));
+      if (allMembersData.length === 0) allMembersData = rawProfiles.filter(m => m.role !== 'DELETED');
       setSchoolMembers(allMembersData.length > 0 ? allMembersData : teacherProfiles);
 
       const teacherInvs = rawInvitations.filter((inv: any) => 
@@ -205,10 +213,10 @@ export function SchoolAdminTeachers() {
       }));
 
       // Combine real profiles and pending invitations (avoiding duplicate emails)
-      const existingEmails = new Set(teacherProfiles.map(t => t.email?.toLowerCase()));
+      const existingEmails = new Set(teacherProfiles.map(t => (t.email || '').toLowerCase()));
       const combinedTeachers = [
         ...teacherProfiles,
-        ...invitedTeachers.filter(inv => !existingEmails.has(inv.email?.toLowerCase()))
+        ...invitedTeachers.filter(inv => !existingEmails.has((inv.email || '').toLowerCase()))
       ];
 
       let configuredYear = "";
@@ -249,7 +257,7 @@ export function SchoolAdminTeachers() {
 
   useEffect(() => {
     fetchData();
-  }, [user?.schoolId]);
+  }, [user]);
 
   const handleInviteTeacher = async (e: React.FormEvent) => {
     e.preventDefault();

@@ -71,12 +71,18 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [realProfileId, setRealProfileId] = useState<string | null>(null);
 
   useEffect(() => {
-    supabase.from('schools').select('id').limit(1).then(({ data }) => {
+    supabase.from('schools').select('id').order('created_at', { ascending: false }).limit(1).then(({ data }) => {
       if (data && data.length > 0) {
         setRealSchoolId(data[0].id);
+        if (!localStorage.getItem('edubenin_active_school_id')) {
+          localStorage.setItem('edubenin_active_school_id', data[0].id);
+        }
       } else {
         supabase.from('schools').insert({ name: 'Ecole Primaire Test', locality: 'Cotonou', contacts: '0000' }).select('id').single().then(({ data: newSchool }) => {
-          if (newSchool) setRealSchoolId(newSchool.id);
+          if (newSchool) {
+            setRealSchoolId(newSchool.id);
+            localStorage.setItem('edubenin_active_school_id', newSchool.id);
+          }
         });
       }
     });
@@ -137,12 +143,14 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           let resolvedSchoolId = profile.school_id;
           if (!resolvedSchoolId && profile.role !== 'SUPER_ADMIN' && profile.role !== 'PARENT') {
             try {
-              const { data: firstSchool } = await supabase.from('schools').select('id').limit(1).maybeSingle();
+              const { data: firstSchool } = await supabase.from('schools').select('id').order('created_at', { ascending: false }).limit(1).maybeSingle();
               if (firstSchool?.id) {
                 resolvedSchoolId = firstSchool.id;
                 await supabase.from('profiles').update({ school_id: resolvedSchoolId }).eq('id', sessionUser.id);
+                localStorage.setItem('edubenin_active_school_id', resolvedSchoolId);
               } else if (realSchoolId) {
                 resolvedSchoolId = realSchoolId;
+                localStorage.setItem('edubenin_active_school_id', realSchoolId);
               }
             } catch (e) {}
           }
@@ -231,15 +239,19 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
        localStorage.removeItem("is_test_account");
     }
     
+    const activeSchoolFallback = localStorage.getItem('edubenin_active_school_id') || realSchoolId;
     let userToSet = foundUser ? 
-      (role ? { ...foundUser, role: role as any, schoolId: (role === 'SUPER_ADMIN' || role === 'PARENT') ? undefined : (realSchoolId || foundUser.schoolId) } : { ...foundUser, schoolId: (foundUser.role === 'SUPER_ADMIN' || foundUser.role === 'PARENT') ? undefined : (realSchoolId || foundUser.schoolId) })
+      (role ? { ...foundUser, role: role as any, schoolId: (role === 'SUPER_ADMIN' || role === 'PARENT') ? undefined : (activeSchoolFallback || foundUser.schoolId) } : { ...foundUser, schoolId: (foundUser.role === 'SUPER_ADMIN' || foundUser.role === 'PARENT') ? undefined : (activeSchoolFallback || foundUser.schoolId) })
       : {
         id: "00000000-0000-4000-8000-000000000000",
         email,
         name: fullName || email.split("@")[0],
         role: (role as any) || "PARENT",
-        schoolId: (role === 'SUPER_ADMIN' || role === 'PARENT' || role === 'SCHOOL_ADMIN') ? undefined : (realSchoolId || '11111111-1111-4111-8111-111111111111')
+        schoolId: (role === 'SUPER_ADMIN' || role === 'PARENT') ? undefined : (activeSchoolFallback || '11111111-1111-4111-8111-111111111111')
       };
+    if (userToSet.schoolId) {
+      localStorage.setItem('edubenin_active_school_id', userToSet.schoolId);
+    }
 
     try {
       // 1. Try to login

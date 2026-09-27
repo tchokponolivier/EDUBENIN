@@ -28,18 +28,33 @@ export function SchoolAdminStats() {
       if (allSt && allSt.length > 0) {
         if (targetSchoolId && targetSchoolId !== "11111111-1111-4111-8111-111111111111") {
           const matchSchool = allSt.filter(s => s.school_id === targetSchoolId || !s.school_id);
-          stData = matchSchool.length > 0 ? matchSchool : allSt;
+          if (matchSchool.length === 0) {
+            stData = allSt;
+          } else if (matchSchool.length < allSt.length) {
+            const combined = allSt.filter(s => !s.school_id || s.school_id === targetSchoolId || s.school_id === "11111111-1111-4111-8111-111111111111");
+            stData = combined.length > 0 ? combined : allSt;
+          } else {
+            stData = matchSchool;
+          }
         } else {
           stData = allSt;
         }
       }
       setStudents(stData);
 
-      let { data: yrData } = await supabase.from('academic_years').select('id, name').eq('school_id', targetSchoolId);
+      let { data: yrData } = await supabase.from('academic_years').select('id, name');
       const realYears: { id: string; name: string }[] = [];
       if (yrData && yrData.length > 0) {
-        realYears.push(...yrData);
+        yrData.forEach(y => {
+          if (!realYears.some(ry => ry.name === y.name)) realYears.push(y);
+        });
       }
+      (allSt || []).forEach(s => {
+        const y = s.academic_year || s.academicYear;
+        if (y && !realYears.some(ry => ry.name === y)) {
+          realYears.push({ id: `st_${y}`, name: y });
+        }
+      });
       const { data: scData } = await supabase.from('schools').select('academic_year').eq('id', targetSchoolId).maybeSingle();
       if (scData?.academic_year && !realYears.some(y => y.name === scData.academic_year)) {
         realYears.push({ id: 'sc_curr', name: scData.academic_year });

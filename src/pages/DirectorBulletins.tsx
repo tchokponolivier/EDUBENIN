@@ -92,7 +92,14 @@ export function DirectorBulletins() {
       let stList = allStudentsRes.data || [];
       if (stList.length > 0 && targetSchoolId && targetSchoolId !== "11111111-1111-4111-8111-111111111111") {
         const schoolStudents = stList.filter(s => s.school_id === targetSchoolId || !s.school_id);
-        if (schoolStudents.length > 0) stList = schoolStudents;
+        if (schoolStudents.length === 0) {
+          // Keep all students so none are lost
+        } else if (schoolStudents.length < stList.length) {
+          const combined = stList.filter(s => !s.school_id || s.school_id === targetSchoolId || s.school_id === "11111111-1111-4111-8111-111111111111");
+          stList = combined.length > 0 ? combined : stList;
+        } else {
+          stList = schoolStudents;
+        }
       }
       setStudents(stList);
 
@@ -101,8 +108,20 @@ export function DirectorBulletins() {
 
       const realYears: { id: string; name: string }[] = [];
       if (yearsRes?.data && yearsRes.data.length > 0) {
-        yearsRes.data.forEach((y: any) => realYears.push(y));
+        yearsRes.data.forEach((y: any) => {
+          if (!realYears.some(ry => ry.name === y.name)) {
+            realYears.push(y);
+          }
+        });
       }
+
+      // Harvest academic years directly from students
+      (allStudentsRes.data || []).forEach((s: any) => {
+        const y = s.academic_year || s.academicYear;
+        if (y && !realYears.some(ry => ry.name === y)) {
+          realYears.push({ id: `st_${y}`, name: y });
+        }
+      });
 
       let extraYear = "";
       try {

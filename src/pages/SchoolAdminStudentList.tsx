@@ -21,7 +21,7 @@ export function SchoolAdminStudentList() {
 
   useEffect(() => {
     fetchData();
-  }, [activeSchoolId]);
+  }, [user]);
 
   const fetchData = async () => {
     setLoading(true);
@@ -29,29 +29,51 @@ export function SchoolAdminStudentList() {
       let targetSchoolId = user?.schoolId || localStorage.getItem('edubenin_active_school_id');
       if (!targetSchoolId) {
         const { data: sc } = await supabase.from('schools').select('id, academic_year').order('created_at', { ascending: false }).limit(1).maybeSingle();
-        if (sc?.id) targetSchoolId = sc.id;
+        if (sc?.id) {
+          targetSchoolId = sc.id;
+          localStorage.setItem('edubenin_active_school_id', sc.id);
+        }
       }
       if (!targetSchoolId) targetSchoolId = "11111111-1111-4111-8111-111111111111";
 
       const [allStudentsRes, coursesRes, yearsRes, schoolRes] = await Promise.all([
         supabase.from('students').select('*'),
-        supabase.from('courses').select('*, profiles(full_name)').eq('school_id', targetSchoolId),
-        supabase.from('academic_years').select('id, name').eq('school_id', targetSchoolId),
+        supabase.from('courses').select('*, profiles(full_name)'),
+        supabase.from('academic_years').select('id, name'),
         supabase.from('schools').select('*').eq('id', targetSchoolId).maybeSingle()
       ]);
       
       let stList = allStudentsRes.data || [];
       if (stList.length > 0 && targetSchoolId && targetSchoolId !== "11111111-1111-4111-8111-111111111111") {
         const schoolStudents = stList.filter(s => s.school_id === targetSchoolId || !s.school_id);
-        if (schoolStudents.length > 0) stList = schoolStudents;
+        if (schoolStudents.length === 0) {
+          // If no student matches this exact targetSchoolId, keep all students so none are lost
+        } else if (schoolStudents.length < stList.length) {
+          const combined = stList.filter(s => !s.school_id || s.school_id === targetSchoolId || s.school_id === "11111111-1111-4111-8111-111111111111");
+          stList = combined.length > 0 ? combined : stList;
+        } else {
+          stList = schoolStudents;
+        }
       }
       setStudents(stList);
       setCourses(coursesRes.data || []);
 
       const realYears: { id: string; name: string }[] = [];
       if (yearsRes?.data && yearsRes.data.length > 0) {
-        yearsRes.data.forEach((y: any) => realYears.push(y));
+        yearsRes.data.forEach((y: any) => {
+          if (!realYears.some(ry => ry.name === y.name)) {
+            realYears.push(y);
+          }
+        });
       }
+
+      // Harvest academic years directly from all students
+      (allStudentsRes.data || []).forEach((s: any) => {
+        const y = s.academic_year || s.academicYear;
+        if (y && !realYears.some(ry => ry.name === y)) {
+          realYears.push({ id: `st_${y}`, name: y });
+        }
+      });
 
       let extraYear = "";
       try {
@@ -69,11 +91,7 @@ export function SchoolAdminStudentList() {
         realYears.push({ id: `sc_${schoolRes.data.academic_year}`, name: schoolRes.data.academic_year });
       }
       setAcademicYears(realYears);
-      if (realYears.length === 0) {
-        setSelectedYear("");
-      } else if (selectedYear !== "ALL" && !realYears.some(y => y.name === selectedYear)) {
-        setSelectedYear("ALL");
-      }
+      setSelectedYear("ALL");
     } catch (err) {
       console.error(err);
     } finally {
@@ -85,7 +103,7 @@ export function SchoolAdminStudentList() {
 
   const filteredStudents = students.filter(s => {
     const sYear = s.academic_year || s.academicYear;
-    const matchesYear = selectedYear === "ALL" || sYear === selectedYear;
+    const matchesYear = !selectedYear || selectedYear === "ALL" || sYear === selectedYear;
     const fName = s.first_name || s.firstName || "";
     const lName = s.last_name || s.lastName || "";
     const mat = s.matricule || "";
@@ -94,7 +112,7 @@ export function SchoolAdminStudentList() {
       lName.toLowerCase().includes(searchTerm.toLowerCase()) ||
       mat.toLowerCase().includes(searchTerm.toLowerCase());
     
-    const matchesClass = selectedClass === "ALL" || s.level === selectedClass;
+    const matchesClass = !selectedClass || selectedClass === "ALL" || s.level === selectedClass;
     
     return matchesSearch && matchesClass && matchesYear;
   });

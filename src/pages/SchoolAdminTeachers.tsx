@@ -162,66 +162,31 @@ export function SchoolAdminTeachers() {
       let teacherProfiles = teachersRes.data || [];
       if (teacherProfiles.length === 0) {
         const { data: allT } = await supabase.from('profiles').select('*').eq('role', 'TEACHER');
-        if (allT && allT.length > 0) teacherProfiles = allT;
+        if (allT && allT.length > 0) {
+          const matched = allT.filter(t => !targetSchoolId || targetSchoolId === "11111111-1111-4111-8111-111111111111" || t.school_id === targetSchoolId || !t.school_id);
+          teacherProfiles = matched.length > 0 ? matched : allT;
+        }
       }
 
       let rawInvitations = invitationsRes.data || [];
       if (rawInvitations.length === 0) {
         const { data: allInv } = await supabase.from('invitations').select('*').order('created_at', { ascending: false });
-        if (allInv && allInv.length > 0) rawInvitations = allInv;
+        if (allInv && allInv.length > 0) {
+          const matched = allInv.filter(i => !targetSchoolId || targetSchoolId === "11111111-1111-4111-8111-111111111111" || i.school_id === targetSchoolId || !i.school_id);
+          rawInvitations = matched.length > 0 ? matched : allInv;
+        }
       }
 
-      if (teacherProfiles.length === 0 && rawInvitations.length === 0) {
-        teacherProfiles = [
-          {
-            id: "prof_1",
-            full_name: "Professeur Test",
-            email: "prof@school.com",
-            phone: "+229 97 00 11 22",
-            role: "TEACHER",
-            title: "Permanent",
-            school_id: targetSchoolId
-          },
-          {
-            id: "prof_2",
-            full_name: "Koffi Mensah",
-            email: "koffi.mensah@school.com",
-            phone: "+229 96 33 44 55",
-            role: "TEACHER",
-            title: "Vacataire",
-            school_id: targetSchoolId
-          },
-          {
-            id: "prof_3",
-            full_name: "Aïssatou Diallo",
-            email: "aissatou.diallo@school.com",
-            phone: "+229 95 66 77 88",
-            role: "TEACHER",
-            title: "Permanent",
-            school_id: targetSchoolId
-          }
-        ];
-        rawInvitations = [
-          {
-            id: "inv_1",
-            email: "prof.maths@gmail.com",
-            role: "TEACHER",
-            school_id: targetSchoolId,
-            created_at: new Date(Date.now() - 2 * 24 * 3600 * 1000).toISOString()
-          },
-          {
-            id: "inv_2",
-            email: "prof.francais@gmail.com",
-            role: "TEACHER",
-            school_id: targetSchoolId,
-            created_at: new Date(Date.now() - 5 * 24 * 3600 * 1000).toISOString()
-          }
-        ];
-      }
+      // No random mock teachers or mock invitations
       setAllInvitations(rawInvitations);
 
-      const { data: allMembersData } = await supabase.from('profiles').select('*').eq('school_id', targetSchoolId);
-      setSchoolMembers(allMembersData && allMembersData.length > 0 ? allMembersData : teacherProfiles);
+      let allMembersData: any[] = [];
+      const { data: memRes } = await supabase.from('profiles').select('*');
+      if (memRes && memRes.length > 0) {
+        const matched = memRes.filter(m => !targetSchoolId || targetSchoolId === "11111111-1111-4111-8111-111111111111" || m.school_id === targetSchoolId || !m.school_id);
+        allMembersData = matched.length > 0 ? matched : memRes;
+      }
+      setSchoolMembers(allMembersData.length > 0 ? allMembersData : teacherProfiles);
 
       const teacherInvs = rawInvitations.filter((inv: any) => 
         !inv.role || inv.role === 'TEACHER' || inv.role?.toUpperCase() === 'TEACHER' || inv.role?.toLowerCase().includes('prof')
@@ -300,6 +265,8 @@ export function SchoolAdminTeachers() {
       if (!targetSchoolId) targetSchoolId = "11111111-1111-4111-8111-111111111111";
 
       const cleanEmail = inviteEmail.trim().toLowerCase();
+      // Restricted to TEACHER for DIRECTOR_OF_STUDIES
+      const effectiveRole = user?.role === 'DIRECTOR_OF_STUDIES' ? 'TEACHER' : inviteRole;
 
       // Check if invitation already exists
       const { data: existing } = await supabase.from('invitations')
@@ -311,7 +278,7 @@ export function SchoolAdminTeachers() {
       const { error } = await supabase.from('invitations').insert([{
         school_id: targetSchoolId,
         email: cleanEmail,
-        role: inviteRole
+        role: effectiveRole
       }]);
 
       if (error) throw error;
@@ -329,6 +296,11 @@ export function SchoolAdminTeachers() {
   };
 
   const handleDeleteInvitation = async (id: string) => {
+    const invToDelete = allInvitations.find(i => i.id === id);
+    if (user?.role === 'DIRECTOR_OF_STUDIES' && invToDelete?.role && invToDelete.role !== 'TEACHER') {
+      alert("En tant que Directeur des Études, vous êtes uniquement habilité à annuler les invitations d'enseignants.");
+      return;
+    }
     if (!window.confirm("Êtes-vous sûr de vouloir supprimer / annuler cette invitation ?")) return;
     try {
       await supabase.from('invitations').delete().eq('id', id);
@@ -1287,17 +1259,24 @@ export function SchoolAdminTeachers() {
 
               <div className="w-full sm:w-60">
                 <label className="block text-xs font-bold text-gray-700 uppercase mb-1">Rôle Attribué</label>
-                <select 
-                  value={inviteRole}
-                  onChange={e => setInviteRole(e.target.value)}
-                  className="w-full px-3 py-2 border border-slate-300 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-emerald-500 bg-white font-semibold"
-                >
-                  <option value="TEACHER">Professeur (Teacher)</option>
-                  <option value="DIRECTOR_OF_STUDIES">Directeur des Études</option>
-                  <option value="SECRETARY">Secrétaire</option>
-                  <option value="CASHIER">Caissier(e)</option>
-                  <option value="SUPERVISOR">Surveillant</option>
-                </select>
+                {user?.role === 'DIRECTOR_OF_STUDIES' ? (
+                  <div className="w-full px-3 py-2 border border-slate-300 rounded-lg text-xs font-bold text-emerald-800 bg-emerald-50/60 flex items-center justify-between">
+                    <span>Professeur (Teacher)</span>
+                    <span className="text-[10px] text-slate-500 font-normal">Restreint aux profs</span>
+                  </div>
+                ) : (
+                  <select 
+                    value={inviteRole}
+                    onChange={e => setInviteRole(e.target.value)}
+                    className="w-full px-3 py-2 border border-slate-300 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-emerald-500 bg-white font-semibold"
+                  >
+                    <option value="TEACHER">Professeur (Teacher)</option>
+                    <option value="DIRECTOR_OF_STUDIES">Directeur des Études</option>
+                    <option value="SECRETARY">Secrétaire</option>
+                    <option value="CASHIER">Caissier(e)</option>
+                    <option value="SUPERVISOR">Surveillant</option>
+                  </select>
+                )}
               </div>
 
               <button 
@@ -1311,103 +1290,117 @@ export function SchoolAdminTeachers() {
           </div>
 
           {/* Liste des invitations en attente */}
-          <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-            <div className="px-6 py-4 border-b border-slate-200 bg-slate-50 flex justify-between items-center">
-              <h3 className="font-bold text-gray-800 text-sm flex items-center gap-2">
-                <Clock size={16} className="text-amber-600" />
-                Invitations en attente ({allInvitations.length})
-              </h3>
-              <span className="text-[11px] text-slate-500">
-                Professeurs et membres invités par le Directeur ou le Directeur des Études
-              </span>
-            </div>
+          {(() => {
+            const displayedInvs = user?.role === 'DIRECTOR_OF_STUDIES'
+              ? allInvitations.filter(i => !i.role || i.role === 'TEACHER' || i.role?.toUpperCase() === 'TEACHER')
+              : allInvitations;
+            return (
+              <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+                <div className="px-6 py-4 border-b border-slate-200 bg-slate-50 flex justify-between items-center">
+                  <h3 className="font-bold text-gray-800 text-sm flex items-center gap-2">
+                    <Clock size={16} className="text-amber-600" />
+                    Invitations en attente ({displayedInvs.length})
+                  </h3>
+                  <span className="text-[11px] text-slate-500">
+                    {user?.role === 'DIRECTOR_OF_STUDIES' 
+                      ? "Professeurs invités par le Directeur des Études ou l'administration" 
+                      : "Professeurs et membres invités par l'administration"}
+                  </span>
+                </div>
 
-            {allInvitations.length === 0 ? (
-              <div className="p-8 text-center text-slate-400 text-xs">
-                Aucune invitation en attente. Utilisez le formulaire ci-dessus pour inviter des professeurs.
+                {displayedInvs.length === 0 ? (
+                  <div className="p-8 text-center text-slate-400 text-xs">
+                    Aucune invitation en attente. Utilisez le formulaire ci-dessus pour inviter des professeurs.
+                  </div>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left text-xs">
+                      <thead className="bg-slate-100/70 text-[10px] uppercase font-bold text-slate-600 tracking-wider border-b border-slate-200">
+                        <tr>
+                          <th className="px-6 py-3">Email Invité</th>
+                          <th className="px-4 py-3">Rôle Assigné</th>
+                          <th className="px-4 py-3">Date de l'invitation</th>
+                          <th className="px-4 py-3">Statut</th>
+                          <th className="px-6 py-3 text-right">Action</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100">
+                        {displayedInvs.map(inv => (
+                          <tr key={inv.id} className="hover:bg-slate-50 transition-colors">
+                            <td className="px-6 py-3.5 font-bold text-gray-800">
+                              {inv.email}
+                            </td>
+                            <td className="px-4 py-3.5">
+                              <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-emerald-100 text-emerald-800">
+                                {inv.role === 'TEACHER' ? 'Professeur' : (inv.role || 'Professeur')}
+                              </span>
+                            </td>
+                            <td className="px-4 py-3.5 text-slate-500">
+                              {inv.created_at ? new Date(inv.created_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' }) : "Récemment"}
+                            </td>
+                            <td className="px-4 py-3.5">
+                              <span className="px-2 py-0.5 bg-amber-50 text-amber-700 border border-amber-200 rounded text-[10px] font-semibold">
+                                En attente de connexion
+                              </span>
+                            </td>
+                            <td className="px-6 py-3.5 text-right">
+                              <button
+                                onClick={() => handleDeleteInvitation(inv.id)}
+                                className="px-2.5 py-1 text-rose-600 hover:text-rose-800 hover:bg-rose-50 border border-rose-200 rounded text-xs font-bold transition flex items-center gap-1 ml-auto"
+                                title="Annuler cette invitation"
+                              >
+                                <Trash2 size={13} /> Annuler
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
               </div>
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full text-left text-xs">
-                  <thead className="bg-slate-100/70 text-[10px] uppercase font-bold text-slate-600 tracking-wider border-b border-slate-200">
-                    <tr>
-                      <th className="px-6 py-3">Email Invité</th>
-                      <th className="px-4 py-3">Rôle Assigné</th>
-                      <th className="px-4 py-3">Date de l'invitation</th>
-                      <th className="px-4 py-3">Statut</th>
-                      <th className="px-6 py-3 text-right">Action</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100">
-                    {allInvitations.map(inv => (
-                      <tr key={inv.id} className="hover:bg-slate-50 transition-colors">
-                        <td className="px-6 py-3.5 font-bold text-gray-800">
-                          {inv.email}
-                        </td>
-                        <td className="px-4 py-3.5">
-                          <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${
-                            inv.role === 'TEACHER' || inv.role?.toUpperCase() === 'TEACHER' ? 'bg-emerald-100 text-emerald-800' :
-                            inv.role === 'DIRECTOR_OF_STUDIES' ? 'bg-blue-100 text-blue-800' :
-                            'bg-purple-100 text-purple-800'
-                          }`}>
-                            {inv.role === 'TEACHER' ? 'Professeur' : inv.role}
-                          </span>
-                        </td>
-                        <td className="px-4 py-3.5 text-slate-500">
-                          {inv.created_at ? new Date(inv.created_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' }) : "Récemment"}
-                        </td>
-                        <td className="px-4 py-3.5">
-                          <span className="px-2 py-0.5 bg-amber-50 text-amber-700 border border-amber-200 rounded text-[10px] font-semibold">
-                            En attente de connexion
-                          </span>
-                        </td>
-                        <td className="px-6 py-3.5 text-right">
-                          <button
-                            onClick={() => handleDeleteInvitation(inv.id)}
-                            className="px-2.5 py-1 text-rose-600 hover:text-rose-800 hover:bg-rose-50 border border-rose-200 rounded text-xs font-bold transition flex items-center gap-1 ml-auto"
-                            title="Annuler cette invitation"
-                          >
-                            <Trash2 size={13} /> Annuler
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </div>
+            );
+          })()}
 
           {/* Liste des professeurs & membres actifs */}
-          <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-            <div className="px-6 py-4 border-b border-slate-200 bg-slate-50 flex justify-between items-center">
-              <h3 className="font-bold text-gray-800 text-sm flex items-center gap-2">
-                <User size={16} className="text-emerald-600" />
-                Membres & Professeurs Connectés ({schoolMembers.length})
-              </h3>
-            </div>
-            {schoolMembers.length === 0 ? (
-              <div className="p-8 text-center text-slate-400 text-xs">
-                Aucun membre enregistré dans l'établissement.
+          {(() => {
+            const displayedMembers = user?.role === 'DIRECTOR_OF_STUDIES'
+              ? schoolMembers.filter(m => m.role === 'TEACHER')
+              : schoolMembers;
+            return (
+              <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+                <div className="px-6 py-4 border-b border-slate-200 bg-slate-50 flex justify-between items-center">
+                  <h3 className="font-bold text-gray-800 text-sm flex items-center gap-2">
+                    <User size={16} className="text-emerald-600" />
+                    {user?.role === 'DIRECTOR_OF_STUDIES' 
+                      ? `Professeurs ajoutés par l'administration (${displayedMembers.length})` 
+                      : `Membres & Professeurs Connectés (${displayedMembers.length})`}
+                  </h3>
+                </div>
+                {displayedMembers.length === 0 ? (
+                  <div className="p-8 text-center text-slate-400 text-xs">
+                    Aucun professeur enregistré par l'administration pour le moment.
+                  </div>
+                ) : (
+                  <ul className="divide-y divide-slate-100 text-xs">
+                    {displayedMembers.map(m => (
+                      <li key={m.id} className="p-4 px-6 flex items-center justify-between hover:bg-slate-50 transition-colors">
+                        <div>
+                          <p className="font-bold text-gray-800">{m.full_name || m.email}</p>
+                          <p className="text-[11px] text-slate-500 mt-0.5">
+                            Email : {m.email || "-"} • Rôle : <span className="font-semibold text-emerald-600">{m.role === 'TEACHER' ? 'Professeur' : m.role}</span>
+                          </p>
+                        </div>
+                        <span className="px-2.5 py-1 bg-emerald-50 text-emerald-700 rounded-full text-[10px] font-bold border border-emerald-200">
+                          Actif
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
               </div>
-            ) : (
-              <ul className="divide-y divide-slate-100 text-xs">
-                {schoolMembers.map(m => (
-                  <li key={m.id} className="p-4 px-6 flex items-center justify-between hover:bg-slate-50 transition-colors">
-                    <div>
-                      <p className="font-bold text-gray-800">{m.full_name || m.email}</p>
-                      <p className="text-[11px] text-slate-500 mt-0.5">
-                        Email : {m.email || "-"} • Rôle : <span className="font-semibold text-emerald-600">{m.role}</span>
-                      </p>
-                    </div>
-                    <span className="px-2.5 py-1 bg-emerald-50 text-emerald-700 rounded-full text-[10px] font-bold border border-emerald-200">
-                      Actif
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
+            );
+          })()}
         </div>
       )}
       {activeTab === "SUBJECTS" && (

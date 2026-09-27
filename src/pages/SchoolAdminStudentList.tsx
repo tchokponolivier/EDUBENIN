@@ -33,17 +33,17 @@ export function SchoolAdminStudentList() {
       }
       if (!targetSchoolId) targetSchoolId = "11111111-1111-4111-8111-111111111111";
 
-      const [studentsRes, coursesRes, yearsRes, schoolRes] = await Promise.all([
-        supabase.from('students').select('*').eq('school_id', targetSchoolId),
+      const [allStudentsRes, coursesRes, yearsRes, schoolRes] = await Promise.all([
+        supabase.from('students').select('*'),
         supabase.from('courses').select('*, profiles(full_name)').eq('school_id', targetSchoolId),
         supabase.from('academic_years').select('id, name').eq('school_id', targetSchoolId),
         supabase.from('schools').select('*').eq('id', targetSchoolId).maybeSingle()
       ]);
       
-      let stList = studentsRes.data || [];
-      if (stList.length === 0) {
-        const { data: allSt } = await supabase.from('students').select('*');
-        if (allSt && allSt.length > 0) stList = allSt;
+      let stList = allStudentsRes.data || [];
+      if (stList.length > 0 && targetSchoolId && targetSchoolId !== "11111111-1111-4111-8111-111111111111") {
+        const schoolStudents = stList.filter(s => s.school_id === targetSchoolId || !s.school_id);
+        if (schoolStudents.length > 0) stList = schoolStudents;
       }
       setStudents(stList);
       setCourses(coursesRes.data || []);
@@ -84,11 +84,15 @@ export function SchoolAdminStudentList() {
   const classes = Array.from<string>(new Set(students.map(s => s.level as string))).sort();
 
   const filteredStudents = students.filter(s => {
-    const matchesYear = selectedYear === "ALL" || s.academic_year === selectedYear;
+    const sYear = s.academic_year || s.academicYear;
+    const matchesYear = selectedYear === "ALL" || sYear === selectedYear;
+    const fName = s.first_name || s.firstName || "";
+    const lName = s.last_name || s.lastName || "";
+    const mat = s.matricule || "";
     const matchesSearch = 
-      s.first_name.toLowerCase().includes(searchTerm.toLowerCase()) || 
-      s.last_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (s.matricule && s.matricule.toLowerCase().includes(searchTerm.toLowerCase()));
+      fName.toLowerCase().includes(searchTerm.toLowerCase()) || 
+      lName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      mat.toLowerCase().includes(searchTerm.toLowerCase());
     
     const matchesClass = selectedClass === "ALL" || s.level === selectedClass;
     

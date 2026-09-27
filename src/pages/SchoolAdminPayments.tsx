@@ -240,87 +240,10 @@ export function SchoolAdminPayments() {
       let rawStudents = (studentsRes.data || []) as any[];
       if (rawStudents.length === 0) {
         const { data: allSt } = await supabase.from('students').select('*');
-        if (allSt && allSt.length > 0) rawStudents = allSt;
-      }
-      if (rawStudents.length === 0) {
-        const activeYear = settingsRes.data?.academic_year || "2026-2027";
-        rawStudents = [
-          {
-            id: "deb_1",
-            first_name: "Marc",
-            last_name: "DUBOIS",
-            level: "6ème",
-            matricule: "2026-001",
-            school_id: targetSchoolId,
-            gender: "MALE",
-            studentType: "OLD",
-            academic_year: activeYear,
-            academicYear: activeYear,
-            parent_phone: "+229 97 12 34 56",
-            contacts: "+229 97 12 34 56",
-            status: "ACTIVE"
-          },
-          {
-            id: "deb_2",
-            first_name: "Sophie",
-            last_name: "DUBOIS",
-            level: "3ème",
-            matricule: "2026-002",
-            school_id: targetSchoolId,
-            gender: "FEMALE",
-            studentType: "OLD",
-            academic_year: activeYear,
-            academicYear: activeYear,
-            parent_phone: "+229 95 44 22 11",
-            contacts: "+229 95 44 22 11",
-            status: "ACTIVE"
-          },
-          {
-            id: "deb_3",
-            first_name: "Junior",
-            last_name: "KODJO",
-            level: "Terminale D",
-            matricule: "2026-003",
-            school_id: targetSchoolId,
-            gender: "MALE",
-            studentType: "NEW",
-            academic_year: activeYear,
-            academicYear: activeYear,
-            parent_phone: "+229 96 82 79 23",
-            contacts: "+229 96 82 79 23",
-            status: "ACTIVE"
-          },
-          {
-            id: "deb_4",
-            first_name: "Aïcha",
-            last_name: "SOULE",
-            level: "CM2",
-            matricule: "2026-004",
-            school_id: targetSchoolId,
-            gender: "FEMALE",
-            studentType: "NEW",
-            academic_year: activeYear,
-            academicYear: activeYear,
-            parent_phone: "+229 90 11 22 33",
-            contacts: "+229 90 11 22 33",
-            status: "ACTIVE"
-          },
-          {
-            id: "deb_5",
-            first_name: "Bao",
-            last_name: "KOUASSI",
-            level: "1ère D",
-            matricule: "2026-005",
-            school_id: targetSchoolId,
-            gender: "MALE",
-            studentType: "OLD",
-            academic_year: activeYear,
-            academicYear: activeYear,
-            parent_phone: "+229 94 55 66 77",
-            contacts: "+229 94 55 66 77",
-            status: "ACTIVE"
-          }
-        ];
+        if (allSt && allSt.length > 0) {
+          const matched = allSt.filter(s => !targetSchoolId || targetSchoolId === "11111111-1111-4111-8111-111111111111" || s.school_id === targetSchoolId || !s.school_id);
+          rawStudents = matched.length > 0 ? matched : allSt;
+        }
       }
       
       setStudents(rawStudents.map((d: any) => ({

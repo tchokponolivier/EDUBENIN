@@ -208,15 +208,20 @@ export function DirectorDashboard() {
         const raw = localStorage.getItem(storageKey);
         if (raw) {
           const parsed = JSON.parse(raw);
-          setSchedules(parsed);
+          // Filter out dummy/mock DEFAULT_SCHEDULES if any was previously auto-seeded with exam-1, exam-2, etc.
+          const realSchedules = Array.isArray(parsed) 
+            ? parsed.filter((s: any) => !s.id?.startsWith('exam-') || s.createdAt > Date.now() - 3600000) 
+            : [];
+          setSchedules(realSchedules);
+          if (realSchedules.length !== parsed.length) {
+            localStorage.setItem(storageKey, JSON.stringify(realSchedules));
+          }
         } else {
-          const initial = DEFAULT_SCHEDULES.map(s => ({ ...s, academicYear: effectiveYear }));
-          setSchedules(initial);
-          localStorage.setItem(storageKey, JSON.stringify(initial));
+          setSchedules([]);
         }
       } catch (err) {
         console.error("Error loading schedules:", err);
-        setSchedules(DEFAULT_SCHEDULES);
+        setSchedules([]);
       } finally {
         setLoading(false);
       }
@@ -239,7 +244,7 @@ export function DirectorDashboard() {
     setEditingExam(null);
     setFormTitle("");
     setFormClasses(["6ème"]);
-    setFormAcademicYear(filterYear !== "ALL" ? filterYear : "2024-2025");
+    setFormAcademicYear(filterYear !== "ALL" ? filterYear : (configuredYear || "2026-2027"));
     setFormPeriod(filterPeriod !== "ALL" ? (filterPeriod as any) : "1er Trimestre");
     setFormType("Composition Trimestrielle");
     setFormStartDate(new Date().toISOString().split("T")[0]);
@@ -369,12 +374,17 @@ export function DirectorDashboard() {
 
   // Quick Stats
   const stats = useMemo(() => {
+    const targetYear = filterYear !== "ALL" ? filterYear : (configuredYear || "2026-2027");
+    const activeList = filterYear !== "ALL" 
+      ? schedules.filter(s => s.academicYear === filterYear)
+      : schedules;
+
     const total = schedules.length;
-    const currentYearCount = schedules.filter(s => s.academicYear === (filterYear !== "ALL" ? filterYear : "2024-2025")).length;
-    const planned = schedules.filter(s => s.status === "PLANNED").length;
-    const validated = schedules.filter(s => s.status === "VALIDATED" || s.status === "COMPLETED").length;
-    return { total, currentYearCount, planned, validated };
-  }, [schedules, filterYear]);
+    const currentYearCount = schedules.filter(s => s.academicYear === targetYear).length;
+    const planned = activeList.filter(s => s.status === "PLANNED").length;
+    const validated = activeList.filter(s => s.status === "VALIDATED" || s.status === "COMPLETED").length;
+    return { total, currentYearCount, planned, validated, targetYear };
+  }, [schedules, filterYear, configuredYear]);
 
   return (
     <div className="animate-in fade-in space-y-6 pb-12">
@@ -434,7 +444,7 @@ export function DirectorDashboard() {
                 <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs">
                   <div className="text-slate-500 text-[11px] font-bold uppercase tracking-wider">Année Sélectionnée</div>
                   <div className="text-2xl font-black text-emerald-600 mt-1">{stats.currentYearCount}</div>
-                  <div className="text-[11px] text-slate-500 font-semibold mt-1">Année {filterYear}</div>
+                  <div className="text-[11px] text-slate-500 font-semibold mt-1">Année {filterYear !== "ALL" ? filterYear : (stats.targetYear || "Toutes")}</div>
                 </div>
 
                 <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs">

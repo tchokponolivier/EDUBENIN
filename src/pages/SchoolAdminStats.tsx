@@ -23,21 +23,28 @@ export function SchoolAdminStats() {
       }
       if (!targetSchoolId) targetSchoolId = "11111111-1111-4111-8111-111111111111";
 
-      let { data: stData } = await supabase.from('students').select('*').eq('school_id', targetSchoolId);
-      if (!stData || stData.length === 0) {
-        const { data: anySt } = await supabase.from('students').select('*');
-        if (anySt && anySt.length > 0) stData = anySt;
-      }
-      if (stData) setStudents(stData);
-
-      let { data: yrData } = await supabase.from('academic_years').select('id, name').eq('school_id', targetSchoolId);
-      if (!yrData || yrData.length === 0) {
-        const { data: scData } = await supabase.from('schools').select('academic_year').eq('id', targetSchoolId).maybeSingle();
-        if (scData?.academic_year) {
-          yrData = [{ id: 'curr', name: scData.academic_year }];
+      let { data: allSt } = await supabase.from('students').select('*');
+      let stData: any[] = [];
+      if (allSt && allSt.length > 0) {
+        if (targetSchoolId && targetSchoolId !== "11111111-1111-4111-8111-111111111111") {
+          const matchSchool = allSt.filter(s => s.school_id === targetSchoolId || !s.school_id);
+          stData = matchSchool.length > 0 ? matchSchool : allSt;
+        } else {
+          stData = allSt;
         }
       }
-      if (yrData) setAcademicYears(yrData);
+      setStudents(stData);
+
+      let { data: yrData } = await supabase.from('academic_years').select('id, name').eq('school_id', targetSchoolId);
+      const realYears: { id: string; name: string }[] = [];
+      if (yrData && yrData.length > 0) {
+        realYears.push(...yrData);
+      }
+      const { data: scData } = await supabase.from('schools').select('academic_year').eq('id', targetSchoolId).maybeSingle();
+      if (scData?.academic_year && !realYears.some(y => y.name === scData.academic_year)) {
+        realYears.push({ id: 'sc_curr', name: scData.academic_year });
+      }
+      setAcademicYears(realYears);
     };
 
     loadData();

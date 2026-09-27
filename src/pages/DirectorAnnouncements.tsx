@@ -8,6 +8,7 @@ interface Announcement {
   title: string;
   content: string;
   authorName: string;
+  authorRole?: string;
   targetAudience: string;
   date: number;
 }
@@ -17,6 +18,7 @@ export function DirectorAnnouncements() {
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
   const [loading, setLoading] = useState(true);
   const [filterAudience, setFilterAudience] = useState<string>("ALL");
+  const [authorFilter, setAuthorFilter] = useState<"DIRECTOR_ONLY" | "ALL">("DIRECTOR_ONLY");
   const [searchTerm, setSearchTerm] = useState("");
   
   // New announcement form state
@@ -27,13 +29,19 @@ export function DirectorAnnouncements() {
   const [feedback, setFeedback] = useState<string | null>(null);
 
   const fetchAnnouncements = async () => {
-    if (!user?.schoolId) return;
+    let targetSchoolId = user?.schoolId || localStorage.getItem('edubenin_active_school_id');
+    if (!targetSchoolId) {
+      const { data: sc } = await supabase.from('schools').select('id').limit(1).maybeSingle();
+      if (sc?.id) targetSchoolId = sc.id;
+    }
+    if (!targetSchoolId) targetSchoolId = "11111111-1111-4111-8111-111111111111";
+
     setLoading(true);
     try {
       const { data, error } = await supabase
         .from('announcements')
         .select('*')
-        .eq('school_id', user.schoolId)
+        .eq('school_id', targetSchoolId)
         .order('created_at', { ascending: false });
 
       if (data && !error) {
@@ -42,13 +50,14 @@ export function DirectorAnnouncements() {
           title: d.title,
           content: d.content,
           authorName: d.author_name || "Direction des Études",
+          authorRole: d.author_role || (d.author_name?.toLowerCase().includes('directeur') ? 'DIRECTOR_OF_STUDIES' : 'SCHOOL_ADMIN'),
           targetAudience: d.target_audience || "Tous",
           date: new Date(d.created_at || Date.now()).getTime()
         })));
       } else {
         // Fallback local storage
         try {
-          const raw = localStorage.getItem(`school_announcements_${user.schoolId}`);
+          const raw = localStorage.getItem(`school_announcements_${targetSchoolId}`);
           if (raw) setAnnouncements(JSON.parse(raw));
         } catch (e) {}
       }
@@ -65,15 +74,17 @@ export function DirectorAnnouncements() {
 
   const handleAddAnnouncement = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!user?.schoolId || !announcementTitle.trim() || !announcementContent.trim()) return;
+    let targetSchoolId = user?.schoolId || localStorage.getItem('edubenin_active_school_id') || "11111111-1111-4111-8111-111111111111";
+    if (!announcementTitle.trim() || !announcementContent.trim()) return;
     setIsPublishing(true);
     try {
-      const author = user.name || "Directeur des Études";
+      const author = user?.name || "Directeur des Études";
       const payload = {
-        school_id: user.schoolId,
+        school_id: targetSchoolId,
         title: announcementTitle.trim(),
         content: announcementContent.trim(),
         author_name: author,
+        author_role: 'DIRECTOR_OF_STUDIES',
         target_audience: announcementTarget
       };
 
@@ -88,6 +99,7 @@ export function DirectorAnnouncements() {
         title: announcementTitle.trim(),
         content: announcementContent.trim(),
         authorName: author,
+        authorRole: 'DIRECTOR_OF_STUDIES',
         targetAudience: announcementTarget,
         date: Date.now()
       };
@@ -96,15 +108,30 @@ export function DirectorAnnouncements() {
 
       // Cache locally
       try {
-        const raw = localStorage.getItem(`school_announcements_${user.schoolId}`);
+        const raw = localStorage.getItem(`school_announcements_${targetSchoolId}`);
         const existing = raw ? JSON.parse(raw) : [];
-        localStorage.setItem(`school_announcements_${user.schoolId}`, JSON.stringify([newAnn, ...existing]));
+        localStorage.setItem(`school_announcements_${targetSchoolId}`, JSON.stringify([newAnn, ...existing]));
       } catch (e) {}
+
+      // Send real notification to concerned audience
+      try {
+        await supabase.from('notifications').insert({
+          school_id: targetSchoolId,
+          type: 'ANNOUNCEMENT',
+          title: `Nouvelle Annonce : ${announcementTitle.trim()}`,
+          message: announcementContent.trim().substring(0, 160),
+          target_audience: announcementTarget,
+          link: announcementTarget === 'Parents' ? '/parent' : (announcementTarget === 'Professeurs' ? '/teacher' : '/school-admin')
+        });
+        window.dispatchEvent(new CustomEvent('refresh_notifications'));
+      } catch (notifErr) {
+        console.warn("Notification insert fallback:", notifErr);
+      }
 
       setAnnouncementTitle("");
       setAnnouncementContent("");
-      setFeedback("Annonce publiée avec succès auprès des destinataires !");
-      setTimeout(() => setFeedback(null), 3500);
+      setFeedback("Annonce diffusée et notification transmise aux destinataires avec succès !");
+      setTimeout(() => setFeedback(null), 4000);
     } catch (err: any) {
       alert("Erreur lors de la publication : " + err.message);
     } finally {
@@ -117,21 +144,27 @@ export function DirectorAnnouncements() {
     try {
       await supabase.from('announcements').delete().eq('id', id);
       setAnnouncements(prev => prev.filter(a => a.id !== id));
-      if (user?.schoolId) {
-        try {
-          const raw = localStorage.getItem(`school_announcements_${user.schoolId}`);
-          if (raw) {
-            const list = JSON.parse(raw).filter((a: any) => a.id !== id);
-            localStorage.setItem(`school_announcements_${user.schoolId}`, JSON.stringify(list));
-          }
-        } catch (e) {}
-      }
+      let targetSchoolId = user?.schoolId || localStorage.getItem('edubenin_active_school_id') || "11111111-1111-4111-8111-111111111111";
+      try {
+        const raw = localStorage.getItem(`school_announcements_${targetSchoolId}`);
+        if (raw) {
+          const list = JSON.parse(raw).filter((a: any) => a.id !== id);
+          localStorage.setItem(`school_announcements_${targetSchoolId}`, JSON.stringify(list));
+        }
+      } catch (e) {}
     } catch (err: any) {
       alert("Erreur lors de la suppression : " + err.message);
     }
   };
 
   const filteredAnnouncements = announcements.filter(a => {
+    if (authorFilter === "DIRECTOR_ONLY") {
+      const isDirector = a.authorRole === 'DIRECTOR_OF_STUDIES' || 
+        a.authorName?.toLowerCase().includes('directeur') || 
+        a.authorName?.toLowerCase().includes('études') ||
+        (user?.name && a.authorName?.toLowerCase().includes(user.name.toLowerCase()));
+      if (!isDirector) return false;
+    }
     if (filterAudience !== "ALL" && a.targetAudience !== filterAudience && a.targetAudience !== "Tous") {
       return false;
     }
@@ -247,8 +280,28 @@ export function DirectorAnnouncements() {
               />
             </div>
 
-            <div className="flex items-center gap-2 w-full sm:w-auto">
-              <span className="text-xs font-semibold text-slate-500">Filtrer :</span>
+            <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
+              <div className="flex bg-slate-100 p-0.5 rounded-lg border border-slate-200">
+                <button
+                  type="button"
+                  onClick={() => setAuthorFilter("DIRECTOR_ONLY")}
+                  className={`px-2.5 py-1 rounded text-[11px] font-bold transition ${
+                    authorFilter === "DIRECTOR_ONLY" ? "bg-white text-emerald-700 shadow-xs" : "text-slate-500 hover:text-slate-800"
+                  }`}
+                >
+                  Directeur des Études
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setAuthorFilter("ALL")}
+                  className={`px-2.5 py-1 rounded text-[11px] font-bold transition ${
+                    authorFilter === "ALL" ? "bg-white text-emerald-700 shadow-xs" : "text-slate-500 hover:text-slate-800"
+                  }`}
+                >
+                  Toutes
+                </button>
+              </div>
+
               <select
                 value={filterAudience}
                 onChange={e => setFilterAudience(e.target.value)}

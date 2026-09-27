@@ -62,6 +62,7 @@ export function DirectorBulletins() {
   const [selectedClass, setSelectedClass] = useState<string>("6ème");
   const [selectedYear, setSelectedYear] = useState<string>("2024-2025");
   const [selectedPeriod, setSelectedPeriod] = useState<string>("1er Trimestre");
+  const [selectedStudentFilter, setSelectedStudentFilter] = useState<string>("ALL");
   const [searchTerm, setSearchTerm] = useState("");
 
   // Views & Print selection
@@ -81,17 +82,17 @@ export function DirectorBulletins() {
       }
       if (!targetSchoolId) targetSchoolId = "11111111-1111-4111-8111-111111111111";
 
-      const [studentsRes, coursesRes, yearsRes, schoolRes] = await Promise.all([
-        supabase.from('students').select('*').eq('school_id', targetSchoolId),
+      const [allStudentsRes, coursesRes, yearsRes, schoolRes] = await Promise.all([
+        supabase.from('students').select('*'),
         supabase.from('courses').select('*, profiles(full_name)').eq('school_id', targetSchoolId),
         supabase.from('academic_years').select('id, name').eq('school_id', targetSchoolId),
         supabase.from('schools').select('*').eq('id', targetSchoolId).maybeSingle()
       ]);
 
-      let stList = studentsRes.data || [];
-      if (stList.length === 0) {
-        const { data: allSt } = await supabase.from('students').select('*');
-        if (allSt && allSt.length > 0) stList = allSt;
+      let stList = allStudentsRes.data || [];
+      if (stList.length > 0 && targetSchoolId && targetSchoolId !== "11111111-1111-4111-8111-111111111111") {
+        const schoolStudents = stList.filter(s => s.school_id === targetSchoolId || !s.school_id);
+        if (schoolStudents.length > 0) stList = schoolStudents;
       }
       setStudents(stList);
 
@@ -418,24 +419,31 @@ export function DirectorBulletins() {
     };
   }, [classSummaries]);
 
-  // Filtrage par terme de recherche
+  // Filtrage par terme de recherche et par élève
   const filteredSummaries = useMemo(() => {
-    if (!searchTerm.trim()) return classSummaries;
+    let list = classSummaries;
+    if (selectedStudentFilter !== "ALL") {
+      list = list.filter(s => s.student.id === selectedStudentFilter);
+    }
+    if (!searchTerm.trim()) return list;
     const q = searchTerm.toLowerCase();
-    return classSummaries.filter(s => 
+    return list.filter(s => 
       s.student.first_name.toLowerCase().includes(q) ||
       s.student.last_name.toLowerCase().includes(q) ||
       (s.student.matricule && s.student.matricule.toLowerCase().includes(q))
     );
-  }, [classSummaries, searchTerm]);
+  }, [classSummaries, selectedStudentFilter, searchTerm]);
 
   // Élèves sélectionnés pour le bulletin
   const bulletinsToRender = useMemo(() => {
-    if (selectedStudentForBulletin === "ALL") {
-      return classSummaries;
+    if (selectedStudentForBulletin !== "ALL") {
+      return classSummaries.filter(s => s.student.id === selectedStudentForBulletin);
     }
-    return classSummaries.filter(s => s.student.id === selectedStudentForBulletin);
-  }, [classSummaries, selectedStudentForBulletin]);
+    if (selectedStudentFilter !== "ALL") {
+      return classSummaries.filter(s => s.student.id === selectedStudentFilter);
+    }
+    return classSummaries;
+  }, [classSummaries, selectedStudentForBulletin, selectedStudentFilter]);
 
   const handlePrint = () => {
     window.print();
@@ -487,14 +495,17 @@ export function DirectorBulletins() {
       </div>
 
       {/* Barre de filtres principale */}
-      <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex flex-col md:flex-row gap-4 items-end">
-        <div className="w-full md:w-48">
+      <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex flex-col md:flex-row gap-4 items-end flex-wrap">
+        <div className="w-full md:w-44">
           <label className="block text-xs font-bold text-gray-700 mb-1 uppercase tracking-wide flex items-center gap-1">
             <GraduationCap size={14} className="text-emerald-600" /> Classe
           </label>
           <select
             value={selectedClass}
-            onChange={e => setSelectedClass(e.target.value)}
+            onChange={e => {
+              setSelectedClass(e.target.value);
+              setSelectedStudentFilter("ALL");
+            }}
             className="w-full px-3 py-2 border border-slate-300 rounded-lg text-xs font-bold focus:ring-2 focus:ring-emerald-500 outline-none bg-white text-gray-800"
           >
             {availableClasses.map(c => (
@@ -503,7 +514,7 @@ export function DirectorBulletins() {
           </select>
         </div>
 
-        <div className="w-full md:w-48">
+        <div className="w-full md:w-44">
           <label className="block text-xs font-bold text-gray-700 mb-1 uppercase tracking-wide flex items-center gap-1">
             <Calendar size={14} className="text-emerald-600" /> Année Scolaire
           </label>
@@ -522,9 +533,9 @@ export function DirectorBulletins() {
           </select>
         </div>
 
-        <div className="w-full md:w-48">
+        <div className="w-full md:w-44">
           <label className="block text-xs font-bold text-gray-700 mb-1 uppercase tracking-wide flex items-center gap-1">
-            <Filter size={14} className="text-emerald-600" /> Période / Trimestre
+            <Filter size={14} className="text-emerald-600" /> Période
           </label>
           <select
             value={selectedPeriod}
@@ -537,7 +548,25 @@ export function DirectorBulletins() {
           </select>
         </div>
 
-        <div className="flex-1 w-full">
+        <div className="w-full md:w-56">
+          <label className="block text-xs font-bold text-gray-700 mb-1 uppercase tracking-wide flex items-center gap-1">
+            <Users size={14} className="text-emerald-600" /> Filtrer par Élève
+          </label>
+          <select
+            value={selectedStudentFilter}
+            onChange={e => setSelectedStudentFilter(e.target.value)}
+            className="w-full px-3 py-2 border border-slate-300 rounded-lg text-xs font-bold focus:ring-2 focus:ring-emerald-500 outline-none bg-white text-gray-800"
+          >
+            <option value="ALL">Tous les élèves de la classe ({classSummaries.length})</option>
+            {classSummaries.map(item => (
+              <option key={item.student.id} value={item.student.id}>
+                {item.student.last_name || item.student.lastName} {item.student.first_name || item.student.firstName} {item.student.matricule ? `(${item.student.matricule})` : ''}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <div className="flex-1 min-w-[200px] w-full">
           <label className="block text-xs font-bold text-gray-700 mb-1 uppercase tracking-wide">
             Rechercher un élève
           </label>

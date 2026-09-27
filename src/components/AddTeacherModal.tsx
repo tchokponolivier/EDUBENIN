@@ -56,6 +56,13 @@ export function AddTeacherModal({
     e.preventDefault();
     setLoading(true);
     try {
+      let targetSchoolId = user?.schoolId || localStorage.getItem('edubenin_active_school_id');
+      if (!targetSchoolId) {
+        const { data: sc } = await supabase.from('schools').select('id').limit(1).maybeSingle();
+        if (sc?.id) targetSchoolId = sc.id;
+      }
+      if (!targetSchoolId) targetSchoolId = "11111111-1111-4111-8111-111111111111";
+
       const dummyId = crypto.randomUUID();
       const generatedEmail = `prof_${Date.now()}_${Math.floor(Math.random() * 1000)}@ecole.local`;
       const { error } = await supabase.from('profiles').insert({
@@ -64,15 +71,15 @@ export function AddTeacherModal({
         email: generatedEmail,
         phone: formData.phone,
         role: 'TEACHER',
-        school_id: user?.schoolId,
+        school_id: targetSchoolId,
         title: formData.teacherType // Storing teacher type (Permanent / Vacataire) in title or metadata
       });
       if (error) throw error;
       
-      if (formData.subject && formData.classes.length > 0 && user?.schoolId) {
+      if (formData.subject && formData.classes.length > 0 && targetSchoolId) {
         let currentMeta: Record<string, any> = {};
         try {
-          const raw = localStorage.getItem(`school_courses_meta_${user.schoolId}`);
+          const raw = localStorage.getItem(`school_courses_meta_${targetSchoolId}`);
           if (raw) currentMeta = JSON.parse(raw);
         } catch (e) {}
 
@@ -80,7 +87,7 @@ export function AddTeacherModal({
           const coef = classCoefs[cls] || 1;
           const { data: existing } = await supabase.from('courses')
             .select('id')
-            .eq('school_id', user.schoolId)
+            .eq('school_id', targetSchoolId)
             .ilike('name', formData.subject.trim())
             .eq('level', cls)
             .maybeSingle();
@@ -94,7 +101,7 @@ export function AddTeacherModal({
             currentMeta[`${formData.subject.trim().toLowerCase()}_${cls}`] = { coefficient: coef, academic_year: currentAcademicYear || null };
           } else {
             const { data: newCourse } = await supabase.from('courses').insert([{
-              school_id: user.schoolId,
+              school_id: targetSchoolId,
               name: formData.subject.trim(),
               level: cls,
               teacher_id: dummyId
@@ -108,7 +115,7 @@ export function AddTeacherModal({
         }
 
         try {
-          localStorage.setItem(`school_courses_meta_${user.schoolId}`, JSON.stringify(currentMeta));
+          localStorage.setItem(`school_courses_meta_${targetSchoolId}`, JSON.stringify(currentMeta));
         } catch (e) {}
       }
       onSuccess();

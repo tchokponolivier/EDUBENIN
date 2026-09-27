@@ -59,16 +59,17 @@ export function useNotifications() {
 
       let audienceFilter = 'Parents';
       if (user.role === 'TEACHER') audienceFilter = 'Professeurs';
-      else if (['SECRETARY', 'CASHIER', 'SUPERVISOR', 'DIRECTOR_OF_STUDIES'].includes(user.role)) audienceFilter = 'Administration';
+      else if (['SECRETARY', 'CASHIER', 'SUPERVISOR', 'DIRECTOR_OF_STUDIES', 'SCHOOL_ADMIN'].includes(user.role)) audienceFilter = 'Administration';
       
+      const targetSchoolId = user.schoolId || localStorage.getItem('edubenin_active_school_id');
+
       const { data: announcements } = await supabase
         .from('announcements')
         .select('*')
-        .eq('school_id', user.schoolId)
-        .in('target_audience', [audienceFilter, 'ALL'])
+        .eq('school_id', targetSchoolId)
+        .in('target_audience', [audienceFilter, 'Tous', 'ALL', 'TOUS'])
         .order('created_at', { ascending: false })
-        .limit(10);
-
+        .limit(15);
 
       if (announcements) {
         announcements.forEach((a: any) => {
@@ -76,34 +77,41 @@ export function useNotifications() {
             id: `ann-${a.id}`,
             type: 'ANNOUNCEMENT',
             title: 'Nouvelle Annonce : ' + a.title,
-            message: a.content.substring(0, 100) + (a.content.length > 100 ? '...' : ''),
+            message: a.content.substring(0, 120) + (a.content.length > 120 ? '...' : ''),
             date: new Date(a.created_at).getTime(),
             read: readIds.includes(`ann-${a.id}`),
-            link: user.role === 'PARENT' ? '/parent' : '/school-admin'
+            link: user.role === 'PARENT' ? '/parent' : (user.role === 'TEACHER' ? '/teacher' : '/director/announcements')
           });
         });
       }
 
-      // 2. Fetch Support & DB Notifications for Admin, Cashier, Secretary, Supervisor
-      if (['SCHOOL_ADMIN', 'CASHIER', 'SECRETARY', 'SUPERVISOR'].includes(user.role)) {
+      // 2. Fetch Support & DB Notifications for Admin, Director, Cashier, Secretary, Supervisor
+      if (['SCHOOL_ADMIN', 'DIRECTOR_OF_STUDIES', 'CASHIER', 'SECRETARY', 'SUPERVISOR', 'TEACHER'].includes(user.role)) {
         const { data: dbNotifs } = await supabase
           .from('notifications')
           .select('*')
-          .eq('school_id', user.schoolId)
+          .eq('school_id', targetSchoolId)
           .order('created_at', { ascending: false })
-          .limit(20);
+          .limit(25);
           
         if (dbNotifs) {
           dbNotifs.forEach((n: any) => {
-            notifs.push({
-              id: `dbnotif-${n.id}`,
-              type: n.type as any,
-              title: n.title,
-              message: n.message,
-              date: new Date(n.created_at).getTime(),
-              read: readIds.includes(`dbnotif-${n.id}`),
-              link: user.role === 'SECRETARY' ? '/school-admin/students' : '/school-admin'
-            });
+            // Check audience if specified
+            if (n.target_audience && n.target_audience !== 'Tous' && n.target_audience !== 'ALL') {
+              if (n.target_audience !== audienceFilter) return;
+            }
+            const notifId = `dbnotif-${n.id}`;
+            if (!notifs.some(existing => existing.id === notifId)) {
+              notifs.push({
+                id: notifId,
+                type: n.type as any,
+                title: n.title,
+                message: n.message,
+                date: new Date(n.created_at).getTime(),
+                read: readIds.includes(notifId),
+                link: n.link || (user.role === 'DIRECTOR_OF_STUDIES' ? '/director/announcements' : (user.role === 'SECRETARY' ? '/school-admin/students' : '/school-admin'))
+              });
+            }
           });
         }
 

@@ -8,6 +8,7 @@ import { useAuth } from "../lib/auth";
 import { useLocation } from "react-router-dom";
 import { SchoolAdminAcademic } from "../components/SchoolAdminAcademic";
 import { SchoolAdminFees } from "../components/SchoolAdminFees";
+import { InitialSchoolSetupModal } from "../components/InitialSchoolSetupModal";
 
 export function SchoolAdminDashboard() {
   const { user } = useAuth();
@@ -16,6 +17,7 @@ export function SchoolAdminDashboard() {
   const [payments, setPayments] = useState<Payment[]>([]);
   const [settings, setSettings] = useState<SchoolSettings | null>(null);
   const [showCountryDropdown, setShowCountryDropdown] = useState(false);
+  const [showInitialSetupModal, setShowInitialSetupModal] = useState(false);
   const [selectedCountry, setSelectedCountry] = useState({ code: 'bj', dial: '+229' });
   const COUNTRIES = [
   { code: 'af', dial: '+93', name: 'Afghanistan' },
@@ -130,18 +132,27 @@ export function SchoolAdminDashboard() {
     fetchSchoolMembers();
   }, []);
 
+  useEffect(() => {
+    if (user?.role === 'SCHOOL_ADMIN' && !user.schoolId) {
+      setShowInitialSetupModal(true);
+    }
+  }, [user]);
+
   const fetchSchoolMembers = async () => {
     if (!user?.schoolId) return;
     const { data } = await supabase.from('profiles').select('*').eq('school_id', user.schoolId);
     if (data) setSchoolMembers(data.filter(p => p.id !== user.id)); // Exclude self
   };
 
-  
-  
   const fetchSchoolSettings = async () => {
-    if (!user?.schoolId) return;
-    const { data } = await supabase.from('schools').select('*').eq('id', user.schoolId).single();
-    if (data) {
+    if (!user?.schoolId) {
+      if (user?.role === 'SCHOOL_ADMIN') {
+        setShowInitialSetupModal(true);
+      }
+      return;
+    }
+    const { data, error } = await supabase.from('schools').select('*').eq('id', user.schoolId).single();
+    if (data && data.name) {
       if (data.contacts) {
         const match = data.contacts.match(/^(\+\d+)\s+/);
         if (match) {
@@ -164,7 +175,28 @@ export function SchoolAdminDashboard() {
         enrollmentContractTemplate: (extra as any).enrollmentContractTemplate || "",
         directorSignature: (extra as any).directorSignature || ""
       } as any);
+    } else {
+      if (user?.role === 'SCHOOL_ADMIN') {
+        setShowInitialSetupModal(true);
+      }
     }
+  };
+
+  const handleInitialSchoolCreated = (newSchool: any) => {
+    setShowInitialSetupModal(false);
+    setSettings({
+      name: newSchool.name,
+      address: newSchool.locality || "Bénin",
+      contact: newSchool.contacts,
+      motto: newSchool.motto || "FCFA",
+      logo: "",
+      academicYear: "2024-2025",
+      enrollmentContractTemplate: "",
+      directorSignature: ""
+    } as any);
+    fetchDashboardData();
+    fetchSchoolMembers();
+    fetchAnnouncements();
   };
 
 
@@ -767,6 +799,13 @@ export function SchoolAdminDashboard() {
 
       {activeTab === "ACADEMIC" && <SchoolAdminAcademic />}
       {activeTab === "FEES" && <SchoolAdminFees />}
+
+      {/* Popup de première configuration pour le directeur */}
+      <InitialSchoolSetupModal
+        isOpen={showInitialSetupModal}
+        onSuccess={handleInitialSchoolCreated}
+        onClose={() => setShowInitialSetupModal(false)}
+      />
 
     </div>
   );

@@ -8,6 +8,7 @@ interface AuthContextType {
   login: (email: string, fullName?: string, password?: string, role?: string) => void; // Keeps mock support
   loginWithGoogle: () => Promise<void>;
   logout: () => Promise<void>;
+  updateUserSchool: (schoolId: string, schoolName?: string) => void;
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
@@ -78,12 +79,9 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           localStorage.setItem('edubenin_active_school_id', data[0].id);
         }
       } else {
-        supabase.from('schools').insert({ name: 'Ecole Primaire Test', locality: 'Cotonou', contacts: '0000' }).select('id').single().then(({ data: newSchool }) => {
-          if (newSchool) {
-            setRealSchoolId(newSchool.id);
-            localStorage.setItem('edubenin_active_school_id', newSchool.id);
-          }
-        });
+        // No school exists in database: do not inject dummy school!
+        setRealSchoolId(null);
+        localStorage.removeItem('edubenin_active_school_id');
       }
     });
     supabase.from('profiles').select('id').limit(1).then(({ data }) => {
@@ -242,12 +240,18 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   }, []);
 
   const loginWithGoogle = async () => {
+    try {
+      await supabase.auth.signOut({ scope: 'local' });
+    } catch (e) {}
+    localStorage.removeItem("edubenin_auth");
+
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
         redirectTo: window.location.origin,
         queryParams: {
-          prompt: 'select_account'
+          prompt: 'select_account',
+          access_type: 'offline'
         }
       }
     });
@@ -257,22 +261,47 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     }
   };
 
+  const updateUserSchool = (schoolId: string, schoolName?: string) => {
+    setUser((prev) => {
+      if (!prev) return null;
+      const updated = { ...prev, schoolId, ...(schoolName ? { schoolName } : {}) };
+      localStorage.setItem("edubenin_auth", JSON.stringify(updated));
+      return updated;
+    });
+    localStorage.setItem("edubenin_active_school_id", schoolId);
+  };
+
   const login = async (email: string, fullName?: string, password?: string, role?: string) => {
     let foundUser = MOCK_USERS[email];
     let mockPassword = password || "password123";
+    const effectiveRole = (role || (foundUser ? foundUser.role : "PARENT")) as any;
+
+    const activeSchoolFallback = localStorage.getItem('edubenin_active_school_id') || realSchoolId;
     
-    const activeSchoolFallback = localStorage.getItem('edubenin_active_school_id') || realSchoolId || '11111111-1111-4111-8111-111111111111';
+    // For SCHOOL_ADMIN: if no real school exists in database, do NOT assign a fallback school!
+    let schoolIdForUser: string | undefined = undefined;
+    if (effectiveRole !== 'SUPER_ADMIN' && effectiveRole !== 'PARENT') {
+      if (effectiveRole === 'SCHOOL_ADMIN') {
+        schoolIdForUser = activeSchoolFallback || undefined;
+      } else {
+        schoolIdForUser = activeSchoolFallback || foundUser?.schoolId || undefined;
+      }
+    }
+
     let userToSet = foundUser ? 
-      (role ? { ...foundUser, role: role as any, schoolId: (role === 'SUPER_ADMIN' || role === 'PARENT') ? undefined : (activeSchoolFallback || foundUser.schoolId) } : { ...foundUser, schoolId: (foundUser.role === 'SUPER_ADMIN' || foundUser.role === 'PARENT') ? undefined : (activeSchoolFallback || foundUser.schoolId) })
+      { ...foundUser, role: effectiveRole, schoolId: schoolIdForUser }
       : {
         id: "00000000-0000-4000-8000-000000000000",
         email,
         name: fullName || email.split("@")[0],
-        role: (role as any) || "PARENT",
-        schoolId: (role === 'SUPER_ADMIN' || role === 'PARENT') ? undefined : (activeSchoolFallback || '11111111-1111-4111-8111-111111111111')
+        role: effectiveRole,
+        schoolId: schoolIdForUser
       };
+
     if (userToSet.schoolId) {
       localStorage.setItem('edubenin_active_school_id', userToSet.schoolId);
+    } else if (effectiveRole === 'SCHOOL_ADMIN') {
+      localStorage.removeItem('edubenin_active_school_id');
     }
 
     if (foundUser || email.includes("test")) {
@@ -302,7 +331,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
            email: userToSet.email,
            full_name: userToSet.name,
            role: userToSet.role,
-           school_id: userToSet.schoolId
+           school_id: userToSet.schoolId || null
          });
          
          setUser(userToSet);
@@ -330,7 +359,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   };
 
   return (
-    <AuthContext.Provider value={{ user, isLoading, login, loginWithGoogle, logout }}>
+    <AuthContext.Provider value={{ user, isLoading, login, loginWithGoogle, logout, updateUserSchool }}>
       {children}
     </AuthContext.Provider>
   );

@@ -5,7 +5,7 @@ import { useAuth } from '../lib/auth';
 import { School, Building, MapPin, Phone, CheckCircle } from 'lucide-react';
 
 export function SchoolOnboarding() {
-  const { user, login } = useAuth(); // assuming login or a refresh function updates context
+  const { user, updateUserSchool } = useAuth();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -13,6 +13,7 @@ export function SchoolOnboarding() {
     name: '',
     locality: '',
     contacts: '',
+    currency: 'FCFA',
     directorName: ''
   });
 
@@ -26,9 +27,10 @@ export function SchoolOnboarding() {
       const { data: school, error: schoolError } = await supabase
         .from('schools')
         .insert([{
-          name: formData.name,
-          locality: formData.locality,
-          contacts: formData.contacts,
+          name: formData.name.trim(),
+          locality: formData.locality.trim() || 'Bénin',
+          contacts: formData.contacts.trim(),
+          motto: formData.currency, // Financial currency stored in motto
           mobile_money_numbers: {}
         }])
         .select()
@@ -36,7 +38,7 @@ export function SchoolOnboarding() {
 
       if (schoolError) throw schoolError;
 
-      // 2. Upsert the profile with the new school_id (creates or updates if previously deleted)
+      // 2. Upsert the profile with the new school_id
       if (user?.id) {
         const { error: profileError } = await supabase
           .from('profiles')
@@ -45,15 +47,25 @@ export function SchoolOnboarding() {
             email: user.email,
             school_id: school.id,
             role: 'SCHOOL_ADMIN',
-            full_name: formData.directorName || user.name
+            full_name: formData.directorName.trim() || user.name || 'Directeur'
           });
 
         if (profileError) throw profileError;
       }
 
-      // 3. Update local active school ID cache
+      // 3. Update local caches
       localStorage.setItem('edubenin_active_school_id', school.id);
-      window.location.href = "/dashboard";
+      localStorage.setItem(`school_currency_${school.id}`, formData.currency);
+      localStorage.setItem(`schoolSettings_extra_${school.id}`, JSON.stringify({
+        currency: formData.currency,
+        academicYear: "2024-2025"
+      }));
+
+      if (updateUserSchool) {
+        updateUserSchool(school.id, school.name);
+      }
+
+      window.location.href = "/school-admin";
       
     } catch (err: any) {
       console.error(err);
@@ -132,7 +144,7 @@ export function SchoolOnboarding() {
 
             <div>
               <label htmlFor="contacts" className="block text-sm font-medium text-gray-700">
-                Contact principal (Téléphone / Email)
+                Numéro de téléphone de contact
               </label>
               <div className="mt-1 relative rounded-md shadow-sm">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -148,6 +160,26 @@ export function SchoolOnboarding() {
                   className="focus:ring-emerald-500 focus:border-emerald-500 block w-full pl-10 sm:text-sm border-gray-300 rounded-md py-3 border"
                   placeholder="Ex: +229 97 00 00 00"
                 />
+              </div>
+            </div>
+
+            <div>
+              <label htmlFor="currency" className="block text-sm font-medium text-gray-700">
+                Monnaie utilisée pour les données financières
+              </label>
+              <div className="mt-1 relative rounded-md shadow-sm">
+                <select
+                  name="currency"
+                  id="currency"
+                  value={formData.currency}
+                  onChange={(e) => setFormData({...formData, currency: e.target.value})}
+                  className="focus:ring-emerald-500 focus:border-emerald-500 block w-full pl-3 sm:text-sm border-gray-300 rounded-md py-3 border bg-white font-medium"
+                >
+                  <option value="FCFA">Franc CFA (FCFA / XOF / XAF)</option>
+                  <option value="GNF">Franc Guinéen (GNF)</option>
+                  <option value="EUR">Euro (€)</option>
+                  <option value="USD">Dollar US ($)</option>
+                </select>
               </div>
             </div>
 

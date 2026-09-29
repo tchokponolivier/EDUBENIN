@@ -100,14 +100,16 @@ export function DashboardLayout({ children }: { children: ReactNode }) {
         ];
       case "DIRECTOR_OF_STUDIES":
         return [
+          { name: "Tableau de bord", href: "/school-admin", icon: LayoutDashboard },
           { name: "Planification Académique", href: "/director", icon: Calendar },
-          { name: "Professeurs", href: "/school-admin/teachers", icon: Users },
           { name: "Inscriptions & Élèves", href: "/school-admin/students?tab=STUDENTS", icon: Users },
           { name: "Liste des Élèves", href: "/school-admin/students-list", icon: Users },
+          { name: "Professeurs", href: "/school-admin/teachers", icon: Users },
           { name: "Bulletins", href: "/director/bulletins", icon: Award },
           { name: "Synthèse & Bilans", href: "/school-admin/stats", icon: BookOpen },
-          { name: "Finances & Caisse", href: "/school-admin/payments?tab=CREANCES", icon: Banknote },
+          { name: "Prospectus", href: "/school-admin/prospectus", icon: BookOpen },
           { name: "Annonces", href: "/director/announcements", icon: Megaphone },
+          { name: "Paramètres Établissement", href: "/school-admin?tab=SETTINGS", icon: Settings },
           commonSettings
         ];
       case "TEACHER":

@@ -73,11 +73,15 @@ class MockQueryBuilder {
         { id: "33333333-3333-4333-8333-333333333333", full_name: "Caissier Test", role: "CASHIER", school_id: "11111111-1111-4111-8111-111111111111", email: "caisse@school.com" },
         { id: "44444444-4444-4444-8444-444444444444", full_name: "Secrétaire Test", role: "SECRETARY", school_id: "11111111-1111-4111-8111-111111111111", email: "secretary@school.com" },
         { id: "55555555-5555-4555-8555-555555555555", full_name: "Parent Test", role: "PARENT", email: "parent@mail.com" },
-        { id: "66666666-6666-4666-8666-666666666666", full_name: "Dir. Études Test", role: "DIRECTOR_OF_STUDIES", school_id: "11111111-1111-4111-8111-111111111111", email: "director@school.com" },
-        { id: "77777777-7777-4777-8777-777777777777", full_name: "Professeur Test", role: "TEACHER", school_id: "11111111-1111-4111-8111-111111111111", email: "prof@school.com", phone: "+229 97 00 11 22", title: "Permanent" },
-        { id: "77777777-7777-4777-8777-777777777778", full_name: "M. Dossou Koffi", role: "TEACHER", school_id: "11111111-1111-4111-8111-111111111111", email: "koffi.dossou@ecole.com", phone: "+229 95 11 22 33", title: "Permanent" },
-        { id: "77777777-7777-4777-8777-777777777779", full_name: "Mme. Ahouangbo Claire", role: "TEACHER", school_id: "11111111-1111-4111-8111-111111111111", email: "claire.ahouangbo@ecole.com", phone: "+229 96 22 33 44", title: "Vacataire" }
+        { id: "66666666-6666-4666-8666-666666666666", full_name: "Dir. Études Test", role: "DIRECTOR_OF_STUDIES", school_id: "11111111-1111-4111-8111-111111111111", email: "director@school.com" }
       ];
+      // Filter out any previously auto-injected dummy teachers
+      data = data.filter((p: any) => 
+        !p.id?.startsWith("77777777-7777") && 
+        p.email !== "prof@school.com" && 
+        p.email !== "koffi.dossou@ecole.com" && 
+        p.email !== "claire.ahouangbo@ecole.com"
+      );
       let updated = false;
       defaultProfiles.forEach(dp => {
         if (!data.some((p: any) => p.id === dp.id || (p.email && dp.email && p.email.toLowerCase() === dp.email.toLowerCase()))) {
@@ -85,50 +89,32 @@ class MockQueryBuilder {
           updated = true;
         }
       });
-      if (updated || data.length === 0) {
-        localStorage.setItem(storageKey, JSON.stringify(data));
-      }
+      localStorage.setItem(storageKey, JSON.stringify(data));
     } else if (this.table === 'invitations') {
-      const defaultInvs = [
-        { id: "inv_1", email: "prof.maths@ecole.com", role: "TEACHER", school_id: "11111111-1111-4111-8111-111111111111", created_at: new Date(Date.now() - 2 * 24 * 3600 * 1000).toISOString() },
-        { id: "inv_2", email: "prof.francais@ecole.com", role: "TEACHER", school_id: "11111111-1111-4111-8111-111111111111", created_at: new Date(Date.now() - 5 * 24 * 3600 * 1000).toISOString() },
-        { id: "inv_3", email: "prof.svt@ecole.com", role: "TEACHER", school_id: "11111111-1111-4111-8111-111111111111", created_at: new Date(Date.now() - 7 * 24 * 3600 * 1000).toISOString() }
-      ];
-      let updated = false;
-      defaultInvs.forEach(di => {
-        if (!data.some((i: any) => i.id === di.id || (i.email && di.email && i.email.toLowerCase() === di.email.toLowerCase()))) {
-          data.push(di);
-          updated = true;
-        }
-      });
-      if (updated || data.length === 0) {
-        localStorage.setItem(storageKey, JSON.stringify(data));
-      }
+      // Filter out previously auto-injected dummy invitations
+      data = data.filter((inv: any) => 
+        inv.id !== "inv_1" && inv.id !== "inv_2" && inv.id !== "inv_3" &&
+        !inv.email?.includes("prof.maths@") && !inv.email?.includes("prof.francais@") && !inv.email?.includes("prof.svt@")
+      );
+      localStorage.setItem(storageKey, JSON.stringify(data));
     } else if (this.table === 'students') {
-      const defaultStudents = [
-        { id: "s1", parent_id: "55555555-5555-4555-8555-555555555555", school_id: "11111111-1111-4111-8111-111111111111", first_name: "Marc", last_name: "Dubois", level: "6ème", matricule: "2026-001", status: "ACTIVE", gender: "MALE", studentType: "OLD", parent_phone: "+229 97 12 34 56", contacts: "+229 97 12 34 56", academic_year: "2026-2027", created_at: new Date().toISOString() },
-        { id: "s2", parent_id: "55555555-5555-4555-8555-555555555555", school_id: "11111111-1111-4111-8111-111111111111", first_name: "Sophie", last_name: "Dubois", level: "3ème", matricule: "2026-002", status: "ACTIVE", gender: "FEMALE", studentType: "OLD", parent_phone: "+229 95 44 22 11", contacts: "+229 95 44 22 11", academic_year: "2026-2027", created_at: new Date().toISOString() },
-        { id: "s3", parent_id: "55555555-5555-4555-8555-555555555555", school_id: "11111111-1111-4111-8111-111111111111", first_name: "Junior", last_name: "Kodjo", level: "Terminale D", matricule: "2026-003", status: "ACTIVE", gender: "MALE", studentType: "NEW", parent_phone: "+229 96 82 79 23", contacts: "+229 96 82 79 23", academic_year: "2026-2027", created_at: new Date().toISOString() }
-      ];
-      let updated = false;
-      defaultStudents.forEach(ds => {
-        if (!data.some((s: any) => s.id === ds.id)) {
-          data.push(ds);
-          updated = true;
-        }
-      });
-      if (updated || data.length === 0) {
-        localStorage.setItem(storageKey, JSON.stringify(data));
-      }
+      // Filter out dummy auto-injected students
+      data = data.filter((s: any) => 
+        s.id !== "s1" && s.id !== "s2" && s.id !== "s3" &&
+        !(s.first_name === "Marc" && s.last_name === "Dubois") &&
+        !(s.first_name === "Sophie" && s.last_name === "Dubois") &&
+        !(s.first_name === "Junior" && s.last_name === "Kodjo")
+      );
+      localStorage.setItem(storageKey, JSON.stringify(data));
     } else if (this.table === 'courses') {
       const defaultCourses = [
-        { id: "c1", school_id: "11111111-1111-4111-8111-111111111111", name: "Mathématiques", level: "6ème", teacher_id: "77777777-7777-4777-8777-777777777777", coefficient: 3, created_at: new Date().toISOString() },
-        { id: "c2", school_id: "11111111-1111-4111-8111-111111111111", name: "Français", level: "6ème", teacher_id: "77777777-7777-4777-8777-777777777777", coefficient: 3, created_at: new Date().toISOString() },
-        { id: "c3", school_id: "11111111-1111-4111-8111-111111111111", name: "SVT", level: "6ème", teacher_id: "77777777-7777-4777-8777-777777777778", coefficient: 2, created_at: new Date().toISOString() },
-        { id: "c4", school_id: "11111111-1111-4111-8111-111111111111", name: "Histoire-Géographie", level: "3ème", teacher_id: "77777777-7777-4777-8777-777777777779", coefficient: 2, created_at: new Date().toISOString() },
-        { id: "c5", school_id: "11111111-1111-4111-8111-111111111111", name: "Anglais", level: "6ème", teacher_id: "77777777-7777-4777-8777-777777777777", coefficient: 2, created_at: new Date().toISOString() },
-        { id: "c6", school_id: "11111111-1111-4111-8111-111111111111", name: "Mathématiques", level: "3ème", teacher_id: "77777777-7777-4777-8777-777777777778", coefficient: 3, created_at: new Date().toISOString() },
-        { id: "c7", school_id: "11111111-1111-4111-8111-111111111111", name: "Français", level: "3ème", teacher_id: "77777777-7777-4777-8777-777777777779", coefficient: 3, created_at: new Date().toISOString() }
+        { id: "c1", school_id: "11111111-1111-4111-8111-111111111111", name: "Mathématiques", level: "6ème", teacher_id: null, coefficient: 3, created_at: new Date().toISOString() },
+        { id: "c2", school_id: "11111111-1111-4111-8111-111111111111", name: "Français", level: "6ème", teacher_id: null, coefficient: 3, created_at: new Date().toISOString() },
+        { id: "c3", school_id: "11111111-1111-4111-8111-111111111111", name: "SVT", level: "6ème", teacher_id: null, coefficient: 2, created_at: new Date().toISOString() },
+        { id: "c4", school_id: "11111111-1111-4111-8111-111111111111", name: "Histoire-Géographie", level: "3ème", teacher_id: null, coefficient: 2, created_at: new Date().toISOString() },
+        { id: "c5", school_id: "11111111-1111-4111-8111-111111111111", name: "Anglais", level: "6ème", teacher_id: null, coefficient: 2, created_at: new Date().toISOString() },
+        { id: "c6", school_id: "11111111-1111-4111-8111-111111111111", name: "Mathématiques", level: "3ème", teacher_id: null, coefficient: 3, created_at: new Date().toISOString() },
+        { id: "c7", school_id: "11111111-1111-4111-8111-111111111111", name: "Français", level: "3ème", teacher_id: null, coefficient: 3, created_at: new Date().toISOString() }
       ];
       let updated = false;
       defaultCourses.forEach(dc => {

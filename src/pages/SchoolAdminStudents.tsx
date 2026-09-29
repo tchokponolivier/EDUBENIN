@@ -111,49 +111,72 @@ export function SchoolAdminStudents() {
   
   useEffect(() => {
     const fetchStudents = async () => {
+      const isDummyStudent = (s: any) => {
+        if (!s) return false;
+        const id = String(s.id || '');
+        const f = String(s.first_name || s.firstName || '').toLowerCase();
+        const l = String(s.last_name || s.lastName || '').toLowerCase();
+        return id === "s1" || id === "s2" || id === "s3" ||
+               (f === "marc" && l === "dubois") ||
+               (f === "sophie" && l === "dubois") ||
+               (f === "junior" && l === "kodjo");
+      };
+
+      const targetSchoolId = user?.schoolId || localStorage.getItem('edubenin_active_school_id') || "11111111-1111-4111-8111-111111111111";
+
       try {
-        if (user?.schoolId) {
-          // Try fetching from Supabase if user has a schoolId
-          const { supabase } = await import('../lib/supabase');
-          const [studentsRes, yearsRes] = await Promise.all([
-             supabase.from('students').select('*').eq('school_id', user.schoolId),
-             supabase.from('academic_years').select('id, name').eq('school_id', user.schoolId)
-          ]);
-          const data = studentsRes.data;
-          const error = studentsRes.error;
-          if (yearsRes.data) setAcademicYears(yearsRes.data);
-          
-          if (error) throw error;
-          
-          if (data && data.length > 0) {
-            // Map DB fields to Student interface
-            const mappedStudents = data.map(d => ({
-              ...d,
-              id: d.id,
-              firstName: d.first_name,
-              lastName: d.last_name,
-              level: d.level,
-              status: d.status,
-              schoolId: d.school_id,
-              parentId: d.parent_id,
-              dateOfBirth: d.date_of_birth,
-              fatherContact: d.father_contact,
-              motherContact: d.mother_contact,
-              guardianContact: d.guardian_contact,
-              fatherName: d.father_name,
-              motherName: d.mother_name,
-              guardianName: d.guardian_name,
-              createdAt: new Date(d.created_at).getTime()
-            })) as any[];
-            setStudents(mappedStudents);
-            return;
+        const { supabase } = await import('../lib/supabase');
+        const [studentsRes, yearsRes] = await Promise.all([
+           supabase.from('students').select('*').eq('school_id', targetSchoolId),
+           supabase.from('academic_years').select('id, name').eq('school_id', targetSchoolId)
+        ]);
+        if (yearsRes.data) setAcademicYears(yearsRes.data);
+        
+        let list = studentsRes.data && Array.isArray(studentsRes.data) ? [...studentsRes.data] : [];
+        try {
+          const customS = localStorage.getItem(`school_custom_students_${targetSchoolId}`);
+          if (customS) {
+            const parsed = JSON.parse(customS);
+            parsed.forEach((cs: any) => {
+              if (!list.some(x => x.id === cs.id)) list.push(cs);
+            });
           }
-        }
+        } catch(e) {}
+
+        try {
+          const mockS = localStorage.getItem('mock_db_students');
+          if (mockS) {
+            const parsed = JSON.parse(mockS);
+            parsed.forEach((ms: any) => {
+              if (!list.some(x => x.id === ms.id)) list.push(ms);
+            });
+          }
+        } catch(e) {}
+
+        const mappedStudents = list
+          .filter(d => !isDummyStudent(d) && (!d.school_id || d.school_id === targetSchoolId))
+          .map(d => ({
+            ...d,
+            id: d.id,
+            firstName: d.first_name || d.firstName,
+            lastName: d.last_name || d.lastName,
+            level: d.level,
+            status: d.status,
+            schoolId: d.school_id || targetSchoolId,
+            parentId: d.parent_id || d.parentId,
+            dateOfBirth: d.date_of_birth || d.dateOfBirth,
+            fatherContact: d.father_contact || d.fatherContact,
+            motherContact: d.mother_contact || d.motherContact,
+            guardianContact: d.guardian_contact || d.guardianContact,
+            fatherName: d.father_name || d.fatherName,
+            motherName: d.mother_name || d.motherName,
+            guardianName: d.guardian_name || d.guardianName,
+            createdAt: d.created_at ? new Date(d.created_at).getTime() : Date.now()
+          })) as any[];
+        setStudents(mappedStudents);
       } catch (err) {
-        console.error("Supabase fetch failed, falling back to local DB", err);
+        console.error("Fetch failed", err);
       }
-      // Fallback to local DB
-      // removed fallback
     };
     
     fetchStudents();

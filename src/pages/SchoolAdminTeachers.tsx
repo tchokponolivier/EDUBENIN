@@ -173,13 +173,44 @@ export function SchoolAdminTeachers() {
                email.includes('prof') || name.startsWith('prof') || name.startsWith('m.') || name.startsWith('mme.');
       };
 
-      // Ensure we harvest from all possible sources (DB + local mock DB + default seed)
+      const isDummyTeacher = (p: any) => {
+        if (!p) return false;
+        const id = String(p.id || '');
+        const email = String(p.email || '').toLowerCase();
+        const name = String(p.full_name || '').toLowerCase();
+        return id.startsWith("77777777-7777") ||
+               name === "professeur test" ||
+               name.includes("dossou koffi") ||
+               name.includes("ahouangbo claire") ||
+               email === "prof@school.com" ||
+               email.includes("koffi.dossou") ||
+               email.includes("claire.ahouangbo");
+      };
+
+      // Purge dummy teachers from local caches
+      try {
+        const local = localStorage.getItem('mock_db_profiles');
+        if (local) {
+          const parsed = JSON.parse(local).filter((p: any) => !isDummyTeacher(p));
+          localStorage.setItem('mock_db_profiles', JSON.stringify(parsed));
+        }
+      } catch(e) {}
+
+      try {
+        const customT = localStorage.getItem(`school_custom_teachers_${targetSchoolId}`);
+        if (customT) {
+          const parsed = JSON.parse(customT).filter((p: any) => !isDummyTeacher(p));
+          localStorage.setItem(`school_custom_teachers_${targetSchoolId}`, JSON.stringify(parsed));
+        }
+      } catch(e) {}
+
+      // Ensure we harvest from all real sources (DB + local mock DB + custom teachers created by caisse or director)
       let rawProfiles: any[] = allProfilesRes.data && Array.isArray(allProfilesRes.data) ? [...allProfilesRes.data] : [];
       try {
         const local = localStorage.getItem('mock_db_profiles');
         const parsed = local ? JSON.parse(local) : [];
         parsed.forEach((lp: any) => {
-          if (!rawProfiles.some(rp => rp.id === lp.id || (rp.email && lp.email && rp.email.toLowerCase() === lp.email.toLowerCase()))) {
+          if (!isDummyTeacher(lp) && !rawProfiles.some(rp => rp.id === lp.id || (rp.email && lp.email && rp.email.toLowerCase() === lp.email.toLowerCase()))) {
             rawProfiles.push(lp);
           }
         });
@@ -190,29 +221,18 @@ export function SchoolAdminTeachers() {
         if (customT) {
           const parsedCustom = JSON.parse(customT);
           parsedCustom.forEach((ct: any) => {
-            if (!rawProfiles.some(rp => rp.id === ct.id || (rp.email && ct.email && rp.email.toLowerCase() === ct.email.toLowerCase()))) {
+            if (!isDummyTeacher(ct) && !rawProfiles.some(rp => rp.id === ct.id || (rp.email && ct.email && rp.email.toLowerCase() === ct.email.toLowerCase()))) {
               rawProfiles.push(ct);
             }
           });
         }
       } catch(e) {}
 
-      // Ensure standard existing teachers are always available
-      const DEFAULT_TEACHERS = [
-        { id: "77777777-7777-4777-8777-777777777777", full_name: "Professeur Test", role: "TEACHER", school_id: targetSchoolId, email: "prof@school.com", phone: "+229 97 00 11 22", title: "Permanent" },
-        { id: "77777777-7777-4777-8777-777777777778", full_name: "M. Dossou Koffi", role: "TEACHER", school_id: targetSchoolId, email: "koffi.dossou@ecole.com", phone: "+229 95 11 22 33", title: "Permanent" },
-        { id: "77777777-7777-4777-8777-777777777779", full_name: "Mme. Ahouangbo Claire", role: "TEACHER", school_id: targetSchoolId, email: "claire.ahouangbo@ecole.com", phone: "+229 96 22 33 44", title: "Vacataire" }
-      ];
-      DEFAULT_TEACHERS.forEach(dt => {
-        if (!rawProfiles.some(rp => rp.id === dt.id || (rp.email && rp.email.toLowerCase() === dt.email.toLowerCase()))) {
-          rawProfiles.push(dt);
-        }
-      });
-
-      const allTeachersInDb = rawProfiles.filter(isTeacher);
+      // Filter to only teachers belonging to this school or unassigned
+      const allTeachersInDb = rawProfiles.filter(p => isTeacher(p) && !isDummyTeacher(p) && (!p.school_id || p.school_id === targetSchoolId));
       let teacherProfiles = [...allTeachersInDb];
 
-      // Cross-reference any teachers referenced in courses
+      // Cross-reference any real teachers referenced in courses
       let allCoursesList: any[] = coursesRes.data && Array.isArray(coursesRes.data) ? [...coursesRes.data] : [];
       try {
         const localCourses = localStorage.getItem('mock_db_courses');
@@ -225,13 +245,13 @@ export function SchoolAdminTeachers() {
       } catch(e) {}
 
       const DEFAULT_COURSES = [
-        { id: "c1", school_id: targetSchoolId, name: "Mathématiques", level: "6ème", teacher_id: "77777777-7777-4777-8777-777777777777", coefficient: 3, hoursPerWeek: 4, hourlyRate: 3500 },
-        { id: "c2", school_id: targetSchoolId, name: "Français", level: "6ème", teacher_id: "77777777-7777-4777-8777-777777777777", coefficient: 3, hoursPerWeek: 5, hourlyRate: 3500 },
-        { id: "c3", school_id: targetSchoolId, name: "SVT", level: "6ème", teacher_id: "77777777-7777-4777-8777-777777777778", coefficient: 2, hoursPerWeek: 2, hourlyRate: 3500 },
-        { id: "c4", school_id: targetSchoolId, name: "Histoire-Géographie", level: "3ème", teacher_id: "77777777-7777-4777-8777-777777777779", coefficient: 2, hoursPerWeek: 3, hourlyRate: 3500 },
-        { id: "c5", school_id: targetSchoolId, name: "Anglais", level: "6ème", teacher_id: "77777777-7777-4777-8777-777777777777", coefficient: 2, hoursPerWeek: 3, hourlyRate: 3500 },
-        { id: "c6", school_id: targetSchoolId, name: "Mathématiques", level: "3ème", teacher_id: "77777777-7777-4777-8777-777777777778", coefficient: 3, hoursPerWeek: 4, hourlyRate: 3500 },
-        { id: "c7", school_id: targetSchoolId, name: "Français", level: "3ème", teacher_id: "77777777-7777-4777-8777-777777777779", coefficient: 3, hoursPerWeek: 5, hourlyRate: 3500 }
+        { id: "c1", school_id: targetSchoolId, name: "Mathématiques", level: "6ème", teacher_id: null, coefficient: 3, hoursPerWeek: 4, hourlyRate: 3500 },
+        { id: "c2", school_id: targetSchoolId, name: "Français", level: "6ème", teacher_id: null, coefficient: 3, hoursPerWeek: 5, hourlyRate: 3500 },
+        { id: "c3", school_id: targetSchoolId, name: "SVT", level: "6ème", teacher_id: null, coefficient: 2, hoursPerWeek: 2, hourlyRate: 3500 },
+        { id: "c4", school_id: targetSchoolId, name: "Histoire-Géographie", level: "3ème", teacher_id: null, coefficient: 2, hoursPerWeek: 3, hourlyRate: 3500 },
+        { id: "c5", school_id: targetSchoolId, name: "Anglais", level: "6ème", teacher_id: null, coefficient: 2, hoursPerWeek: 3, hourlyRate: 3500 },
+        { id: "c6", school_id: targetSchoolId, name: "Mathématiques", level: "3ème", teacher_id: null, coefficient: 3, hoursPerWeek: 4, hourlyRate: 3500 },
+        { id: "c7", school_id: targetSchoolId, name: "Français", level: "3ème", teacher_id: null, coefficient: 3, hoursPerWeek: 5, hourlyRate: 3500 }
       ];
       DEFAULT_COURSES.forEach(dc => {
         if (!allCoursesList.some(rc => rc.id === dc.id)) {
@@ -240,24 +260,16 @@ export function SchoolAdminTeachers() {
       });
 
       allCoursesList.forEach((c: any) => {
-        if (c.profiles && isTeacher(c.profiles)) {
+        if (c.profiles && isTeacher(c.profiles) && !isDummyTeacher(c.profiles)) {
           if (!teacherProfiles.some(tp => tp.id === c.profiles.id || (tp.email && tp.email.toLowerCase() === c.profiles.email?.toLowerCase()))) {
             teacherProfiles.push(c.profiles);
           }
         } else if (c.teacher_id) {
-          const matchProfile = rawProfiles.find((p: any) => p.id === c.teacher_id || (p.email && p.email.toLowerCase() === String(c.teacher_id).toLowerCase()));
+          const matchProfile = rawProfiles.find((p: any) => (p.id === c.teacher_id || (p.email && p.email.toLowerCase() === String(c.teacher_id).toLowerCase())) && !isDummyTeacher(p));
           if (matchProfile) {
             if (!teacherProfiles.some(tp => tp.id === matchProfile.id || (tp.email && tp.email.toLowerCase() === matchProfile.email?.toLowerCase()))) {
               teacherProfiles.push(matchProfile);
             }
-          } else if (!teacherProfiles.some(tp => tp.id === c.teacher_id)) {
-            teacherProfiles.push({
-              id: c.teacher_id,
-              full_name: c.teacher_name || `Enseignant (${c.name || 'Cours'})`,
-              email: c.teacher_email || "",
-              role: 'TEACHER',
-              title: 'Permanent'
-            });
           }
         }
       });
@@ -638,6 +650,16 @@ export function SchoolAdminTeachers() {
       if (t.email) {
         await supabase.from('courses').update({ teacher_id: null }).eq('teacher_id', t.email);
       }
+
+      let targetSchoolId = user?.schoolId || localStorage.getItem('edubenin_active_school_id') || "11111111-1111-4111-8111-111111111111";
+      try {
+        const customT = localStorage.getItem(`school_custom_teachers_${targetSchoolId}`);
+        if (customT) {
+          const parsed = JSON.parse(customT).filter((ct: any) => ct.id !== t.id && (!t.email || ct.email?.toLowerCase() !== t.email.toLowerCase()));
+          localStorage.setItem(`school_custom_teachers_${targetSchoolId}`, JSON.stringify(parsed));
+        }
+      } catch (e) {}
+
       fetchData();
     } catch (err: any) {
       alert("Erreur lors de la suppression: " + err.message);

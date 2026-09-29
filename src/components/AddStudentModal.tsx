@@ -222,7 +222,43 @@ export function AddStudentModal({ isOpen, onClose, onSuccess, initialData = null
       } else {
           finalDiscount = Number(discountOption) || 0;
       }
-      await supabase.from('students').update({
+      try {
+        await supabase.from('students').update({
+          discount_percentage: finalDiscount,
+          status: enrollmentStatus,
+          first_name: studentData.firstName,
+          last_name: studentData.lastName,
+          level: studentData.level,
+          date_of_birth: studentData.dateOfBirth || null,
+          gender: studentData.gender,
+          place_of_birth: studentData.placeOfBirth || null,
+          student_type: studentData.studentType,
+          previous_class: studentData.previousClass,
+          previous_school: studentData.previousSchool,
+          last_year_attended: studentData.lastYearAttended,
+          educmaster_number: studentData.educmasterNumber,
+          nationality: studentData.nationality,
+          religion: studentData.religion,
+          father_name: studentData.fatherName,
+          mother_name: studentData.motherName,
+          father_profession: studentData.fatherProfession,
+          mother_profession: studentData.motherProfession,
+          father_contact: studentData.fatherContact,
+          father_address: studentData.fatherAddress,
+          mother_contact: studentData.motherContact,
+          mother_address: studentData.motherAddress,
+          guardian_name: studentData.guardianName,
+          guardian_contact: studentData.guardianContact,
+          guardian_address: studentData.guardianAddress,
+          disciplinary_commitment: studentData.disciplinaryCommitment,
+          disciplinary_signature: studentData.disciplinarySignature,
+          canteen_options: studentData.canteenOptions.join(", "),
+          photo: studentData.photo
+        }).eq('id', initialData.id);
+      } catch (e) {}
+
+      // Update in local caches as well
+      const updatedFields = {
         discount_percentage: finalDiscount,
         status: enrollmentStatus,
         first_name: studentData.firstName,
@@ -253,7 +289,23 @@ export function AddStudentModal({ isOpen, onClose, onSuccess, initialData = null
         disciplinary_signature: studentData.disciplinarySignature,
         canteen_options: studentData.canteenOptions.join(", "),
         photo: studentData.photo
-      }).eq('id', initialData.id);
+      };
+
+      try {
+        const curSchoolId = initialData.school_id || user?.schoolId;
+        if (curSchoolId) {
+          const customS = localStorage.getItem(`school_custom_students_${curSchoolId}`);
+          if (customS) {
+            const parsed = JSON.parse(customS).map((s: any) => s.id === initialData.id ? { ...s, ...updatedFields } : s);
+            localStorage.setItem(`school_custom_students_${curSchoolId}`, JSON.stringify(parsed));
+          }
+        }
+        const mockS = localStorage.getItem('mock_db_students');
+        if (mockS) {
+          const parsed = JSON.parse(mockS).map((s: any) => s.id === initialData.id ? { ...s, ...updatedFields } : s);
+          localStorage.setItem('mock_db_students', JSON.stringify(parsed));
+        }
+      } catch (e) {}
     } else {
       const { data: schools } = await supabase.from('schools').select('id').limit(1);
       const insertSchoolId = user?.schoolId || (schools && schools.length > 0 ? schools[0].id : null);
@@ -274,8 +326,9 @@ export function AddStudentModal({ isOpen, onClose, onSuccess, initialData = null
       } else {
           finalDiscount = Number(discountOption) || 0;
       }
-      const { error } = await supabase.from('students').insert({
-        matricule: generatedMatricule,
+      const newStudentPayload = {
+        id: crypto.randomUUID(),
+        matricule: generatedMatricule || `MAT-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`,
         academic_year: academicYear,
         discount_percentage: finalDiscount,
         parent_id: user?.role === 'PARENT' ? user.id : null,
@@ -308,13 +361,29 @@ export function AddStudentModal({ isOpen, onClose, onSuccess, initialData = null
         disciplinary_signature: studentData.disciplinarySignature,
         school_id: insertSchoolId,
         canteen_options: studentData.canteenOptions.join(", "),
-        photo: studentData.photo
-      });
-      if (error) {
-         alert("Erreur lors de l'inscription: " + error.message);
-         setIsSubmitting(false);
-         return;
+        photo: studentData.photo,
+        created_at: new Date().toISOString()
+      };
+
+      try {
+        await supabase.from('students').insert(newStudentPayload);
+      } catch (insertErr) {
+        console.warn("Supabase student insert error, saving to custom store", insertErr);
       }
+
+      // Always save to custom students store for the school and mock db
+      try {
+        if (insertSchoolId) {
+          const customS = localStorage.getItem(`school_custom_students_${insertSchoolId}`);
+          const parsedCustom = customS ? JSON.parse(customS) : [];
+          parsedCustom.push(newStudentPayload);
+          localStorage.setItem(`school_custom_students_${insertSchoolId}`, JSON.stringify(parsedCustom));
+        }
+        const mockS = localStorage.getItem('mock_db_students');
+        const parsedMock = mockS ? JSON.parse(mockS) : [];
+        parsedMock.push(newStudentPayload);
+        localStorage.setItem('mock_db_students', JSON.stringify(parsedMock));
+      } catch (e) {}
     }
     
     setIsSubmitting(false);

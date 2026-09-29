@@ -114,9 +114,13 @@ export function SchoolAdminDashboard() {
     const params = new URLSearchParams(location.search);
     const tabParam = params.get('tab');
     if (tabParam && ["DASHBOARD", "MEMBERS", "ANNOUNCEMENTS", "SETTINGS", "ACADEMIC", "FEES"].includes(tabParam)) {
-       setActiveTab(tabParam as any);
+       if (user?.role === 'DIRECTOR_OF_STUDIES' && tabParam === 'FEES') {
+         setActiveTab("DASHBOARD");
+       } else {
+         setActiveTab(tabParam as any);
+       }
     }
-  }, [location]);
+  }, [location, user?.role]);
 
   useEffect(() => {
     fetchDashboardData();
@@ -345,12 +349,14 @@ export function SchoolAdminDashboard() {
           >
             Années & Classes
           </button>
-          <button 
-            onClick={() => setActiveTab("FEES")} 
-            className={`px-4 py-2 rounded text-xs whitespace-nowrap shrink-0 font-bold uppercase tracking-wider transition-colors ${activeTab === "FEES" ? "bg-white shadow-sm text-gray-700" : "text-slate-500 hover:text-gray-700"}`}
-          >
-            Frais de scolarité
-          </button>
+          {user?.role !== 'DIRECTOR_OF_STUDIES' && (
+            <button 
+              onClick={() => setActiveTab("FEES")} 
+              className={`px-4 py-2 rounded text-xs whitespace-nowrap shrink-0 font-bold uppercase tracking-wider transition-colors ${activeTab === "FEES" ? "bg-white shadow-sm text-gray-700" : "text-slate-500 hover:text-gray-700"}`}
+            >
+              Frais de scolarité
+            </button>
+          )}
           <button 
             onClick={() => setActiveTab("ANNOUNCEMENTS")} 
             className={`px-4 py-2 rounded text-xs whitespace-nowrap shrink-0 font-bold uppercase tracking-wider transition-colors ${activeTab === "ANNOUNCEMENTS" ? "bg-white shadow-sm text-gray-700" : "text-slate-500 hover:text-gray-700"}`}
@@ -370,11 +376,19 @@ export function SchoolAdminDashboard() {
               <div className="text-3xl font-bold text-gray-700">{students.length}</div>
               <div className="mt-2 text-emerald-600 text-xs font-semibold">Total inscrits</div>
             </div>
-            <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
-              <div className="text-slate-500 text-xs font-medium uppercase mb-2">Recettes (FCFA)</div>
-              <div className="text-3xl font-bold text-gray-700">{totalRevenue.toLocaleString()} FCFA</div>
-              <div className="mt-2 text-slate-400 text-xs">Total cumulé</div>
-            </div>
+            {user?.role !== 'DIRECTOR_OF_STUDIES' ? (
+              <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
+                <div className="text-slate-500 text-xs font-medium uppercase mb-2">Recettes (FCFA)</div>
+                <div className="text-3xl font-bold text-gray-700">{totalRevenue.toLocaleString()} FCFA</div>
+                <div className="mt-2 text-slate-400 text-xs">Total cumulé</div>
+              </div>
+            ) : (
+              <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
+                <div className="text-slate-500 text-xs font-medium uppercase mb-2">Membres du Personnel</div>
+                <div className="text-3xl font-bold text-gray-700">{schoolMembers.length}</div>
+                <div className="mt-2 text-blue-600 text-xs font-semibold">Équipe éducative</div>
+              </div>
+            )}
             <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
               <div className="text-slate-500 text-xs font-medium uppercase mb-2">Classes Actives</div>
               <div className="text-3xl font-bold text-gray-700">14</div>

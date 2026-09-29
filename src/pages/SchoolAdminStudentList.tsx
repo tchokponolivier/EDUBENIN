@@ -45,28 +45,57 @@ export function SchoolAdminStudentList() {
         supabase.from('profiles').select('*')
       ]);
       
+      const isDummyStudent = (s: any) => {
+        if (!s) return false;
+        const id = String(s.id || '');
+        const f = String(s.first_name || s.firstName || '').toLowerCase();
+        const l = String(s.last_name || s.lastName || '').toLowerCase();
+        return id === "s1" || id === "s2" || id === "s3" ||
+               (f === "marc" && l === "dubois") ||
+               (f === "sophie" && l === "dubois") ||
+               (f === "junior" && l === "kodjo");
+      };
+
+      // Purge dummy students from local caches
+      try {
+        const local = localStorage.getItem('mock_db_students');
+        if (local) {
+          const parsed = JSON.parse(local).filter((s: any) => !isDummyStudent(s));
+          localStorage.setItem('mock_db_students', JSON.stringify(parsed));
+        }
+      } catch(e) {}
+
+      try {
+        const customS = localStorage.getItem(`school_custom_students_${targetSchoolId}`);
+        if (customS) {
+          const parsed = JSON.parse(customS).filter((s: any) => !isDummyStudent(s));
+          localStorage.setItem(`school_custom_students_${targetSchoolId}`, JSON.stringify(parsed));
+        }
+      } catch(e) {}
+
       let stList = allStudentsRes.data && Array.isArray(allStudentsRes.data) ? [...allStudentsRes.data] : [];
       try {
         const local = localStorage.getItem('mock_db_students');
         const parsed = local ? JSON.parse(local) : [];
         parsed.forEach((s: any) => {
-          if (!stList.some((existing: any) => existing.id === s.id)) {
+          if (!isDummyStudent(s) && !stList.some((existing: any) => existing.id === s.id)) {
             stList.push(s);
           }
         });
       } catch(e) {}
 
-      // Ensure default students always exist if list is empty or missing
-      const DEFAULT_STUDENTS = [
-        { id: "s1", parent_id: "55555555-5555-4555-8555-555555555555", school_id: targetSchoolId, first_name: "Marc", last_name: "Dubois", level: "6ème", matricule: "2026-001", status: "ACTIVE", gender: "MALE", studentType: "OLD", parent_phone: "+229 97 12 34 56", contacts: "+229 97 12 34 56", academic_year: "2026-2027", created_at: new Date().toISOString() },
-        { id: "s2", parent_id: "55555555-5555-4555-8555-555555555555", school_id: targetSchoolId, first_name: "Sophie", last_name: "Dubois", level: "3ème", matricule: "2026-002", status: "ACTIVE", gender: "FEMALE", studentType: "OLD", parent_phone: "+229 95 44 22 11", contacts: "+229 95 44 22 11", academic_year: "2026-2027", created_at: new Date().toISOString() },
-        { id: "s3", parent_id: "55555555-5555-4555-8555-555555555555", school_id: targetSchoolId, first_name: "Junior", last_name: "Kodjo", level: "Terminale D", matricule: "2026-003", status: "ACTIVE", gender: "MALE", studentType: "NEW", parent_phone: "+229 96 82 79 23", contacts: "+229 96 82 79 23", academic_year: "2026-2027", created_at: new Date().toISOString() }
-      ];
-      DEFAULT_STUDENTS.forEach(ds => {
-        if (!stList.some((existing: any) => existing.id === ds.id)) {
-          stList.push(ds);
-        }
-      });
+      try {
+        const customS = localStorage.getItem(`school_custom_students_${targetSchoolId}`);
+        const parsedCustom = customS ? JSON.parse(customS) : [];
+        parsedCustom.forEach((s: any) => {
+          if (!isDummyStudent(s) && !stList.some((existing: any) => existing.id === s.id)) {
+            stList.push(s);
+          }
+        });
+      } catch(e) {}
+
+      // Keep only non-dummy students belonging to this school
+      stList = stList.filter(s => !isDummyStudent(s) && (!s.school_id || s.school_id === targetSchoolId));
 
       let coursesList = coursesRes.data && Array.isArray(coursesRes.data) ? [...coursesRes.data] : [];
       try {

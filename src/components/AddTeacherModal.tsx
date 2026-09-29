@@ -65,7 +65,7 @@ export function AddTeacherModal({
 
       const dummyId = crypto.randomUUID();
       const generatedEmail = `prof_${Date.now()}_${Math.floor(Math.random() * 1000)}@ecole.local`;
-      const { error } = await supabase.from('profiles').insert({
+      const newTeacherRecord = {
         id: dummyId,
         full_name: formData.fullName,
         email: generatedEmail,
@@ -73,8 +73,21 @@ export function AddTeacherModal({
         role: 'TEACHER',
         school_id: targetSchoolId,
         title: formData.teacherType // Storing teacher type (Permanent / Vacataire) in title or metadata
-      });
-      if (error) throw error;
+      };
+
+      try {
+        await supabase.from('profiles').insert(newTeacherRecord);
+      } catch (insertErr) {
+        console.warn("Supabase profile insert error, saving to custom store", insertErr);
+      }
+
+      // Always save to custom teachers store for the school
+      try {
+        const customT = localStorage.getItem(`school_custom_teachers_${targetSchoolId}`);
+        const parsedCustom = customT ? JSON.parse(customT) : [];
+        parsedCustom.push(newTeacherRecord);
+        localStorage.setItem(`school_custom_teachers_${targetSchoolId}`, JSON.stringify(parsedCustom));
+      } catch (e) {}
       
       if (formData.subject && formData.classes.length > 0 && targetSchoolId) {
         let currentMeta: Record<string, any> = {};

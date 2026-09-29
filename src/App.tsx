@@ -63,7 +63,7 @@ function RoleRouter() {
     case 'PARENT': return <Navigate to="/parent" replace />;
     case 'TEACHER': return <Navigate to="/teacher" replace />;
     case 'SUPERVISOR': return <Navigate to="/supervisor" replace />;
-    case 'DIRECTOR_OF_STUDIES': return <Navigate to="/director" replace />;
+    case 'DIRECTOR_OF_STUDIES': return <Navigate to="/school-admin" replace />;
     case 'DELETED': return (
        <div className="min-h-screen flex items-center justify-center bg-slate-50 p-4 text-center">
          <div className="bg-white p-8 rounded-xl shadow-sm border border-slate-200 max-w-sm">
@@ -102,13 +102,13 @@ export default function App() {
           
           <Route path="/super-admin/*" element={<ProtectedRoute allowedRoles={['SUPER_ADMIN']}><SuperAdminDashboard /></ProtectedRoute>} />
           <Route path="/school-admin/onboarding" element={<ProtectedRoute allowedRoles={['SCHOOL_ADMIN']} withLayout={false}><SchoolOnboarding /></ProtectedRoute>} />
-          <Route path="/school-admin" element={<ProtectedRoute allowedRoles={['SCHOOL_ADMIN']}><SchoolAdminDashboard /></ProtectedRoute>} />
-          <Route path="/school-admin/payments" element={<ProtectedRoute allowedRoles={['SCHOOL_ADMIN', 'CASHIER', 'DIRECTOR_OF_STUDIES']}><SchoolAdminPayments /></ProtectedRoute>} />
+          <Route path="/school-admin" element={<ProtectedRoute allowedRoles={['SCHOOL_ADMIN', 'DIRECTOR_OF_STUDIES']}><SchoolAdminDashboard /></ProtectedRoute>} />
+          <Route path="/school-admin/payments" element={<ProtectedRoute allowedRoles={['SCHOOL_ADMIN', 'CASHIER']}><SchoolAdminPayments /></ProtectedRoute>} />
           <Route path="/school-admin/students" element={<ProtectedRoute allowedRoles={['SCHOOL_ADMIN', 'SECRETARY', 'CASHIER', 'DIRECTOR_OF_STUDIES']}><SchoolAdminStudents /></ProtectedRoute>} />
           <Route path="/school-admin/students-list" element={<ProtectedRoute allowedRoles={['SCHOOL_ADMIN', 'SECRETARY', 'CASHIER', 'DIRECTOR_OF_STUDIES']}><SchoolAdminStudentList /></ProtectedRoute>} />
           <Route path="/school-admin/teachers" element={<ProtectedRoute allowedRoles={['SCHOOL_ADMIN', 'SECRETARY', 'CASHIER', 'DIRECTOR_OF_STUDIES']}><SchoolAdminTeachers /></ProtectedRoute>} />
           <Route path="/school-admin/stats" element={<ProtectedRoute allowedRoles={['SCHOOL_ADMIN', 'DIRECTOR_OF_STUDIES']}><SchoolAdminStats /></ProtectedRoute>} />
-          <Route path="/school-admin/prospectus" element={<ProtectedRoute allowedRoles={['SCHOOL_ADMIN', 'CASHIER']}><ParentProspectus /></ProtectedRoute>} />
+          <Route path="/school-admin/prospectus" element={<ProtectedRoute allowedRoles={['SCHOOL_ADMIN', 'CASHIER', 'DIRECTOR_OF_STUDIES']}><ParentProspectus /></ProtectedRoute>} />
           <Route path="/school-admin/bulletins" element={<ProtectedRoute allowedRoles={['SCHOOL_ADMIN', 'DIRECTOR_OF_STUDIES', 'SECRETARY']}><DirectorBulletins /></ProtectedRoute>} />
           
           <Route path="/parent" element={<ProtectedRoute allowedRoles={['PARENT']}><ParentDashboard /></ProtectedRoute>} />

@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { useAuth } from "../lib/auth";
 import { useNavigate } from "react-router-dom";
 import { EduBeninLogo } from "../components/Logo";
+import { formatErrorMessage } from "../lib/errorHandler";
 import { Facebook, Globe, Smartphone, X } from "lucide-react";
 
 export function LoginPage() {
@@ -46,7 +47,7 @@ export function LoginPage() {
         setError("");
         await loginWithGoogle();
       } catch (err: any) {
-        setError("Erreur de connexion via Google. Avez-vous configuré Supabase ?");
+        setError(formatErrorMessage(err));
       }
     }
   };

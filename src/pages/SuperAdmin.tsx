@@ -1,10 +1,13 @@
 
 import React, { useState, useEffect } from "react";
 import { supabase } from "../lib/supabase";
-import { School, Building, Users, User, AlertCircle, Plus, Edit2, Trash2, Mail, X, CheckCircle, Search, Shield, Activity, DollarSign, GraduationCap, BarChart } from "lucide-react";
+import { useToast } from "../lib/toast";
+import { formatErrorMessage } from "../lib/errorHandler";
+import { School, Building, Users, User, AlertCircle, Plus, Edit2, Trash2, Mail, X, CheckCircle, Search, Shield, Activity, DollarSign, GraduationCap, BarChart, Database, Copy, Check, AlertTriangle, ExternalLink } from "lucide-react";
 import { BarChart as RechartsBarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 
 export function SuperAdminDashboard() {
+  const toast = useToast();
   const [activeTab, setActiveTab] = useState<"DASHBOARD" | "SCHOOLS" | "USERS">("DASHBOARD");
   const [globalStats, setGlobalStats] = useState({ totalStudents: 0, totalPayments: 0, schoolStats: [] as any[] });
   const [schools, setSchools] = useState<any[]>([]);
@@ -26,6 +29,87 @@ export function SuperAdminDashboard() {
   const [editingProfile, setEditingProfile] = useState<any>(null);
   const [profileRole, setProfileRole] = useState("");
   const [profileSchoolId, setProfileSchoolId] = useState<string | null>(null);
+
+  // Database Reset Modal
+  const [showResetModal, setShowResetModal] = useState(false);
+  const [resetConfirmInput, setResetConfirmInput] = useState("");
+  const [isResetting, setIsResetting] = useState(false);
+  const [copySuccess, setCopySuccess] = useState(false);
+
+  const SQL_RESET_SCRIPT = `-- =========================================================================
+-- SCRIPT DE RÉINITIALISATION COMPLÈTE DE LA BASE DE DONNÉES SUPABASE (EDU-BENIN)
+-- À exécuter dans : Supabase Dashboard -> SQL Editor -> New Query -> Run
+-- =========================================================================
+
+-- 1. VIDER TOUTES LES TABLES DE DONNÉES DE L'APPLICATION (AVEC CASCADE)
+TRUNCATE TABLE 
+  public.payments,
+  public.students,
+  public.courses,
+  public.timetables,
+  public.grades,
+  public.attendance,
+  public.announcements,
+  public.invitations,
+  public.academic_years,
+  public.fee_config,
+  public.school_fees,
+  public.profiles,
+  public.schools
+CASCADE;
+
+-- 2. SUPPRIMER TOUS LES UTILISATEURS D'AUTHENTIFICATION SUPABASE (GOOGLE & EMAIL)
+DELETE FROM auth.users;`;
+
+  const handleCopySql = () => {
+    navigator.clipboard.writeText(SQL_RESET_SCRIPT);
+    setCopySuccess(true);
+    toast.success("Script SQL copié dans le presse-papier !");
+    setTimeout(() => setCopySuccess(false), 3000);
+  };
+
+  const handleExecuteAppWipe = async () => {
+    if (resetConfirmInput.trim().toUpperCase() !== "REINITIALISER") {
+      toast.error("Veuillez saisir le mot REINITIALISER pour confirmer la suppression.");
+      return;
+    }
+
+    setIsResetting(true);
+    try {
+      // Clear all public tables via API
+      await Promise.allSettled([
+        supabase.from('payments').delete().neq('id', '00000000-0000-0000-0000-000000000000'),
+        supabase.from('students').delete().neq('id', '00000000-0000-0000-0000-000000000000'),
+        supabase.from('courses').delete().neq('id', '00000000-0000-0000-0000-000000000000'),
+        supabase.from('invitations').delete().neq('id', '00000000-0000-0000-0000-000000000000'),
+        supabase.from('announcements').delete().neq('id', '00000000-0000-0000-0000-000000000000'),
+        supabase.from('academic_years').delete().neq('id', '00000000-0000-0000-0000-000000000000'),
+        supabase.from('fee_config').delete().neq('id', '00000000-0000-0000-0000-000000000000'),
+        supabase.from('schools').delete().neq('id', '00000000-0000-0000-0000-000000000000')
+      ]);
+
+      // Clear all local storage caches
+      try {
+        const keysToRemove = [];
+        for (let i = 0; i < localStorage.length; i++) {
+          const k = localStorage.key(i);
+          if (k && (k.startsWith('school_') || k.startsWith('mock_db_') || k.startsWith('schoolSettings_') || k === 'edubenin_active_school_id')) {
+            keysToRemove.push(k);
+          }
+        }
+        keysToRemove.forEach(k => localStorage.removeItem(k));
+      } catch (e) {}
+
+      toast.success("Les données de l'application et les mémoires locales ont été vidées avec succès !");
+      setShowResetModal(false);
+      setResetConfirmInput("");
+      fetchData();
+    } catch (err: any) {
+      toast.error(formatErrorMessage(err), "Erreur de réinitialisation");
+    } finally {
+      setIsResetting(false);
+    }
+  };
 
   useEffect(() => {
     fetchData();
@@ -88,56 +172,113 @@ export function SuperAdminDashboard() {
     }
   };
 
-  const handleDeleteSchool = async (id: string) => {
-    if (window.confirm("Êtes-vous sûr de vouloir supprimer cet établissement ? Cette action est irréversible et supprimera toutes les données associées.")) {
+  const handleDeleteSchool = async (id: string, schoolName?: string) => {
+    if (!window.confirm(`Êtes-vous sûr de vouloir supprimer l'établissement "${schoolName || 'cet établissement'}" ?\n\nToutes les données associées (élèves, paiements, cours, invitations) seront nettoyées et les directeurs/membres devront reconfigurer leur école.`)) {
+      return;
+    }
+    setLoading(true);
+    try {
+      // 1. Unlink all profiles associated with this school
+      await supabase.from('profiles').update({ school_id: null }).eq('school_id', id);
+
+      // 2. Delete related records
+      await Promise.allSettled([
+        supabase.from('students').delete().eq('school_id', id),
+        supabase.from('courses').delete().eq('school_id', id),
+        supabase.from('payments').delete().eq('school_id', id),
+        supabase.from('invitations').delete().eq('school_id', id),
+        supabase.from('announcements').delete().eq('school_id', id),
+        supabase.from('academic_years').delete().eq('school_id', id),
+        supabase.from('fee_config').delete().eq('school_id', id)
+      ]);
+
+      // 3. Delete the school itself
       const { error } = await supabase.from('schools').delete().eq('id', id);
-      if (!error) fetchData();
+      if (error) throw error;
+
+      // 4. Clean local caches
+      try {
+        if (localStorage.getItem('edubenin_active_school_id') === id) {
+          localStorage.removeItem('edubenin_active_school_id');
+        }
+        localStorage.removeItem(`schoolSettings_extra_${id}`);
+        localStorage.removeItem(`school_custom_students_${id}`);
+        localStorage.removeItem(`school_custom_teachers_${id}`);
+        localStorage.removeItem(`school_courses_meta_${id}`);
+      } catch (e) {}
+
+      toast.success(`L'établissement "${schoolName || ''}" a été supprimé avec succès. Les directeurs associés pourront désormais reconfigurer leur école.`);
+      fetchData();
+    } catch (err: any) {
+      toast.error(formatErrorMessage(err), "Erreur de suppression");
+    } finally {
+      setLoading(false);
     }
   };
 
   const handleInviteUser = async (e: React.FormEvent) => {
     e.preventDefault();
-    const { error } = await supabase.from('invitations').insert([{
-      school_id: inviteSchoolId,
-      email: inviteEmail,
-      role: inviteRole
-    }]);
-    if (!error) {
-      alert("Invitation préparée pour " + inviteEmail);
+    try {
+      const { error } = await supabase.from('invitations').insert([{
+        school_id: inviteSchoolId,
+        email: inviteEmail.trim().toLowerCase(),
+        role: inviteRole
+      }]);
+      if (error) throw error;
+      toast.success("Invitation enregistrée pour " + inviteEmail);
       setShowInviteModal(false);
       setInviteEmail("");
-    } else {
-      alert("Erreur lors de l'invitation (peut-être existe-t-elle déjà ?)");
+    } catch (err: any) {
+      toast.error(formatErrorMessage(err), "Erreur lors de l'invitation");
     }
   };
 
   const handleDeleteUser = async (userId: string, schoolId: string) => {
     if (window.confirm("Retirer cet utilisateur de l'établissement ?")) {
-      const { error } = await supabase.from('profiles').update({ school_id: null, role: 'PARENT' }).eq('id', userId);
-      if (!error) fetchData();
+      try {
+        const { error } = await supabase.from('profiles').update({ school_id: null, role: 'PARENT' }).eq('id', userId);
+        if (error) throw error;
+        toast.success("Utilisateur retiré de l'établissement avec succès.");
+        fetchData();
+      } catch (err: any) {
+        toast.error(formatErrorMessage(err), "Erreur");
+      }
     }
   };
 
   const handleSaveProfileRole = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingProfile) return;
-    const { error } = await supabase.from('profiles').update({
-      role: profileRole,
-      school_id: profileSchoolId === "" ? null : profileSchoolId
-    }).eq('id', editingProfile.id);
-    
-    if (!error) {
+    try {
+      const { error } = await supabase.from('profiles').update({
+        role: profileRole,
+        school_id: profileSchoolId === "" ? null : profileSchoolId
+      }).eq('id', editingProfile.id);
+      
+      if (error) throw error;
+      toast.success("Profil mis à jour avec succès.");
       fetchData();
       setShowRoleModal(false);
-    } else {
-      alert("Erreur lors de la mise à jour");
+    } catch (err: any) {
+      toast.error(formatErrorMessage(err), "Erreur de mise à jour");
     }
   };
 
-  const completelyDeleteProfile = async (id: string) => {
-    if (window.confirm("Êtes-vous sûr de vouloir SUPPRIMER DÉFINITIVEMENT ce compte utilisateur ?")) {
-      const { error } = await supabase.from('profiles').delete().eq('id', id);
-      if (!error) fetchData();
+  const completelyDeleteProfile = async (id: string, userEmail?: string) => {
+    if (window.confirm(`Êtes-vous sûr de vouloir SUPPRIMER DÉFINITIVEMENT le profil de ${userEmail || 'cet utilisateur'} ?`)) {
+      try {
+        const { error } = await supabase.from('profiles').delete().eq('id', id);
+        if (error) throw error;
+
+        if (userEmail) {
+          await supabase.from('invitations').delete().eq('email', userEmail.toLowerCase());
+        }
+
+        toast.success("Profil utilisateur supprimé avec succès.");
+        fetchData();
+      } catch (err: any) {
+        toast.error(formatErrorMessage(err), "Erreur lors de la suppression");
+      }
     }
   };
 
@@ -148,11 +289,17 @@ export function SuperAdminDashboard() {
 
   return (
     <div className="flex flex-col gap-6 animate-in fade-in">
-      <div className="flex justify-between items-start">
+      <div className="flex justify-between items-start gap-4 flex-wrap">
         <div>
           <h1 className="text-2xl font-bold text-gray-800">Espace Super Admin</h1>
           <p className="text-slate-500 mt-1">Gérez tous les établissements et utilisateurs de la plateforme EduBénin.</p>
         </div>
+        <button
+          onClick={() => setShowResetModal(true)}
+          className="flex items-center gap-2 bg-red-600 hover:bg-red-700 text-white px-3.5 py-2.5 rounded-lg text-xs font-bold uppercase tracking-wider transition shadow-sm"
+        >
+          <Database size={15} /> Réinitialisation Base de Données
+        </button>
       </div>
 
       <div className="flex gap-2 border-b border-slate-200">
@@ -315,7 +462,7 @@ export function SuperAdminDashboard() {
                               <Edit2 size={14} />
                             </button>
                             <button 
-                              onClick={() => handleDeleteSchool(school.id)}
+                              onClick={() => handleDeleteSchool(school.id, school.name)}
                               className="p-1.5 text-slate-400 hover:text-red-600 bg-white border border-slate-200 rounded shadow-sm hover:border-red-200"
                               title="Supprimer l'établissement"
                             >
@@ -394,7 +541,7 @@ export function SuperAdminDashboard() {
                           </button>
                           {p.role !== 'SUPER_ADMIN' && (
                             <button 
-                              onClick={() => completelyDeleteProfile(p.id)}
+                              onClick={() => completelyDeleteProfile(p.id, p.email || p.full_name)}
                               className="p-1.5 text-slate-400 hover:text-red-600 bg-white border border-slate-200 rounded shadow-sm hover:border-red-200"
                               title="Supprimer définitivement l'utilisateur"
                             >
@@ -541,6 +688,122 @@ export function SuperAdminDashboard() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Réinitialisation Complète de la Base de Données */}
+      {showResetModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl overflow-hidden animate-in zoom-in-95 max-h-[92vh] flex flex-col border border-slate-200">
+            {/* Modal Header */}
+            <div className="p-5 border-b border-red-100 bg-red-50 flex justify-between items-center text-red-900">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-red-100 text-red-600 rounded-xl">
+                  <Database size={22} />
+                </div>
+                <div>
+                  <h3 className="font-bold text-lg text-red-950">Réinitialisation de la Base de Données</h3>
+                  <p className="text-xs text-red-700 mt-0.5">Procédure de remise à zéro totale pour Supabase et l'application</p>
+                </div>
+              </div>
+              <button 
+                onClick={() => { setShowResetModal(false); setResetConfirmInput(""); }}
+                className="text-red-400 hover:text-red-700 p-1 rounded-lg transition"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            <div className="p-6 overflow-y-auto space-y-6 text-sm">
+              {/* Info banner */}
+              <div className="bg-amber-50 border border-amber-200 p-4 rounded-xl flex items-start gap-3 text-amber-900">
+                <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+                <div className="text-xs leading-relaxed">
+                  <strong>Attention :</strong> Lorsque vous supprimez une école ou des membres dans l'application, les comptes d'authentification Google sont enregistrés dans la table interne sécurisée <code>auth.users</code> de Supabase. Pour que la connexion Google et le formulaire de configuration d'école soient entièrement redemandés, vous devez exécuter le script SQL ci-dessous dans votre console Supabase.
+                </div>
+              </div>
+
+              {/* Step 1: SQL Script for Supabase (Primary Solution) */}
+              <div className="border border-slate-200 rounded-xl p-5 bg-slate-50">
+                <div className="flex justify-between items-start mb-2">
+                  <div>
+                    <h4 className="font-bold text-gray-800 text-sm flex items-center gap-2">
+                      <span className="w-5 h-5 rounded-full bg-emerald-600 text-white text-[10px] flex items-center justify-center font-bold">1</span>
+                      Script SQL Officiel Supabase (Remise à Zéro Totale)
+                    </h4>
+                    <p className="text-xs text-slate-500 mt-1">
+                      Exécutez ce script dans votre tableau de bord Supabase pour vider toutes les tables et effacer les sessions Google.
+                    </p>
+                  </div>
+                  <button
+                    onClick={handleCopySql}
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold transition shadow-sm"
+                  >
+                    {copySuccess ? <Check size={14} /> : <Copy size={14} />}
+                    {copySuccess ? "Copié !" : "Copier le script SQL"}
+                  </button>
+                </div>
+
+                <div className="mt-3 relative">
+                  <pre className="bg-slate-900 text-slate-200 p-4 rounded-lg text-xs font-mono overflow-x-auto max-h-48 leading-relaxed border border-slate-800">
+                    {SQL_RESET_SCRIPT}
+                  </pre>
+                </div>
+
+                <div className="mt-3 text-xs text-slate-600 space-y-1 bg-white p-3 rounded-lg border border-slate-200">
+                  <p className="font-semibold text-gray-700">Guide rapide d'exécution :</p>
+                  <ol className="list-decimal list-inside space-y-1 text-slate-600">
+                    <li>Allez sur votre tableau de bord Supabase (<a href="https://supabase.com/dashboard" target="_blank" rel="noreferrer" className="text-emerald-600 underline font-medium inline-flex items-center gap-0.5">supabase.com/dashboard <ExternalLink size={10} /></a>).</li>
+                    <li>Cliquez sur <strong>SQL Editor</strong> dans le menu de gauche.</li>
+                    <li>Cliquez sur <strong>New query</strong>, collez le script ci-dessus et cliquez sur <strong>Run</strong>.</li>
+                    <li>Tous les comptes Google, profils et données scolaires seront effacés. Le directeur qui se connectera sera invité à choisir son compte Google et à configurer son école de zéro !</li>
+                  </ol>
+                </div>
+              </div>
+
+              {/* Step 2: Instant App Data Wipe */}
+              <div className="border border-red-200 rounded-xl p-5 bg-red-50/50">
+                <h4 className="font-bold text-red-900 text-sm flex items-center gap-2 mb-1">
+                  <span className="w-5 h-5 rounded-full bg-red-600 text-white text-[10px] flex items-center justify-center font-bold">2</span>
+                  Vider les Données Applicatives & le Stockage Local
+                </h4>
+                <p className="text-xs text-red-700 mb-4">
+                  Cette action supprime toutes les données des écoles, élèves, cours, paiements accessibles via l'application et vide le cache local du navigateur.
+                </p>
+
+                <div className="space-y-3">
+                  <label className="block text-xs font-bold text-gray-700">
+                    Pour confirmer cette action irréversible, tapez <span className="font-mono bg-red-100 text-red-800 px-1 py-0.5 rounded">REINITIALISER</span> ci-dessous :
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="Tapez REINITIALISER"
+                    value={resetConfirmInput}
+                    onChange={e => setResetConfirmInput(e.target.value)}
+                    className="w-full px-3 py-2 border border-red-300 rounded-lg text-xs font-mono focus:ring-2 focus:ring-red-500 outline-none uppercase"
+                  />
+                  <div className="flex justify-end gap-2 pt-2">
+                    <button
+                      type="button"
+                      onClick={() => { setShowResetModal(false); setResetConfirmInput(""); }}
+                      className="px-4 py-2 border border-slate-300 rounded-lg text-xs font-bold text-slate-700 hover:bg-slate-50 transition"
+                    >
+                      Fermer
+                    </button>
+                    <button
+                      type="button"
+                      disabled={resetConfirmInput.trim().toUpperCase() !== "REINITIALISER" || isResetting}
+                      onClick={handleExecuteAppWipe}
+                      className="px-4 py-2 bg-red-600 hover:bg-red-700 disabled:opacity-50 text-white rounded-lg text-xs font-bold uppercase tracking-wider transition shadow-sm flex items-center gap-2"
+                    >
+                      <Trash2 size={14} />
+                      {isResetting ? "Suppression en cours..." : "Vider les Données Applicatives"}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       )}

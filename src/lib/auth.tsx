@@ -127,11 +127,11 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           }
         }
 
-        const { data: profile, error } = await supabase
+        const { data: profile } = await supabase
           .from('profiles')
           .select('role, full_name, school_id, avatar_url')
           .eq('id', sessionUser.id)
-          .single();
+          .maybeSingle();
 
         if (profile) {
           if (sessionUser.email === 'contact.tchok@gmail.com' && profile.role !== 'SUPER_ADMIN') {
@@ -141,22 +141,38 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           }
 
           let resolvedSchoolId = profile.school_id;
-          if (!resolvedSchoolId && profile.role !== 'SUPER_ADMIN' && profile.role !== 'PARENT') {
+          
+          // Verify if the assigned school actually exists in schools table
+          if (resolvedSchoolId) {
             try {
-              const { data: firstSchool } = await supabase.from('schools').select('id').order('created_at', { ascending: false }).limit(1).maybeSingle();
-              if (firstSchool?.id) {
-                resolvedSchoolId = firstSchool.id;
-                await supabase.from('profiles').update({ school_id: resolvedSchoolId }).eq('id', sessionUser.id);
-                localStorage.setItem('edubenin_active_school_id', resolvedSchoolId);
-              } else if (realSchoolId) {
-                resolvedSchoolId = realSchoolId;
-                localStorage.setItem('edubenin_active_school_id', realSchoolId);
+              const { data: existingSchool } = await supabase.from('schools').select('id').eq('id', resolvedSchoolId).maybeSingle();
+              if (!existingSchool) {
+                // School was deleted by Super Admin!
+                resolvedSchoolId = null;
+                localStorage.removeItem('edubenin_active_school_id');
+                await supabase.from('profiles').update({ school_id: null }).eq('id', sessionUser.id);
               }
             } catch (e) {}
           }
 
-          if (!resolvedSchoolId && profile.role !== 'SUPER_ADMIN' && profile.role !== 'PARENT') {
-            resolvedSchoolId = localStorage.getItem('edubenin_active_school_id') || realSchoolId || "11111111-1111-4111-8111-111111111111";
+          // ONLY for staff (non-director), if schoolId is missing, check active school
+          if (!resolvedSchoolId && profile.role !== 'SUPER_ADMIN' && profile.role !== 'PARENT' && profile.role !== 'SCHOOL_ADMIN') {
+            const activeFallback = localStorage.getItem('edubenin_active_school_id');
+            if (activeFallback) {
+              resolvedSchoolId = activeFallback;
+            }
+          }
+
+          // If SCHOOL_ADMIN has no school (new or school deleted), do NOT invent a fallback school!
+          // Leave resolvedSchoolId undefined so onboarding is properly triggered.
+          const finalSchoolId = (profile.role === 'SUPER_ADMIN' || profile.role === 'PARENT' || (profile.role === 'SCHOOL_ADMIN' && !resolvedSchoolId)) 
+            ? undefined 
+            : (resolvedSchoolId || undefined);
+
+          if (finalSchoolId) {
+            localStorage.setItem('edubenin_active_school_id', finalSchoolId);
+          } else if (profile.role === 'SCHOOL_ADMIN') {
+            localStorage.removeItem('edubenin_active_school_id');
           }
 
           setUser({
@@ -164,19 +180,24 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
             email: sessionUser.email || "",
             name: profile.full_name || sessionUser.user_metadata?.full_name || sessionUser.email?.split("@")[0] || "User",
             role: profile.role as any,
-            schoolId: resolvedSchoolId,
+            schoolId: finalSchoolId,
             avatar: profile.avatar_url,
           });
         } else {
-          // Fallback if profile not created yet
-          let fallbackSchoolId = realSchoolId || localStorage.getItem('edubenin_active_school_id') || "11111111-1111-4111-8111-111111111111";
-          const chosenRole = getRoleForSupabaseUser(sessionUser.email || "");
+          // Profile was deleted or not created yet
+          const chosenRole = (localStorage.getItem("pending_google_role") as any) || getRoleForSupabaseUser(sessionUser.email || "");
+          
+          // If SCHOOL_ADMIN or PARENT or SUPER_ADMIN, schoolId MUST be undefined to prompt onboarding/setup
+          const fallbackSchoolId = (chosenRole === 'SCHOOL_ADMIN' || chosenRole === 'SUPER_ADMIN' || chosenRole === 'PARENT') 
+            ? undefined 
+            : (localStorage.getItem('edubenin_active_school_id') || undefined);
+
           setUser({
             id: sessionUser.id,
             email: sessionUser.email || "",
             name: sessionUser.user_metadata?.full_name || sessionUser.email?.split("@")[0] || "User",
             role: chosenRole,
-            schoolId: (chosenRole === 'SUPER_ADMIN' || chosenRole === 'PARENT') ? undefined : fallbackSchoolId,
+            schoolId: fallbackSchoolId,
           });
         }
       } catch (err) {
@@ -225,6 +246,9 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       provider: 'google',
       options: {
         redirectTo: window.location.origin,
+        queryParams: {
+          prompt: 'select_account'
+        }
       }
     });
     if (error) {
@@ -233,7 +257,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     }
   };
 
-  
   const login = async (email: string, fullName?: string, password?: string, role?: string) => {
     let foundUser = MOCK_USERS[email];
     let mockPassword = password || "password123";
@@ -296,10 +319,14 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   };
 
   const logout = async () => {
-    await supabase.auth.signOut();
+    try {
+      await supabase.auth.signOut();
+    } catch (e) {}
     setUser(null);
     localStorage.removeItem("edubenin_auth");
     localStorage.removeItem("is_test_account");
+    localStorage.removeItem("edubenin_active_school_id");
+    localStorage.removeItem("pending_google_role");
   };
 
   return (

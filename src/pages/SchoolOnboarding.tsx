@@ -36,16 +36,23 @@ export function SchoolOnboarding() {
 
       if (schoolError) throw schoolError;
 
-      // 2. Update the profile with the new school_id
-      const { error: profileError } = await supabase
-        .from('profiles')
-        .update({ school_id: school.id, role: 'SCHOOL_ADMIN', full_name: formData.directorName })
-        .eq('id', user?.id);
+      // 2. Upsert the profile with the new school_id (creates or updates if previously deleted)
+      if (user?.id) {
+        const { error: profileError } = await supabase
+          .from('profiles')
+          .upsert({
+            id: user.id,
+            email: user.email,
+            school_id: school.id,
+            role: 'SCHOOL_ADMIN',
+            full_name: formData.directorName || user.name
+          });
 
-      if (profileError) throw profileError;
+        if (profileError) throw profileError;
+      }
 
-      // 3. Update local auth context
-      // We can force a page reload or call a refresh function. 
+      // 3. Update local active school ID cache
+      localStorage.setItem('edubenin_active_school_id', school.id);
       window.location.href = "/dashboard";
       
     } catch (err: any) {

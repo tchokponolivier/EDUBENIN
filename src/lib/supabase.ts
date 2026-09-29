@@ -60,46 +60,94 @@ class MockQueryBuilder {
     const storageKey = `mock_db_${this.table}`;
     let data = JSON.parse(localStorage.getItem(storageKey) || '[]');
     
-    // Auto-seed some data so UI isn't completely empty for tests
-    if (data.length === 0) {
-      if (this.table === 'schools') {
-        data.push({ id: "11111111-1111-4111-8111-111111111111", name: "Lycée d'Excellence (Test)", locality: "Cotonou", contacts: "+229 00000000" });
-      } else if (this.table === 'profiles') {
-        data.push(
-          { id: "22222222-2222-4222-8222-222222222222", full_name: "Directeur Test", role: "SCHOOL_ADMIN", school_id: "11111111-1111-4111-8111-111111111111", email: "admin@school.com" },
-          { id: "33333333-3333-4333-8333-333333333333", full_name: "Caissier Test", role: "CASHIER", school_id: "11111111-1111-4111-8111-111111111111", email: "caisse@school.com" },
-          { id: "44444444-4444-4444-8444-444444444444", full_name: "Secrétaire Test", role: "SECRETARY", school_id: "11111111-1111-4111-8111-111111111111", email: "secretary@school.com" },
-          { id: "55555555-5555-4555-8555-555555555555", full_name: "Parent Test", role: "PARENT", email: "parent@mail.com" },
-          { id: "66666666-6666-4666-8666-666666666666", full_name: "Dir. Études Test", role: "DIRECTOR_OF_STUDIES", school_id: "11111111-1111-4111-8111-111111111111", email: "director@school.com" },
-          { id: "77777777-7777-4777-8777-777777777777", full_name: "Professeur Test", role: "TEACHER", school_id: "11111111-1111-4111-8111-111111111111", email: "prof@school.com" }
-        );
-      } else if (this.table === 'invitations') {
-        data.push(
-          { id: "inv_1", email: "prof.maths@ecole.com", role: "TEACHER", school_id: "11111111-1111-4111-8111-111111111111", created_at: new Date(Date.now() - 2 * 24 * 3600 * 1000).toISOString() },
-          { id: "inv_2", email: "prof.francais@ecole.com", role: "TEACHER", school_id: "11111111-1111-4111-8111-111111111111", created_at: new Date(Date.now() - 5 * 24 * 3600 * 1000).toISOString() },
-          { id: "inv_3", email: "prof.svt@ecole.com", role: "TEACHER", school_id: "11111111-1111-4111-8111-111111111111", created_at: new Date(Date.now() - 7 * 24 * 3600 * 1000).toISOString() }
-        );
-      } else if (this.table === 'students') {
-        data.push(
-          { id: "s1", parent_id: "55555555-5555-4555-8555-555555555555", school_id: "11111111-1111-4111-8111-111111111111", first_name: "Marc", last_name: "Dubois", level: "6ème", matricule: "2026-001", status: "ACTIVE", gender: "MALE", studentType: "OLD", parent_phone: "+229 97 12 34 56", contacts: "+229 97 12 34 56", created_at: new Date().toISOString() },
-          { id: "s2", parent_id: "55555555-5555-4555-8555-555555555555", school_id: "11111111-1111-4111-8111-111111111111", first_name: "Sophie", last_name: "Dubois", level: "3ème", matricule: "2026-002", status: "ACTIVE", gender: "FEMALE", studentType: "OLD", parent_phone: "+229 95 44 22 11", contacts: "+229 95 44 22 11", created_at: new Date().toISOString() },
-          { id: "s3", parent_id: "55555555-5555-4555-8555-555555555555", school_id: "11111111-1111-4111-8111-111111111111", first_name: "Junior", last_name: "Kodjo", level: "Terminale D", matricule: "2026-003", status: "ACTIVE", gender: "MALE", studentType: "NEW", parent_phone: "+229 96 82 79 23", contacts: "+229 96 82 79 23", created_at: new Date().toISOString() }
-        );
-      } else if (this.table === 'fee_config') {
+    // Ensure default test data always exists and is merged if missing
+    if (this.table === 'schools') {
+      const defaultSchool = { id: "11111111-1111-4111-8111-111111111111", name: "Lycée d'Excellence (Test)", locality: "Cotonou", contacts: "+229 00000000" };
+      if (!data.some((s: any) => s.id === defaultSchool.id)) {
+        data.unshift(defaultSchool);
+        localStorage.setItem(storageKey, JSON.stringify(data));
+      }
+    } else if (this.table === 'profiles') {
+      const defaultProfiles = [
+        { id: "22222222-2222-4222-8222-222222222222", full_name: "Directeur Test", role: "SCHOOL_ADMIN", school_id: "11111111-1111-4111-8111-111111111111", email: "admin@school.com" },
+        { id: "33333333-3333-4333-8333-333333333333", full_name: "Caissier Test", role: "CASHIER", school_id: "11111111-1111-4111-8111-111111111111", email: "caisse@school.com" },
+        { id: "44444444-4444-4444-8444-444444444444", full_name: "Secrétaire Test", role: "SECRETARY", school_id: "11111111-1111-4111-8111-111111111111", email: "secretary@school.com" },
+        { id: "55555555-5555-4555-8555-555555555555", full_name: "Parent Test", role: "PARENT", email: "parent@mail.com" },
+        { id: "66666666-6666-4666-8666-666666666666", full_name: "Dir. Études Test", role: "DIRECTOR_OF_STUDIES", school_id: "11111111-1111-4111-8111-111111111111", email: "director@school.com" },
+        { id: "77777777-7777-4777-8777-777777777777", full_name: "Professeur Test", role: "TEACHER", school_id: "11111111-1111-4111-8111-111111111111", email: "prof@school.com", phone: "+229 97 00 11 22", title: "Permanent" },
+        { id: "77777777-7777-4777-8777-777777777778", full_name: "M. Dossou Koffi", role: "TEACHER", school_id: "11111111-1111-4111-8111-111111111111", email: "koffi.dossou@ecole.com", phone: "+229 95 11 22 33", title: "Permanent" },
+        { id: "77777777-7777-4777-8777-777777777779", full_name: "Mme. Ahouangbo Claire", role: "TEACHER", school_id: "11111111-1111-4111-8111-111111111111", email: "claire.ahouangbo@ecole.com", phone: "+229 96 22 33 44", title: "Vacataire" }
+      ];
+      let updated = false;
+      defaultProfiles.forEach(dp => {
+        if (!data.some((p: any) => p.id === dp.id || (p.email && dp.email && p.email.toLowerCase() === dp.email.toLowerCase()))) {
+          data.push(dp);
+          updated = true;
+        }
+      });
+      if (updated || data.length === 0) {
+        localStorage.setItem(storageKey, JSON.stringify(data));
+      }
+    } else if (this.table === 'invitations') {
+      const defaultInvs = [
+        { id: "inv_1", email: "prof.maths@ecole.com", role: "TEACHER", school_id: "11111111-1111-4111-8111-111111111111", created_at: new Date(Date.now() - 2 * 24 * 3600 * 1000).toISOString() },
+        { id: "inv_2", email: "prof.francais@ecole.com", role: "TEACHER", school_id: "11111111-1111-4111-8111-111111111111", created_at: new Date(Date.now() - 5 * 24 * 3600 * 1000).toISOString() },
+        { id: "inv_3", email: "prof.svt@ecole.com", role: "TEACHER", school_id: "11111111-1111-4111-8111-111111111111", created_at: new Date(Date.now() - 7 * 24 * 3600 * 1000).toISOString() }
+      ];
+      let updated = false;
+      defaultInvs.forEach(di => {
+        if (!data.some((i: any) => i.id === di.id || (i.email && di.email && i.email.toLowerCase() === di.email.toLowerCase()))) {
+          data.push(di);
+          updated = true;
+        }
+      });
+      if (updated || data.length === 0) {
+        localStorage.setItem(storageKey, JSON.stringify(data));
+      }
+    } else if (this.table === 'students') {
+      const defaultStudents = [
+        { id: "s1", parent_id: "55555555-5555-4555-8555-555555555555", school_id: "11111111-1111-4111-8111-111111111111", first_name: "Marc", last_name: "Dubois", level: "6ème", matricule: "2026-001", status: "ACTIVE", gender: "MALE", studentType: "OLD", parent_phone: "+229 97 12 34 56", contacts: "+229 97 12 34 56", academic_year: "2026-2027", created_at: new Date().toISOString() },
+        { id: "s2", parent_id: "55555555-5555-4555-8555-555555555555", school_id: "11111111-1111-4111-8111-111111111111", first_name: "Sophie", last_name: "Dubois", level: "3ème", matricule: "2026-002", status: "ACTIVE", gender: "FEMALE", studentType: "OLD", parent_phone: "+229 95 44 22 11", contacts: "+229 95 44 22 11", academic_year: "2026-2027", created_at: new Date().toISOString() },
+        { id: "s3", parent_id: "55555555-5555-4555-8555-555555555555", school_id: "11111111-1111-4111-8111-111111111111", first_name: "Junior", last_name: "Kodjo", level: "Terminale D", matricule: "2026-003", status: "ACTIVE", gender: "MALE", studentType: "NEW", parent_phone: "+229 96 82 79 23", contacts: "+229 96 82 79 23", academic_year: "2026-2027", created_at: new Date().toISOString() }
+      ];
+      let updated = false;
+      defaultStudents.forEach(ds => {
+        if (!data.some((s: any) => s.id === ds.id)) {
+          data.push(ds);
+          updated = true;
+        }
+      });
+      if (updated || data.length === 0) {
+        localStorage.setItem(storageKey, JSON.stringify(data));
+      }
+    } else if (this.table === 'courses') {
+      const defaultCourses = [
+        { id: "c1", school_id: "11111111-1111-4111-8111-111111111111", name: "Mathématiques", level: "6ème", teacher_id: "77777777-7777-4777-8777-777777777777", coefficient: 3, created_at: new Date().toISOString() },
+        { id: "c2", school_id: "11111111-1111-4111-8111-111111111111", name: "Français", level: "6ème", teacher_id: "77777777-7777-4777-8777-777777777777", coefficient: 3, created_at: new Date().toISOString() },
+        { id: "c3", school_id: "11111111-1111-4111-8111-111111111111", name: "SVT", level: "6ème", teacher_id: "77777777-7777-4777-8777-777777777778", coefficient: 2, created_at: new Date().toISOString() },
+        { id: "c4", school_id: "11111111-1111-4111-8111-111111111111", name: "Histoire-Géographie", level: "3ème", teacher_id: "77777777-7777-4777-8777-777777777779", coefficient: 2, created_at: new Date().toISOString() },
+        { id: "c5", school_id: "11111111-1111-4111-8111-111111111111", name: "Anglais", level: "6ème", teacher_id: "77777777-7777-4777-8777-777777777777", coefficient: 2, created_at: new Date().toISOString() },
+        { id: "c6", school_id: "11111111-1111-4111-8111-111111111111", name: "Mathématiques", level: "3ème", teacher_id: "77777777-7777-4777-8777-777777777778", coefficient: 3, created_at: new Date().toISOString() },
+        { id: "c7", school_id: "11111111-1111-4111-8111-111111111111", name: "Français", level: "3ème", teacher_id: "77777777-7777-4777-8777-777777777779", coefficient: 3, created_at: new Date().toISOString() }
+      ];
+      let updated = false;
+      defaultCourses.forEach(dc => {
+        if (!data.some((c: any) => c.id === dc.id)) {
+          data.push(dc);
+          updated = true;
+        }
+      });
+      if (updated || data.length === 0) {
+        localStorage.setItem(storageKey, JSON.stringify(data));
+      }
+    } else if (data.length === 0) {
+      if (this.table === 'fee_config') {
         data.push(
           { id: "f1", school_id: "11111111-1111-4111-8111-111111111111", level: "ALL", fee_type: "INSCRIPTION", amount: 25000, created_at: new Date().toISOString() }
         );
       } else if (this.table === 'payments') {
         data.push(
           { id: "p1", school_id: "11111111-1111-4111-8111-111111111111", student_id: "s1", amount: 30000, status: "COMPLETED", payment_date: new Date(Date.now() - 20 * 24 * 3600 * 1000).toISOString(), created_at: new Date(Date.now() - 20 * 24 * 3600 * 1000).toISOString(), items: [{ id: "tranche1", name: "Scolarité - Tranche 1", amount: 30000 }] }
-        );
-      } else if (this.table === 'courses') {
-        data.push(
-          { id: "c1", school_id: "11111111-1111-4111-8111-111111111111", name: "Mathématiques", level: "6ème", teacher_id: "77777777-7777-4777-8777-777777777777", coefficient: 3, created_at: new Date().toISOString() },
-          { id: "c2", school_id: "11111111-1111-4111-8111-111111111111", name: "Français", level: "6ème", teacher_id: "77777777-7777-4777-8777-777777777777", coefficient: 3, created_at: new Date().toISOString() },
-          { id: "c3", school_id: "11111111-1111-4111-8111-111111111111", name: "Anglais", level: "6ème", teacher_id: "77777777-7777-4777-8777-777777777777", coefficient: 2, created_at: new Date().toISOString() },
-          { id: "c4", school_id: "11111111-1111-4111-8111-111111111111", name: "Mathématiques", level: "CM1", teacher_id: "77777777-7777-4777-8777-777777777777", coefficient: 2, created_at: new Date().toISOString() },
-          { id: "c5", school_id: "11111111-1111-4111-8111-111111111111", name: "Français", level: "CM1", teacher_id: "77777777-7777-4777-8777-777777777777", coefficient: 2, created_at: new Date().toISOString() }
         );
       }
       localStorage.setItem(storageKey, JSON.stringify(data));
@@ -188,9 +236,11 @@ const mockAuth = {
   onAuthStateChange: (cb) => ({ data: { subscription: { unsubscribe: () => {} } } })
 };
 
+const isPlaceholderConfig = !supabaseUrl || supabaseUrl.includes('placeholder-project') || supabaseUrl.includes('YOUR_SUPABASE_URL');
+
 export const supabase = new Proxy(realSupabase, {
   get(target, prop) {
-    const isTestAccount = localStorage.getItem('is_test_account') === 'true';
+    const isTestAccount = isPlaceholderConfig || localStorage.getItem('is_test_account') === 'true';
     if (!isTestAccount) {
       return target[prop];
     }

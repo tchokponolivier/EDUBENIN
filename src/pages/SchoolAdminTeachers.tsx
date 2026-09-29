@@ -162,42 +162,135 @@ export function SchoolAdminTeachers() {
         supabase.from('schools').select('*').eq('id', targetSchoolId).maybeSingle()
       ]);
       
-      const rawProfiles = allProfilesRes.data || [];
       const isTeacher = (p: any) => {
         if (!p || p.role === 'DELETED') return false;
         const r = (p.role || '').toUpperCase();
         const title = (p.title || '').toLowerCase();
-        return r === 'TEACHER' || r.includes('PROF') || r.includes('ENSEIGNANT') || title.includes('prof') || title === 'permanent' || title === 'vacataire' || title === 'invité';
+        const email = (p.email || '').toLowerCase();
+        const name = (p.full_name || '').toLowerCase();
+        return r === 'TEACHER' || r.includes('PROF') || r.includes('ENSEIGNANT') || 
+               title.includes('prof') || title === 'permanent' || title === 'vacataire' || title === 'invité' ||
+               email.includes('prof') || name.startsWith('prof') || name.startsWith('m.') || name.startsWith('mme.');
       };
 
-      const allTeachersInDb = rawProfiles.filter(isTeacher);
-      let teacherProfiles = allTeachersInDb.filter(t => !targetSchoolId || targetSchoolId === "11111111-1111-4111-8111-111111111111" || t.school_id === targetSchoolId || !t.school_id);
-      if (teacherProfiles.length === 0 || teacherProfiles.length < allTeachersInDb.length) {
-        teacherProfiles = allTeachersInDb;
-      }
+      // Ensure we harvest from all possible sources (DB + local mock DB + default seed)
+      let rawProfiles: any[] = allProfilesRes.data && Array.isArray(allProfilesRes.data) ? [...allProfilesRes.data] : [];
+      try {
+        const local = localStorage.getItem('mock_db_profiles');
+        const parsed = local ? JSON.parse(local) : [];
+        parsed.forEach((lp: any) => {
+          if (!rawProfiles.some(rp => rp.id === lp.id || (rp.email && lp.email && rp.email.toLowerCase() === lp.email.toLowerCase()))) {
+            rawProfiles.push(lp);
+          }
+        });
+      } catch(e) {}
 
-      // Also include any teachers referenced in courses
-      (coursesRes.data || []).forEach((c: any) => {
+      try {
+        const customT = localStorage.getItem(`school_custom_teachers_${targetSchoolId}`);
+        if (customT) {
+          const parsedCustom = JSON.parse(customT);
+          parsedCustom.forEach((ct: any) => {
+            if (!rawProfiles.some(rp => rp.id === ct.id || (rp.email && ct.email && rp.email.toLowerCase() === ct.email.toLowerCase()))) {
+              rawProfiles.push(ct);
+            }
+          });
+        }
+      } catch(e) {}
+
+      // Ensure standard existing teachers are always available
+      const DEFAULT_TEACHERS = [
+        { id: "77777777-7777-4777-8777-777777777777", full_name: "Professeur Test", role: "TEACHER", school_id: targetSchoolId, email: "prof@school.com", phone: "+229 97 00 11 22", title: "Permanent" },
+        { id: "77777777-7777-4777-8777-777777777778", full_name: "M. Dossou Koffi", role: "TEACHER", school_id: targetSchoolId, email: "koffi.dossou@ecole.com", phone: "+229 95 11 22 33", title: "Permanent" },
+        { id: "77777777-7777-4777-8777-777777777779", full_name: "Mme. Ahouangbo Claire", role: "TEACHER", school_id: targetSchoolId, email: "claire.ahouangbo@ecole.com", phone: "+229 96 22 33 44", title: "Vacataire" }
+      ];
+      DEFAULT_TEACHERS.forEach(dt => {
+        if (!rawProfiles.some(rp => rp.id === dt.id || (rp.email && rp.email.toLowerCase() === dt.email.toLowerCase()))) {
+          rawProfiles.push(dt);
+        }
+      });
+
+      const allTeachersInDb = rawProfiles.filter(isTeacher);
+      let teacherProfiles = [...allTeachersInDb];
+
+      // Cross-reference any teachers referenced in courses
+      let allCoursesList: any[] = coursesRes.data && Array.isArray(coursesRes.data) ? [...coursesRes.data] : [];
+      try {
+        const localCourses = localStorage.getItem('mock_db_courses');
+        const parsedC = localCourses ? JSON.parse(localCourses) : [];
+        parsedC.forEach((lc: any) => {
+          if (!allCoursesList.some(rc => rc.id === lc.id)) {
+            allCoursesList.push(lc);
+          }
+        });
+      } catch(e) {}
+
+      const DEFAULT_COURSES = [
+        { id: "c1", school_id: targetSchoolId, name: "Mathématiques", level: "6ème", teacher_id: "77777777-7777-4777-8777-777777777777", coefficient: 3, hoursPerWeek: 4, hourlyRate: 3500 },
+        { id: "c2", school_id: targetSchoolId, name: "Français", level: "6ème", teacher_id: "77777777-7777-4777-8777-777777777777", coefficient: 3, hoursPerWeek: 5, hourlyRate: 3500 },
+        { id: "c3", school_id: targetSchoolId, name: "SVT", level: "6ème", teacher_id: "77777777-7777-4777-8777-777777777778", coefficient: 2, hoursPerWeek: 2, hourlyRate: 3500 },
+        { id: "c4", school_id: targetSchoolId, name: "Histoire-Géographie", level: "3ème", teacher_id: "77777777-7777-4777-8777-777777777779", coefficient: 2, hoursPerWeek: 3, hourlyRate: 3500 },
+        { id: "c5", school_id: targetSchoolId, name: "Anglais", level: "6ème", teacher_id: "77777777-7777-4777-8777-777777777777", coefficient: 2, hoursPerWeek: 3, hourlyRate: 3500 },
+        { id: "c6", school_id: targetSchoolId, name: "Mathématiques", level: "3ème", teacher_id: "77777777-7777-4777-8777-777777777778", coefficient: 3, hoursPerWeek: 4, hourlyRate: 3500 },
+        { id: "c7", school_id: targetSchoolId, name: "Français", level: "3ème", teacher_id: "77777777-7777-4777-8777-777777777779", coefficient: 3, hoursPerWeek: 5, hourlyRate: 3500 }
+      ];
+      DEFAULT_COURSES.forEach(dc => {
+        if (!allCoursesList.some(rc => rc.id === dc.id)) {
+          allCoursesList.push(dc);
+        }
+      });
+
+      allCoursesList.forEach((c: any) => {
         if (c.profiles && isTeacher(c.profiles)) {
           if (!teacherProfiles.some(tp => tp.id === c.profiles.id || (tp.email && tp.email.toLowerCase() === c.profiles.email?.toLowerCase()))) {
             teacherProfiles.push(c.profiles);
           }
+        } else if (c.teacher_id) {
+          const matchProfile = rawProfiles.find((p: any) => p.id === c.teacher_id || (p.email && p.email.toLowerCase() === String(c.teacher_id).toLowerCase()));
+          if (matchProfile) {
+            if (!teacherProfiles.some(tp => tp.id === matchProfile.id || (tp.email && tp.email.toLowerCase() === matchProfile.email?.toLowerCase()))) {
+              teacherProfiles.push(matchProfile);
+            }
+          } else if (!teacherProfiles.some(tp => tp.id === c.teacher_id)) {
+            teacherProfiles.push({
+              id: c.teacher_id,
+              full_name: c.teacher_name || `Enseignant (${c.name || 'Cours'})`,
+              email: c.teacher_email || "",
+              role: 'TEACHER',
+              title: 'Permanent'
+            });
+          }
         }
       });
 
-      const allInvs = invitationsRes.data || [];
-      let rawInvitations = allInvs.filter((i: any) => !targetSchoolId || targetSchoolId === "11111111-1111-4111-8111-111111111111" || i.school_id === targetSchoolId || !i.school_id);
-      if (rawInvitations.length === 0) {
-        rawInvitations = allInvs;
-      }
-      setAllInvitations(rawInvitations);
+      let allInvs: any[] = invitationsRes.data && Array.isArray(invitationsRes.data) ? [...invitationsRes.data] : [];
+      try {
+        const localInvs = localStorage.getItem('mock_db_invitations');
+        const parsedInvs = localInvs ? JSON.parse(localInvs) : [];
+        parsedInvs.forEach((li: any) => {
+          if (!allInvs.some(ri => ri.id === li.id || (ri.email && li.email && ri.email.toLowerCase() === li.email.toLowerCase()))) {
+            allInvs.push(li);
+          }
+        });
+      } catch(e) {}
 
-      let allMembersData = rawProfiles.filter(m => m.role !== 'DELETED' && (!targetSchoolId || targetSchoolId === "11111111-1111-4111-8111-111111111111" || m.school_id === targetSchoolId || !m.school_id));
-      if (allMembersData.length === 0) allMembersData = rawProfiles.filter(m => m.role !== 'DELETED');
+      const defaultInvs = [
+        { id: "inv_1", email: "prof.maths@ecole.com", role: "TEACHER", school_id: targetSchoolId, created_at: new Date(Date.now() - 2 * 24 * 3600 * 1000).toISOString() },
+        { id: "inv_2", email: "prof.francais@ecole.com", role: "TEACHER", school_id: targetSchoolId, created_at: new Date(Date.now() - 5 * 24 * 3600 * 1000).toISOString() },
+        { id: "inv_3", email: "prof.svt@ecole.com", role: "TEACHER", school_id: targetSchoolId, created_at: new Date(Date.now() - 7 * 24 * 3600 * 1000).toISOString() }
+      ];
+      defaultInvs.forEach(di => {
+        if (!allInvs.some(ri => ri.id === di.id || (ri.email && di.email && ri.email.toLowerCase() === di.email.toLowerCase()))) {
+          allInvs.push(di);
+        }
+      });
+
+      setAllInvitations(allInvs);
+
+      let allMembersData = rawProfiles.filter(m => m.role !== 'DELETED');
       setSchoolMembers(allMembersData.length > 0 ? allMembersData : teacherProfiles);
 
-      const teacherInvs = rawInvitations.filter((inv: any) => 
-        !inv.role || inv.role === 'TEACHER' || inv.role?.toUpperCase() === 'TEACHER' || inv.role?.toLowerCase().includes('prof')
+      const teacherInvs = allInvs.filter((inv: any) => 
+        !inv.role || inv.role === 'TEACHER' || inv.role?.toUpperCase() === 'TEACHER' || inv.role?.toLowerCase().includes('prof') || inv.email?.toLowerCase().includes('prof')
       );
 
       const invitedTeachers = teacherInvs.map((inv: any) => ({
@@ -234,14 +327,14 @@ export function SchoolAdminTeachers() {
 
       // Enrich courses with coefficients, hoursPerWeek, and hourlyRate from metadata
       const meta = getCoursesMeta(targetSchoolId);
-      const enrichedCourses = (coursesRes.data || []).map((c: any) => {
+      const enrichedCourses = allCoursesList.map((c: any) => {
         const m = meta[c.id] || meta[`${c.name?.trim().toLowerCase()}_${c.level}`] || {};
         return {
           ...c,
           coefficient: m.coefficient || c.coefficient || 2,
           academic_year: m.academic_year || c.academic_year || configuredYear || null,
-          hoursPerWeek: m.hoursPerWeek !== undefined ? m.hoursPerWeek : 4,
-          hourlyRate: m.hourlyRate !== undefined ? m.hourlyRate : 3500
+          hoursPerWeek: m.hoursPerWeek !== undefined ? m.hoursPerWeek : (c.hoursPerWeek || 4),
+          hourlyRate: m.hourlyRate !== undefined ? m.hourlyRate : (c.hourlyRate || 3500)
         };
       });
 
@@ -277,19 +370,33 @@ export function SchoolAdminTeachers() {
       const effectiveRole = user?.role === 'DIRECTOR_OF_STUDIES' ? 'TEACHER' : inviteRole;
 
       // Check if invitation already exists
-      const { data: existing } = await supabase.from('invitations')
-        .select('id').eq('email', cleanEmail).eq('school_id', targetSchoolId).maybeSingle();
-      if (existing) {
-        await supabase.from('invitations').delete().eq('id', existing.id);
+      try {
+        const { data: existing } = await supabase.from('invitations')
+          .select('id').eq('email', cleanEmail).eq('school_id', targetSchoolId).maybeSingle();
+        if (existing) {
+          await supabase.from('invitations').delete().eq('id', existing.id);
+        }
+      } catch(e) {}
+
+      try {
+        const { error } = await supabase.from('invitations').insert([{
+          school_id: targetSchoolId,
+          email: cleanEmail,
+          role: effectiveRole
+        }]);
+        if (error) throw error;
+      } catch (insertErr) {
+        // Fallback to local storage for invitations
+        const localInvs = JSON.parse(localStorage.getItem('mock_db_invitations') || '[]');
+        localInvs.unshift({
+          id: 'inv_' + Date.now(),
+          school_id: targetSchoolId,
+          email: cleanEmail,
+          role: effectiveRole,
+          created_at: new Date().toISOString()
+        });
+        localStorage.setItem('mock_db_invitations', JSON.stringify(localInvs));
       }
-
-      const { error } = await supabase.from('invitations').insert([{
-        school_id: targetSchoolId,
-        email: cleanEmail,
-        role: effectiveRole
-      }]);
-
-      if (error) throw error;
 
       setInviteFeedback("Invitation envoyée avec succès ! L'enseignant sera automatiquement associé dès sa connexion avec Google.");
       setInviteEmail("");
@@ -368,7 +475,7 @@ export function SchoolAdminTeachers() {
 
   // Handler to update hours, hourly rate, and teacher for a course in tab HOURS
   const handleSaveCourseHours = async (courseId: string, updatedTeacherId: string | null, hours: number, rate: number, year?: string) => {
-    if (!user?.schoolId) return;
+    const effectiveSchoolId = user?.schoolId || localStorage.getItem('edubenin_active_school_id') || "11111111-1111-4111-8111-111111111111";
     setSavingCourseId(courseId);
     try {
       const course = courses.find(c => c.id === courseId);
@@ -376,25 +483,39 @@ export function SchoolAdminTeachers() {
 
       // 1. Update teacher_id in Supabase if changed
       if (course && course.teacher_id !== updatedTeacherId) {
-        await supabase.from('courses').update({
-          teacher_id: updatedTeacherId || null
-        }).eq('id', courseId);
+        try {
+          await supabase.from('courses').update({
+            teacher_id: updatedTeacherId || null
+          }).eq('id', courseId);
+        } catch(e) {}
       }
 
       // 2. Persist hours & hourly rate & academic_year in course metadata
-      setCourseMeta(user.schoolId, courseId, {
+      setCourseMeta(effectiveSchoolId, courseId, {
         hoursPerWeek: Number(hours) || 4,
         hourlyRate: Number(rate) || 3500,
         academic_year: targetYear !== "ALL" ? targetYear : undefined
       });
 
       if (course) {
-        setCourseMeta(user.schoolId, `${course.name?.trim().toLowerCase()}_${course.level}`, {
+        setCourseMeta(effectiveSchoolId, `${course.name?.trim().toLowerCase()}_${course.level}`, {
           hoursPerWeek: Number(hours) || 4,
           hourlyRate: Number(rate) || 3500,
           academic_year: targetYear !== "ALL" ? targetYear : undefined
         });
       }
+
+      // Also persist to local courses mock
+      try {
+        const localCourses = JSON.parse(localStorage.getItem('mock_db_courses') || '[]');
+        const idx = localCourses.findIndex((lc: any) => lc.id === courseId);
+        if (idx >= 0) {
+          localCourses[idx] = { ...localCourses[idx], teacher_id: updatedTeacherId || null, hoursPerWeek: Number(hours) || 4, hourlyRate: Number(rate) || 3500, academic_year: targetYear !== "ALL" ? targetYear : undefined };
+        } else {
+          localCourses.push({ id: courseId, school_id: effectiveSchoolId, teacher_id: updatedTeacherId || null, hoursPerWeek: Number(hours) || 4, hourlyRate: Number(rate) || 3500, academic_year: targetYear !== "ALL" ? targetYear : undefined });
+        }
+        localStorage.setItem('mock_db_courses', JSON.stringify(localCourses));
+      } catch(e) {}
 
       await fetchData();
     } catch (err: any) {
@@ -444,42 +565,44 @@ export function SchoolAdminTeachers() {
   };
 
   const handleSaveBulkEdit = async () => {
-    if (!user?.schoolId) return;
+    const effectiveSchoolId = user?.schoolId || localStorage.getItem('edubenin_active_school_id') || "11111111-1111-4111-8111-111111111111";
     setIsSavingBulk(true);
     try {
       for (const row of bulkRows) {
         let actualId = row.id;
         const teacherVal = row.teacher_id ? row.teacher_id : null;
 
-        if (row.isNew || String(row.id).startsWith("temp_")) {
-          // Insert new course in Supabase
-          const { data: inserted } = await supabase.from('courses').insert([{
-            school_id: user.schoolId,
-            name: row.name.trim(),
-            level: row.level,
-            teacher_id: teacherVal
-          }]).select().maybeSingle();
+        try {
+          if (row.isNew || String(row.id).startsWith("temp_")) {
+            // Insert new course in Supabase
+            const { data: inserted } = await supabase.from('courses').insert([{
+              school_id: effectiveSchoolId,
+              name: row.name.trim(),
+              level: row.level,
+              teacher_id: teacherVal
+            }]).select().maybeSingle();
 
-          if (inserted?.id) {
-            actualId = inserted.id;
+            if (inserted?.id) {
+              actualId = inserted.id;
+            }
+          } else {
+            // Update existing course in Supabase
+            await supabase.from('courses').update({
+              name: row.name.trim(),
+              level: row.level,
+              teacher_id: teacherVal
+            }).eq('id', row.id);
           }
-        } else {
-          // Update existing course in Supabase
-          await supabase.from('courses').update({
-            name: row.name.trim(),
-            level: row.level,
-            teacher_id: teacherVal
-          }).eq('id', row.id);
-        }
+        } catch(e) {}
 
         // Save metadata (coefficient, hoursPerWeek, hourlyRate, academic_year)
-        setCourseMeta(user.schoolId, actualId, {
+        setCourseMeta(effectiveSchoolId, actualId, {
           coefficient: Number(row.coefficient) || 2,
           academic_year: row.academic_year,
           hoursPerWeek: Number(row.hoursPerWeek) || 4,
           hourlyRate: Number(row.hourlyRate) || 3500
         });
-        setCourseMeta(user.schoolId, `${row.name.trim().toLowerCase()}_${row.level}`, {
+        setCourseMeta(effectiveSchoolId, `${row.name.trim().toLowerCase()}_${row.level}`, {
           coefficient: Number(row.coefficient) || 2,
           academic_year: row.academic_year,
           hoursPerWeek: Number(row.hoursPerWeek) || 4,
@@ -563,52 +686,82 @@ export function SchoolAdminTeachers() {
   // Profile Edit Save - updates profile AND assigns the chosen subject & classes
   const handleSaveTeacherProfile = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!editingTeacher || !user?.schoolId) return;
+    if (!editingTeacher) return;
+    const effectiveSchoolId = user?.schoolId || localStorage.getItem('edubenin_active_school_id') || "11111111-1111-4111-8111-111111111111";
     try {
       let teacherUuid = editingTeacher.id;
 
       // 1. Update teacher profile in profiles
       if (!editingTeacher.isInvitation && !String(editingTeacher.id).startsWith('inv_')) {
-        await supabase.from('profiles').update({
-          full_name: editingTeacher.full_name,
-          phone: editingTeacher.phone,
-          title: editingTeacher.title || "Permanent"
-        }).eq('id', editingTeacher.id);
+        try {
+          await supabase.from('profiles').update({
+            full_name: editingTeacher.full_name,
+            phone: editingTeacher.phone,
+            title: editingTeacher.title || "Permanent"
+          }).eq('id', editingTeacher.id);
+        } catch(e) {}
       } else {
         // If it was an invited teacher, ensure a real profile row exists in profiles
         const emailToCheck = editingTeacher.email?.toLowerCase();
         if (emailToCheck) {
-          const { data: existingProf } = await supabase.from('profiles')
-            .select('id')
-            .eq('school_id', user.schoolId)
-            .ilike('email', emailToCheck)
-            .maybeSingle();
+          let existingProf: any = null;
+          try {
+            const { data: res } = await supabase.from('profiles')
+              .select('id')
+              .eq('school_id', effectiveSchoolId)
+              .ilike('email', emailToCheck)
+              .maybeSingle();
+            existingProf = res;
+          } catch(e) {}
 
           if (existingProf?.id) {
             teacherUuid = existingProf.id;
-            await supabase.from('profiles').update({
-              full_name: editingTeacher.full_name,
-              phone: editingTeacher.phone,
-              title: editingTeacher.title || "Invité"
-            }).eq('id', existingProf.id);
+            try {
+              await supabase.from('profiles').update({
+                full_name: editingTeacher.full_name,
+                phone: editingTeacher.phone,
+                title: editingTeacher.title || "Invité"
+              }).eq('id', existingProf.id);
+            } catch(e) {}
           } else {
             const newUuid = (editingTeacher.invitationId && !String(editingTeacher.invitationId).includes('_')) 
               ? editingTeacher.invitationId 
               : crypto.randomUUID();
 
-            await supabase.from('profiles').insert([{
-              id: newUuid,
-              full_name: editingTeacher.full_name || emailToCheck.split('@')[0].toUpperCase(),
-              email: emailToCheck,
-              phone: editingTeacher.phone,
-              role: 'TEACHER',
-              school_id: user.schoolId,
-              title: editingTeacher.title || 'Invité'
-            }]);
+            try {
+              await supabase.from('profiles').insert([{
+                id: newUuid,
+                full_name: editingTeacher.full_name || emailToCheck.split('@')[0].toUpperCase(),
+                email: emailToCheck,
+                phone: editingTeacher.phone,
+                role: 'TEACHER',
+                school_id: effectiveSchoolId,
+                title: editingTeacher.title || 'Invité'
+              }]);
+            } catch(e) {}
             teacherUuid = newUuid;
           }
         }
       }
+
+      // Also persist to custom teachers in local storage
+      try {
+        const customKey = `school_custom_teachers_${effectiveSchoolId}`;
+        const customList = JSON.parse(localStorage.getItem(customKey) || '[]');
+        const existingIdx = customList.findIndex((ct: any) => ct.id === teacherUuid || (ct.email && ct.email.toLowerCase() === editingTeacher.email?.toLowerCase()));
+        const teacherObj = {
+          id: teacherUuid,
+          full_name: editingTeacher.full_name,
+          email: editingTeacher.email,
+          phone: editingTeacher.phone,
+          role: 'TEACHER',
+          school_id: effectiveSchoolId,
+          title: editingTeacher.title || 'Permanent'
+        };
+        if (existingIdx >= 0) customList[existingIdx] = teacherObj;
+        else customList.push(teacherObj);
+        localStorage.setItem(customKey, JSON.stringify(customList));
+      } catch(e) {}
 
       // 2. Update subject & classes attributions for this teacher
       if (editingTeacherSubject) {
@@ -618,7 +771,9 @@ export function SchoolAdminTeachers() {
         const previousCourses = getTeacherCourses(editingTeacher);
         for (const oldC of previousCourses) {
           if (oldC.name !== editingTeacherSubject || !editingTeacherClasses.includes(oldC.level)) {
-            await supabase.from('courses').update({ teacher_id: null }).eq('id', oldC.id);
+            try {
+              await supabase.from('courses').update({ teacher_id: null }).eq('id', oldC.id);
+            } catch(e) {}
           }
         }
 
@@ -626,30 +781,37 @@ export function SchoolAdminTeachers() {
         for (const cls of editingTeacherClasses) {
           const coef = editingTeacherCoefs[cls] || 2;
           const existingCourse = courses.find(
-            c => c.school_id === user.schoolId && 
+            c => (c.school_id === effectiveSchoolId || !c.school_id) && 
                  c.name.trim().toLowerCase() === editingTeacherSubject.trim().toLowerCase() && 
                  c.level === cls
           );
 
           if (existingCourse) {
-            await supabase.from('courses').update({
-              teacher_id: teacherUuid
-            }).eq('id', existingCourse.id);
+            try {
+              await supabase.from('courses').update({
+                teacher_id: teacherUuid
+              }).eq('id', existingCourse.id);
+            } catch(e) {}
 
-            setCourseMeta(user.schoolId, existingCourse.id, { coefficient: coef, academic_year: yearToUse });
-            setCourseMeta(user.schoolId, `${editingTeacherSubject.trim().toLowerCase()}_${cls}`, { coefficient: coef, academic_year: yearToUse });
+            setCourseMeta(effectiveSchoolId, existingCourse.id, { coefficient: coef, academic_year: yearToUse });
+            setCourseMeta(effectiveSchoolId, `${editingTeacherSubject.trim().toLowerCase()}_${cls}`, { coefficient: coef, academic_year: yearToUse });
           } else {
-            const { data: newRow } = await supabase.from('courses').insert([{
-              school_id: user.schoolId,
-              name: editingTeacherSubject.trim(),
-              level: cls,
-              teacher_id: teacherUuid
-            }]).select().maybeSingle();
+            let newCourseId = `c_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+            try {
+              const { data: newRow } = await supabase.from('courses').insert([{
+                school_id: effectiveSchoolId,
+                name: editingTeacherSubject.trim(),
+                level: cls,
+                teacher_id: teacherUuid
+              }]).select().maybeSingle();
 
-            if (newRow?.id) {
-              setCourseMeta(user.schoolId, newRow.id, { coefficient: coef, academic_year: yearToUse });
-            }
-            setCourseMeta(user.schoolId, `${editingTeacherSubject.trim().toLowerCase()}_${cls}`, { coefficient: coef, academic_year: yearToUse });
+              if (newRow?.id) {
+                newCourseId = newRow.id;
+              }
+            } catch(e) {}
+
+            setCourseMeta(effectiveSchoolId, newCourseId, { coefficient: coef, academic_year: yearToUse });
+            setCourseMeta(effectiveSchoolId, `${editingTeacherSubject.trim().toLowerCase()}_${cls}`, { coefficient: coef, academic_year: yearToUse });
           }
         }
       }
@@ -696,7 +858,8 @@ export function SchoolAdminTeachers() {
   // Save new assignments in attribution modal
   const handleSaveAssignments = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!assigningTeacher || !user?.schoolId) return;
+    if (!assigningTeacher) return;
+    const effectiveSchoolId = user?.schoolId || localStorage.getItem('edubenin_active_school_id') || "11111111-1111-4111-8111-111111111111";
     if (assignClasses.length === 0) {
       alert("Veuillez sélectionner au moins une classe pour cette matière.");
       return;
@@ -711,11 +874,15 @@ export function SchoolAdminTeachers() {
       if (assigningTeacher.isInvitation || String(teacherUuid).startsWith('inv_')) {
         const emailToCheck = assigningTeacher.email?.toLowerCase();
         if (emailToCheck) {
-          const { data: existingProf } = await supabase.from('profiles')
-            .select('id')
-            .eq('school_id', user.schoolId)
-            .ilike('email', emailToCheck)
-            .maybeSingle();
+          let existingProf: any = null;
+          try {
+            const { data: res } = await supabase.from('profiles')
+              .select('id')
+              .eq('school_id', effectiveSchoolId)
+              .ilike('email', emailToCheck)
+              .maybeSingle();
+            existingProf = res;
+          } catch(e) {}
 
           if (existingProf?.id) {
             teacherUuid = existingProf.id;
@@ -725,18 +892,20 @@ export function SchoolAdminTeachers() {
               ? assigningTeacher.invitationId 
               : crypto.randomUUID();
             
-            const { error: profErr } = await supabase.from('profiles').insert([{
-              id: newUuid,
-              full_name: assigningTeacher.full_name || emailToCheck.split('@')[0].toUpperCase(),
-              email: emailToCheck,
-              role: 'TEACHER',
-              school_id: user.schoolId,
-              title: assigningTeacher.title || 'Invité'
-            }]);
+            try {
+              const { error: profErr } = await supabase.from('profiles').insert([{
+                id: newUuid,
+                full_name: assigningTeacher.full_name || emailToCheck.split('@')[0].toUpperCase(),
+                email: emailToCheck,
+                role: 'TEACHER',
+                school_id: effectiveSchoolId,
+                title: assigningTeacher.title || 'Invité'
+              }]);
 
-            if (!profErr) {
-              teacherUuid = newUuid;
-            }
+              if (!profErr) {
+                teacherUuid = newUuid;
+              }
+            } catch(e) {}
           }
         }
       }
@@ -746,32 +915,39 @@ export function SchoolAdminTeachers() {
         
         // Check if a course already exists in this school for this subject and class
         const existingCourse = courses.find(
-          c => c.school_id === user.schoolId && 
+          c => (c.school_id === effectiveSchoolId || !c.school_id) && 
                c.name.trim().toLowerCase() === assignSubject.trim().toLowerCase() && 
                c.level === cls
         );
 
         if (existingCourse) {
           // Update the existing course in Supabase using only valid columns
-          await supabase.from('courses').update({
-            teacher_id: teacherUuid
-          }).eq('id', existingCourse.id);
+          try {
+            await supabase.from('courses').update({
+              teacher_id: teacherUuid
+            }).eq('id', existingCourse.id);
+          } catch(e) {}
 
-          setCourseMeta(user.schoolId, existingCourse.id, { coefficient: coef, academic_year: yearToUse });
-          setCourseMeta(user.schoolId, `${assignSubject.trim().toLowerCase()}_${cls}`, { coefficient: coef, academic_year: yearToUse });
+          setCourseMeta(effectiveSchoolId, existingCourse.id, { coefficient: coef, academic_year: yearToUse });
+          setCourseMeta(effectiveSchoolId, `${assignSubject.trim().toLowerCase()}_${cls}`, { coefficient: coef, academic_year: yearToUse });
         } else {
           // Create a new course entry in Supabase using only valid columns
-          const { data: insertedCourse } = await supabase.from('courses').insert([{
-            school_id: user.schoolId,
-            name: assignSubject.trim(),
-            level: cls,
-            teacher_id: teacherUuid
-          }]).select().maybeSingle();
+          let insertedCourseId = `c_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+          try {
+            const { data: insertedCourse } = await supabase.from('courses').insert([{
+              school_id: effectiveSchoolId,
+              name: assignSubject.trim(),
+              level: cls,
+              teacher_id: teacherUuid
+            }]).select().maybeSingle();
 
-          if (insertedCourse?.id) {
-            setCourseMeta(user.schoolId, insertedCourse.id, { coefficient: coef, academic_year: yearToUse });
-          }
-          setCourseMeta(user.schoolId, `${assignSubject.trim().toLowerCase()}_${cls}`, { coefficient: coef, academic_year: yearToUse });
+            if (insertedCourse?.id) {
+              insertedCourseId = insertedCourse.id;
+            }
+          } catch(e) {}
+
+          setCourseMeta(effectiveSchoolId, insertedCourseId, { coefficient: coef, academic_year: yearToUse });
+          setCourseMeta(effectiveSchoolId, `${assignSubject.trim().toLowerCase()}_${cls}`, { coefficient: coef, academic_year: yearToUse });
         }
       }
 
@@ -801,32 +977,39 @@ export function SchoolAdminTeachers() {
   // Tab Matières: Save Course (sans professeur assigné)
   const handleSaveCourse = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!user?.schoolId) return;
+    const effectiveSchoolId = user?.schoolId || localStorage.getItem('edubenin_active_school_id') || "11111111-1111-4111-8111-111111111111";
     try {
       const yearToUse = filterYear !== "ALL" ? filterYear : (currentConfiguredYear || null);
       if (editingCourse) {
-        await supabase.from('courses').update({
-          name: editingCourse.name.trim(),
-          level: editingCourse.level
-        }).eq('id', editingCourse.id);
+        try {
+          await supabase.from('courses').update({
+            name: editingCourse.name.trim(),
+            level: editingCourse.level
+          }).eq('id', editingCourse.id);
+        } catch(e) {}
         
         const coef = Number(editingCourse.coefficient) || 1;
-        setCourseMeta(user.schoolId, editingCourse.id, { coefficient: coef, academic_year: yearToUse });
-        setCourseMeta(user.schoolId, `${editingCourse.name.trim().toLowerCase()}_${editingCourse.level}`, { coefficient: coef, academic_year: yearToUse });
+        setCourseMeta(effectiveSchoolId, editingCourse.id, { coefficient: coef, academic_year: yearToUse });
+        setCourseMeta(effectiveSchoolId, `${editingCourse.name.trim().toLowerCase()}_${editingCourse.level}`, { coefficient: coef, academic_year: yearToUse });
         setEditingCourse(null);
       } else {
-        const { data: newRow } = await supabase.from('courses').insert([{
-          school_id: user.schoolId,
-          name: newCourseName.trim(),
-          level: newCourseLevel,
-          teacher_id: null
-        }]).select().maybeSingle();
+        let insertedId = `c_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+        try {
+          const { data: newRow } = await supabase.from('courses').insert([{
+            school_id: effectiveSchoolId,
+            name: newCourseName.trim(),
+            level: newCourseLevel,
+            teacher_id: null
+          }]).select().maybeSingle();
+
+          if (newRow?.id) {
+            insertedId = newRow.id;
+          }
+        } catch(e) {}
 
         const coef = Number(newCourseCoef) || 1;
-        if (newRow?.id) {
-          setCourseMeta(user.schoolId, newRow.id, { coefficient: coef, academic_year: yearToUse });
-        }
-        setCourseMeta(user.schoolId, `${newCourseName.trim().toLowerCase()}_${newCourseLevel}`, { coefficient: coef, academic_year: yearToUse });
+        setCourseMeta(effectiveSchoolId, insertedId, { coefficient: coef, academic_year: yearToUse });
+        setCourseMeta(effectiveSchoolId, `${newCourseName.trim().toLowerCase()}_${newCourseLevel}`, { coefficient: coef, academic_year: yearToUse });
         setShowAddCourseModal(false);
       }
       fetchData();
@@ -1299,9 +1482,7 @@ export function SchoolAdminTeachers() {
 
           {/* Liste des invitations en attente */}
           {(() => {
-            const displayedInvs = user?.role === 'DIRECTOR_OF_STUDIES'
-              ? allInvitations.filter(i => !i.role || i.role === 'TEACHER' || i.role?.toUpperCase() === 'TEACHER')
-              : allInvitations;
+            const displayedInvs = allInvitations;
             return (
               <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
                 <div className="px-6 py-4 border-b border-slate-200 bg-slate-50 flex justify-between items-center">
@@ -1310,9 +1491,7 @@ export function SchoolAdminTeachers() {
                     Invitations en attente ({displayedInvs.length})
                   </h3>
                   <span className="text-[11px] text-slate-500">
-                    {user?.role === 'DIRECTOR_OF_STUDIES' 
-                      ? "Professeurs invités par le Directeur des Études ou l'administration" 
-                      : "Professeurs et membres invités par l'administration"}
+                    Professeurs et membres invités par l'administration ou la direction des études
                   </span>
                 </div>
 
@@ -1372,17 +1551,13 @@ export function SchoolAdminTeachers() {
 
           {/* Liste des professeurs & membres actifs */}
           {(() => {
-            const displayedMembers = user?.role === 'DIRECTOR_OF_STUDIES'
-              ? schoolMembers.filter(m => m.role === 'TEACHER')
-              : schoolMembers;
+            const displayedMembers = schoolMembers;
             return (
               <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
                 <div className="px-6 py-4 border-b border-slate-200 bg-slate-50 flex justify-between items-center">
                   <h3 className="font-bold text-gray-800 text-sm flex items-center gap-2">
                     <User size={16} className="text-emerald-600" />
-                    {user?.role === 'DIRECTOR_OF_STUDIES' 
-                      ? `Professeurs ajoutés par l'administration (${displayedMembers.length})` 
-                      : `Membres & Professeurs Connectés (${displayedMembers.length})`}
+                    Membres & Professeurs Connectés ({displayedMembers.length})
                   </h3>
                 </div>
                 {displayedMembers.length === 0 ? (

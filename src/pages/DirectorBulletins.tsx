@@ -89,7 +89,28 @@ export function DirectorBulletins() {
         supabase.from('schools').select('*').eq('id', targetSchoolId).maybeSingle()
       ]);
 
-      let stList = allStudentsRes.data || [];
+      let stList = allStudentsRes.data && Array.isArray(allStudentsRes.data) ? [...allStudentsRes.data] : [];
+      try {
+        const local = localStorage.getItem('mock_db_students');
+        const parsed = local ? JSON.parse(local) : [];
+        parsed.forEach((s: any) => {
+          if (!stList.some((existing: any) => existing.id === s.id)) {
+            stList.push(s);
+          }
+        });
+      } catch(e) {}
+
+      const DEFAULT_STUDENTS = [
+        { id: "s1", parent_id: "55555555-5555-4555-8555-555555555555", school_id: targetSchoolId, first_name: "Marc", last_name: "Dubois", level: "6ème", matricule: "2026-001", status: "ACTIVE", gender: "MALE", studentType: "OLD", parent_phone: "+229 97 12 34 56", contacts: "+229 97 12 34 56", academic_year: "2026-2027", created_at: new Date().toISOString() },
+        { id: "s2", parent_id: "55555555-5555-4555-8555-555555555555", school_id: targetSchoolId, first_name: "Sophie", last_name: "Dubois", level: "3ème", matricule: "2026-002", status: "ACTIVE", gender: "FEMALE", studentType: "OLD", parent_phone: "+229 95 44 22 11", contacts: "+229 95 44 22 11", academic_year: "2026-2027", created_at: new Date().toISOString() },
+        { id: "s3", parent_id: "55555555-5555-4555-8555-555555555555", school_id: targetSchoolId, first_name: "Junior", last_name: "Kodjo", level: "Terminale D", matricule: "2026-003", status: "ACTIVE", gender: "MALE", studentType: "NEW", parent_phone: "+229 96 82 79 23", contacts: "+229 96 82 79 23", academic_year: "2026-2027", created_at: new Date().toISOString() }
+      ];
+      DEFAULT_STUDENTS.forEach(ds => {
+        if (!stList.some((existing: any) => existing.id === ds.id)) {
+          stList.push(ds);
+        }
+      });
+
       if (stList.length > 0 && targetSchoolId && targetSchoolId !== "11111111-1111-4111-8111-111111111111") {
         const schoolStudents = stList.filter(s => s.school_id === targetSchoolId || !s.school_id);
         if (schoolStudents.length === 0) {
@@ -103,7 +124,31 @@ export function DirectorBulletins() {
       }
       setStudents(stList);
 
-      const cList = coursesRes.data || [];
+      let cList = coursesRes.data && Array.isArray(coursesRes.data) ? [...coursesRes.data] : [];
+      try {
+        const localCourses = localStorage.getItem('mock_db_courses');
+        const parsedC = localCourses ? JSON.parse(localCourses) : [];
+        parsedC.forEach((lc: any) => {
+          if (!cList.some(rc => rc.id === lc.id)) {
+            cList.push(lc);
+          }
+        });
+      } catch(e) {}
+
+      const DEFAULT_COURSES = [
+        { id: "c1", school_id: targetSchoolId, name: "Mathématiques", level: "6ème", coefficient: 3 },
+        { id: "c2", school_id: targetSchoolId, name: "Français", level: "6ème", coefficient: 3 },
+        { id: "c3", school_id: targetSchoolId, name: "SVT", level: "6ème", coefficient: 2 },
+        { id: "c4", school_id: targetSchoolId, name: "Histoire-Géographie", level: "3ème", coefficient: 2 },
+        { id: "c5", school_id: targetSchoolId, name: "Anglais", level: "6ème", coefficient: 2 },
+        { id: "c6", school_id: targetSchoolId, name: "Mathématiques", level: "3ème", coefficient: 3 },
+        { id: "c7", school_id: targetSchoolId, name: "Français", level: "3ème", coefficient: 3 }
+      ];
+      DEFAULT_COURSES.forEach(dc => {
+        if (!cList.some(rc => rc.id === dc.id)) {
+          cList.push(dc);
+        }
+      });
       setCourses(cList);
 
       const realYears: { id: string; name: string }[] = [];

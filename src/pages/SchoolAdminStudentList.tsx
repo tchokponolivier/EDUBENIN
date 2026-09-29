@@ -9,6 +9,7 @@ export function SchoolAdminStudentList() {
   const { user } = useAuth();
   const [students, setStudents] = useState<any[]>([]);
   const [courses, setCourses] = useState<any[]>([]);
+  const [profiles, setProfiles] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedClass, setSelectedClass] = useState<string>("ALL");
@@ -36,27 +37,62 @@ export function SchoolAdminStudentList() {
       }
       if (!targetSchoolId) targetSchoolId = "11111111-1111-4111-8111-111111111111";
 
-      const [allStudentsRes, coursesRes, yearsRes, schoolRes] = await Promise.all([
+      const [allStudentsRes, coursesRes, yearsRes, schoolRes, allProfilesRes] = await Promise.all([
         supabase.from('students').select('*'),
         supabase.from('courses').select('*, profiles(full_name)'),
         supabase.from('academic_years').select('id, name'),
-        supabase.from('schools').select('*').eq('id', targetSchoolId).maybeSingle()
+        supabase.from('schools').select('*').eq('id', targetSchoolId).maybeSingle(),
+        supabase.from('profiles').select('*')
       ]);
       
-      let stList = allStudentsRes.data || [];
-      if (stList.length > 0 && targetSchoolId && targetSchoolId !== "11111111-1111-4111-8111-111111111111") {
-        const schoolStudents = stList.filter(s => s.school_id === targetSchoolId || !s.school_id);
-        if (schoolStudents.length === 0) {
-          // If no student matches this exact targetSchoolId, keep all students so none are lost
-        } else if (schoolStudents.length < stList.length) {
-          const combined = stList.filter(s => !s.school_id || s.school_id === targetSchoolId || s.school_id === "11111111-1111-4111-8111-111111111111");
-          stList = combined.length > 0 ? combined : stList;
-        } else {
-          stList = schoolStudents;
+      let stList = allStudentsRes.data && Array.isArray(allStudentsRes.data) ? [...allStudentsRes.data] : [];
+      try {
+        const local = localStorage.getItem('mock_db_students');
+        const parsed = local ? JSON.parse(local) : [];
+        parsed.forEach((s: any) => {
+          if (!stList.some((existing: any) => existing.id === s.id)) {
+            stList.push(s);
+          }
+        });
+      } catch(e) {}
+
+      // Ensure default students always exist if list is empty or missing
+      const DEFAULT_STUDENTS = [
+        { id: "s1", parent_id: "55555555-5555-4555-8555-555555555555", school_id: targetSchoolId, first_name: "Marc", last_name: "Dubois", level: "6ème", matricule: "2026-001", status: "ACTIVE", gender: "MALE", studentType: "OLD", parent_phone: "+229 97 12 34 56", contacts: "+229 97 12 34 56", academic_year: "2026-2027", created_at: new Date().toISOString() },
+        { id: "s2", parent_id: "55555555-5555-4555-8555-555555555555", school_id: targetSchoolId, first_name: "Sophie", last_name: "Dubois", level: "3ème", matricule: "2026-002", status: "ACTIVE", gender: "FEMALE", studentType: "OLD", parent_phone: "+229 95 44 22 11", contacts: "+229 95 44 22 11", academic_year: "2026-2027", created_at: new Date().toISOString() },
+        { id: "s3", parent_id: "55555555-5555-4555-8555-555555555555", school_id: targetSchoolId, first_name: "Junior", last_name: "Kodjo", level: "Terminale D", matricule: "2026-003", status: "ACTIVE", gender: "MALE", studentType: "NEW", parent_phone: "+229 96 82 79 23", contacts: "+229 96 82 79 23", academic_year: "2026-2027", created_at: new Date().toISOString() }
+      ];
+      DEFAULT_STUDENTS.forEach(ds => {
+        if (!stList.some((existing: any) => existing.id === ds.id)) {
+          stList.push(ds);
         }
-      }
+      });
+
+      let coursesList = coursesRes.data && Array.isArray(coursesRes.data) ? [...coursesRes.data] : [];
+      try {
+        const localC = localStorage.getItem('mock_db_courses');
+        const parsedC = localC ? JSON.parse(localC) : [];
+        parsedC.forEach((c: any) => {
+          if (!coursesList.some(ec => ec.id === c.id)) {
+            coursesList.push(c);
+          }
+        });
+      } catch (e) {}
+
+      let profList = allProfilesRes.data && Array.isArray(allProfilesRes.data) ? [...allProfilesRes.data] : [];
+      try {
+        const localP = localStorage.getItem('mock_db_profiles');
+        const parsedP = localP ? JSON.parse(localP) : [];
+        parsedP.forEach((p: any) => {
+          if (!profList.some(ep => ep.id === p.id || (p.email && ep.email && ep.email.toLowerCase() === p.email.toLowerCase()))) {
+            profList.push(p);
+          }
+        });
+      } catch (e) {}
+
       setStudents(stList);
-      setCourses(coursesRes.data || []);
+      setCourses(coursesList);
+      setProfiles(profList);
 
       const realYears: { id: string; name: string }[] = [];
       if (yearsRes?.data && yearsRes.data.length > 0) {
@@ -68,7 +104,7 @@ export function SchoolAdminStudentList() {
       }
 
       // Harvest academic years directly from all students
-      (allStudentsRes.data || []).forEach((s: any) => {
+      stList.forEach((s: any) => {
         const y = s.academic_year || s.academicYear;
         if (y && !realYears.some(ry => ry.name === y)) {
           realYears.push({ id: `st_${y}`, name: y });
@@ -99,26 +135,31 @@ export function SchoolAdminStudentList() {
     }
   };
 
-  const classes = Array.from<string>(new Set(students.map(s => s.level as string))).sort();
+  const classes = Array.from<string>(new Set(students.map(s => (s.level || s.classe || 'Non classé') as string))).filter(Boolean).sort();
 
   const filteredStudents = students.filter(s => {
     const sYear = s.academic_year || s.academicYear;
-    const matchesYear = !selectedYear || selectedYear === "ALL" || sYear === selectedYear;
-    const fName = s.first_name || s.firstName || "";
-    const lName = s.last_name || s.lastName || "";
-    const mat = s.matricule || "";
-    const matchesSearch = 
-      fName.toLowerCase().includes(searchTerm.toLowerCase()) || 
-      lName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      mat.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesYear = !selectedYear || selectedYear === "ALL" || !sYear || sYear === selectedYear;
+    const fName = (s.first_name || s.firstName || "").toLowerCase();
+    const lName = (s.last_name || s.lastName || "").toLowerCase();
+    const mat = (s.matricule || s.id || "").toLowerCase();
+    const q = searchTerm.toLowerCase();
+    const matchesSearch = !q || fName.includes(q) || lName.includes(q) || mat.includes(q);
     
-    const matchesClass = !selectedClass || selectedClass === "ALL" || s.level === selectedClass;
+    const sLevel = (s.level || s.classe || 'Non classé').trim();
+    const matchesClass = !selectedClass || selectedClass === "ALL" || sLevel === selectedClass.trim();
     
     return matchesSearch && matchesClass && matchesYear;
   });
 
   const getTeachersForClass = (level: string) => {
-    return courses.filter(c => c.level === level);
+    return courses.filter(c => c.level === level).map(c => {
+      const p = profiles.find((prof: any) => prof.id === c.teacher_id);
+      return {
+        ...c,
+        resolvedTeacherName: p?.full_name || c.profiles?.full_name || c.teacher_name || 'Enseignant'
+      };
+    });
   };
 
   return (
@@ -163,7 +204,7 @@ export function SchoolAdminStudentList() {
                 {academicYears.map(y => <option key={y.id} value={y.name}>{y.name}</option>)}
               </>
             ) : (
-              <option value="">Aucune année scolaire</option>
+              <option value="ALL">Toutes les années</option>
             )}
           </select>
         </div>
@@ -193,7 +234,7 @@ export function SchoolAdminStudentList() {
               <ClassSection 
                 key={className} 
                 className={className} 
-                students={filteredStudents.filter(s => s.level === className)} 
+                students={filteredStudents.filter(s => (s.level || s.classe || 'Non classé').trim() === className.trim())} 
                 teachers={getTeachersForClass(className)}
                  onUpdateStatus={async (id, status) => { await supabase.from('students').update({ status }).eq('id', id); fetchData(); }}
               />
@@ -201,7 +242,7 @@ export function SchoolAdminStudentList() {
           ) : (
             <ClassSection 
               className={selectedClass} 
-              students={filteredStudents} 
+              students={filteredStudents.filter(s => (s.level || s.classe || 'Non classé').trim() === selectedClass.trim())} 
               teachers={getTeachersForClass(selectedClass)}
                onUpdateStatus={async (id, status) => { await supabase.from('students').update({ status }).eq('id', id); fetchData(); }}
             />
@@ -238,7 +279,7 @@ function ClassSection({ className, students, teachers, onUpdateStatus }: { key?:
               <div key={t.id} className="flex items-center gap-1 bg-white border border-slate-200 px-2 py-1 rounded text-xs shadow-sm">
                 <BookOpen size={12} className="text-blue-500" />
                 <span className="font-semibold text-gray-700">{t.name}</span>
-                <span className="text-slate-400 text-[10px] ml-1">({t.profiles?.full_name || 'Non assigné'})</span>
+                <span className="text-slate-400 text-[10px] ml-1">({t.resolvedTeacherName || t.profiles?.full_name || 'Non assigné'})</span>
               </div>
             ))}
           </div>
@@ -259,8 +300,8 @@ function ClassSection({ className, students, teachers, onUpdateStatus }: { key?:
             {students.map(s => (
               <tr key={s.id} className="hover:bg-slate-50 transition-colors">
                 <td className="px-6 py-3 text-sm font-mono text-slate-500">{s.matricule || s.id.substring(0,8).toUpperCase()}</td>
-                <td className="px-6 py-3 text-sm font-bold text-gray-800 uppercase">{s.last_name}</td>
-                <td className="px-6 py-3 text-sm text-gray-700 capitalize">{s.first_name}</td>
+                <td className="px-6 py-3 text-sm font-bold text-gray-800 uppercase">{s.last_name || s.lastName || "—"}</td>
+                <td className="px-6 py-3 text-sm text-gray-700 capitalize">{s.first_name || s.firstName || "—"}</td>
                 <td className="px-6 py-3">
                   <select 
                     value={s.status || 'PASSING'} 

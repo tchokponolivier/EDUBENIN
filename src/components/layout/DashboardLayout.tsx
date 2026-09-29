@@ -102,6 +102,7 @@ export function DashboardLayout({ children }: { children: ReactNode }) {
         return [
           { name: "Planification Académique", href: "/director", icon: Calendar },
           { name: "Professeurs", href: "/school-admin/teachers", icon: Users },
+          { name: "Inscriptions & Élèves", href: "/school-admin/students?tab=STUDENTS", icon: Users },
           { name: "Liste des Élèves", href: "/school-admin/students-list", icon: Users },
           { name: "Bulletins", href: "/director/bulletins", icon: Award },
           { name: "Synthèse & Bilans", href: "/school-admin/stats", icon: BookOpen },

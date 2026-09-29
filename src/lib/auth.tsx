@@ -155,6 +155,10 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
             } catch (e) {}
           }
 
+          if (!resolvedSchoolId && profile.role !== 'SUPER_ADMIN' && profile.role !== 'PARENT') {
+            resolvedSchoolId = localStorage.getItem('edubenin_active_school_id') || realSchoolId || "11111111-1111-4111-8111-111111111111";
+          }
+
           setUser({
             id: sessionUser.id,
             email: sessionUser.email || "",
@@ -165,13 +169,14 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           });
         } else {
           // Fallback if profile not created yet
-          let fallbackSchoolId = realSchoolId || undefined;
+          let fallbackSchoolId = realSchoolId || localStorage.getItem('edubenin_active_school_id') || "11111111-1111-4111-8111-111111111111";
+          const chosenRole = getRoleForSupabaseUser(sessionUser.email || "");
           setUser({
             id: sessionUser.id,
             email: sessionUser.email || "",
             name: sessionUser.user_metadata?.full_name || sessionUser.email?.split("@")[0] || "User",
-            role: getRoleForSupabaseUser(sessionUser.email || ""),
-            schoolId: fallbackSchoolId,
+            role: chosenRole,
+            schoolId: (chosenRole === 'SUPER_ADMIN' || chosenRole === 'PARENT') ? undefined : fallbackSchoolId,
           });
         }
       } catch (err) {
@@ -233,13 +238,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     let foundUser = MOCK_USERS[email];
     let mockPassword = password || "password123";
     
-    if (foundUser || email.includes("test")) {
-       localStorage.setItem("is_test_account", "true");
-    } else {
-       localStorage.removeItem("is_test_account");
-    }
-    
-    const activeSchoolFallback = localStorage.getItem('edubenin_active_school_id') || realSchoolId;
+    const activeSchoolFallback = localStorage.getItem('edubenin_active_school_id') || realSchoolId || '11111111-1111-4111-8111-111111111111';
     let userToSet = foundUser ? 
       (role ? { ...foundUser, role: role as any, schoolId: (role === 'SUPER_ADMIN' || role === 'PARENT') ? undefined : (activeSchoolFallback || foundUser.schoolId) } : { ...foundUser, schoolId: (foundUser.role === 'SUPER_ADMIN' || foundUser.role === 'PARENT') ? undefined : (activeSchoolFallback || foundUser.schoolId) })
       : {
@@ -251,6 +250,15 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       };
     if (userToSet.schoolId) {
       localStorage.setItem('edubenin_active_school_id', userToSet.schoolId);
+    }
+
+    if (foundUser || email.includes("test")) {
+       localStorage.setItem("is_test_account", "true");
+       setUser(userToSet);
+       localStorage.setItem("edubenin_auth", JSON.stringify(userToSet));
+       return;
+    } else {
+       localStorage.removeItem("is_test_account");
     }
 
     try {

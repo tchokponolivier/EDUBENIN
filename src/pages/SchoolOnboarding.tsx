@@ -2,10 +2,10 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../lib/auth';
-import { School, Building, MapPin, Phone, CheckCircle } from 'lucide-react';
+import { School, Building, MapPin, Phone, CheckCircle, ArrowLeft, LogOut } from 'lucide-react';
 
 export function SchoolOnboarding() {
-  const { user, updateUserSchool } = useAuth();
+  const { user, updateUserSchool, logout } = useAuth();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -16,6 +16,16 @@ export function SchoolOnboarding() {
     currency: 'FCFA',
     directorName: ''
   });
+
+  const handleQuit = async () => {
+    try {
+      if (logout) {
+        await logout();
+      }
+    } catch (e) {}
+    localStorage.removeItem("pending_google_role");
+    navigate('/');
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -78,8 +88,26 @@ export function SchoolOnboarding() {
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col justify-center py-12 sm:px-6 lg:px-8">
       <div className="sm:mx-auto sm:w-full sm:max-w-md">
+        {/* Top Back / Exit bar */}
+        <div className="flex items-center justify-between mb-4">
+          <button
+            type="button"
+            onClick={handleQuit}
+            className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-bold text-slate-600 bg-white border border-slate-200 hover:bg-slate-50 hover:text-slate-900 shadow-sm transition"
+          >
+            <ArrowLeft size={14} /> Retour à l'accueil
+          </button>
+          <button
+            type="button"
+            onClick={handleQuit}
+            className="inline-flex items-center gap-1.5 text-xs text-rose-600 hover:text-rose-700 font-bold transition"
+          >
+            <LogOut size={13} /> Quitter
+          </button>
+        </div>
+
         <div className="flex justify-center">
-          <div className="w-16 h-16 bg-emerald-100 rounded-2xl flex items-center justify-center border border-emerald-200">
+          <div className="w-16 h-16 bg-emerald-100 rounded-2xl flex items-center justify-center border border-emerald-200 shadow-sm">
             <School size={32} className="text-emerald-600" />
           </div>
         </div>
@@ -201,13 +229,20 @@ export function SchoolOnboarding() {
               </div>
             </div>
             
-            <div>
+            <div className="pt-2 flex flex-col gap-2.5">
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full flex justify-center py-3 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-emerald-600 hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-emerald-500 disabled:opacity-50"
+                className="w-full flex justify-center py-3.5 px-4 border border-transparent rounded-xl shadow-md text-sm font-bold uppercase tracking-wider text-white bg-emerald-600 hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-emerald-500 disabled:opacity-50 transition"
               >
                 {loading ? 'Création en cours...' : 'Créer mon établissement'}
+              </button>
+              <button
+                type="button"
+                onClick={handleQuit}
+                className="w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl border border-slate-200 text-xs font-bold text-slate-600 hover:text-slate-900 hover:bg-slate-50 transition cursor-pointer"
+              >
+                <ArrowLeft size={14} /> Annuler et quitter
               </button>
             </div>
           </form>

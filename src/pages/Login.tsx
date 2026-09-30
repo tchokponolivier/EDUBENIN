@@ -3,7 +3,7 @@ import { useAuth } from "../lib/auth";
 import { useNavigate } from "react-router-dom";
 import { EduBeninLogo } from "../components/Logo";
 import { formatErrorMessage } from "../lib/errorHandler";
-import { Facebook, Globe, Smartphone, X } from "lucide-react";
+import { Facebook, Globe, Smartphone, X, Building, GraduationCap, FileText, Shield, Wallet, Users, BookOpen, ChevronRight, Sparkles } from "lucide-react";
 
 export function LoginPage() {
   const [email, setEmail] = useState("");
@@ -264,46 +264,122 @@ export function LoginPage() {
 
       {/* Role Selection Modal */}
       {showRoleModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden relative animate-in fade-in zoom-in duration-200">
-            <button 
-              onClick={() => setShowRoleModal(false)}
-              className="absolute top-4 right-4 text-slate-400 hover:text-slate-600 transition-colors"
-            >
-              <X className="w-5 h-5" />
-            </button>
-            
-            <div className="p-6 sm:p-8">
-              <div className="text-center mb-8">
-                <h3 className="text-2xl font-bold text-gray-700 tracking-tight">Choisissez votre profil</h3>
-                <p className="text-sm text-slate-500 mt-2">Sélectionnez le type de compte pour accéder à votre espace.</p>
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-xl lg:max-w-3xl overflow-hidden relative animate-in zoom-in-95 duration-200 border border-slate-200 flex flex-col max-h-[92vh]">
+            {/* Header */}
+            <div className="relative px-6 py-5 sm:px-8 sm:py-6 border-b border-slate-100 bg-gradient-to-r from-slate-50 via-white to-emerald-50/40">
+              <button 
+                onClick={() => setShowRoleModal(false)}
+                className="absolute top-5 right-5 text-slate-400 hover:text-slate-700 p-1.5 rounded-full hover:bg-slate-100 transition-colors"
+                title="Fermer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+              
+              <div className="flex items-center gap-2 mb-1.5">
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-emerald-100 text-emerald-800 border border-emerald-200">
+                  <Sparkles size={11} /> Profil d'accès
+                </span>
+                <span className="text-xs text-slate-400 font-medium">
+                  {loginMethod === 'google' ? 'Connexion avec Google' : 'Connexion par Email'}
+                </span>
               </div>
+              <h3 className="text-xl sm:text-2xl font-black text-gray-800 tracking-tight">Choisissez votre profil</h3>
+              <p className="text-xs sm:text-sm text-slate-500 mt-1">Sélectionnez le rôle correspondant à vos fonctions pour accéder à votre espace.</p>
+            </div>
 
-              <div className="space-y-3">
+            {/* Roles Grid: 1 column on mobile portrait, 2 columns on desktop landscape */}
+            <div className="p-4 sm:p-6 overflow-y-auto">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-3.5">
                 {[
-                  { id: "SCHOOL_ADMIN", title: "Directeur", desc: "Gestion globale" },
-                  { id: "DIRECTOR_OF_STUDIES", title: "Directeur des Études", desc: "Programmes, Notes et Résultats" },
-                  { id: "SECRETARY", title: "Secrétaire", desc: "Saisie d'élèves" },
-                  { id: "SUPERVISOR", title: "Surveillant", desc: "Absences et matériel" },
-                  { id: "CASHIER", title: "Caisse", desc: "Encaissements" },
-                  { id: "PARENT", title: "Parent d'élève", desc: "Inscriptions et suivi" },
-                  { id: "TEACHER", title: "Professeur", desc: "Notes et classes" },
-                ].map((role, idx) => (
-                  <button
-                    key={idx}
-                    onClick={() => handleRoleSelection(role.id)}
-                    className="w-full flex items-center justify-between p-4 border border-slate-200 rounded-xl hover:bg-slate-50 hover:border-emerald-300 transition-all text-left group"
-                  >
-                    <div>
-                      <h4 className="text-sm font-bold text-gray-700 group-hover:text-emerald-700">{role.title}</h4>
-                      <p className="text-xs text-slate-500 mt-1">{role.desc}</p>
-                    </div>
-                    <div className="w-8 h-8 rounded-full bg-slate-100 group-hover:bg-emerald-100 flex items-center justify-center transition-colors">
-                      <span className="text-emerald-600 font-bold">→</span>
-                    </div>
-                  </button>
-                ))}
+                  {
+                    id: "SCHOOL_ADMIN",
+                    title: "Directeur",
+                    desc: "Gestion globale, décisions & paramétrage école",
+                    icon: Building,
+                    badge: "DIRECTION",
+                    color: "bg-emerald-50 text-emerald-700 border-emerald-200 group-hover:border-emerald-500 group-hover:bg-emerald-600 group-hover:text-white"
+                  },
+                  {
+                    id: "DIRECTOR_OF_STUDIES",
+                    title: "Directeur des Études",
+                    desc: "Pédagogie, planification, cours & bulletins",
+                    icon: GraduationCap,
+                    badge: "PÉDAGOGIE",
+                    color: "bg-indigo-50 text-indigo-700 border-indigo-200 group-hover:border-indigo-500 group-hover:bg-indigo-600 group-hover:text-white"
+                  },
+                  {
+                    id: "SECRETARY",
+                    title: "Secrétaire",
+                    desc: "Inscriptions d'élèves, absences & certificats",
+                    icon: FileText,
+                    badge: "ADMINISTRATION",
+                    color: "bg-blue-50 text-blue-700 border-blue-200 group-hover:border-blue-500 group-hover:bg-blue-600 group-hover:text-white"
+                  },
+                  {
+                    id: "SUPERVISOR",
+                    title: "Surveillant Général",
+                    desc: "Discipline, retards, absences & matériel",
+                    icon: Shield,
+                    badge: "VIE SCOLAIRE",
+                    color: "bg-amber-50 text-amber-700 border-amber-200 group-hover:border-amber-500 group-hover:bg-amber-600 group-hover:text-white"
+                  },
+                  {
+                    id: "CASHIER",
+                    title: "Caisse & Comptabilité",
+                    desc: "Encaissements, reçus de scolarité & dépenses",
+                    icon: Wallet,
+                    badge: "FINANCES",
+                    color: "bg-teal-50 text-teal-700 border-teal-200 group-hover:border-teal-500 group-hover:bg-teal-600 group-hover:text-white"
+                  },
+                  {
+                    id: "PARENT",
+                    title: "Parent d'élève",
+                    desc: "Inscriptions, paiements & suivi des enfants",
+                    icon: Users,
+                    badge: "FAMILLE",
+                    color: "bg-rose-50 text-rose-700 border-rose-200 group-hover:border-rose-500 group-hover:bg-rose-600 group-hover:text-white"
+                  },
+                  {
+                    id: "TEACHER",
+                    title: "Professeur",
+                    desc: "Saisie des notes, évaluations & cours",
+                    icon: BookOpen,
+                    badge: "ENSEIGNANT",
+                    color: "bg-purple-50 text-purple-700 border-purple-200 group-hover:border-purple-500 group-hover:bg-purple-600 group-hover:text-white"
+                  },
+                ].map((role) => {
+                  const Icon = role.icon;
+                  return (
+                    <button
+                      key={role.id}
+                      onClick={() => handleRoleSelection(role.id)}
+                      className="group flex items-start gap-3.5 p-3.5 sm:p-4 border border-slate-200 rounded-2xl hover:border-emerald-500 hover:bg-emerald-50/30 hover:shadow-md transition-all text-left bg-white relative cursor-pointer"
+                    >
+                      <div className={`w-10 h-10 sm:w-11 sm:h-11 rounded-xl flex items-center justify-center shrink-0 border transition-all ${role.color}`}>
+                        <Icon size={20} />
+                      </div>
+                      <div className="flex-1 min-w-0 pr-6">
+                        <div className="flex items-center gap-2">
+                          <h4 className="text-sm font-bold text-gray-800 group-hover:text-emerald-900 transition-colors truncate">{role.title}</h4>
+                          <span className="text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 group-hover:bg-emerald-100 group-hover:text-emerald-800 transition-colors shrink-0">
+                            {role.badge}
+                          </span>
+                        </div>
+                        <p className="text-xs text-slate-500 mt-1 line-clamp-2 leading-relaxed">{role.desc}</p>
+                      </div>
+                      <div className="absolute right-3.5 top-1/2 -translate-y-1/2 w-7 h-7 rounded-full bg-slate-100 group-hover:bg-emerald-600 group-hover:text-white text-slate-400 flex items-center justify-center transition-all shadow-sm">
+                        <ChevronRight size={14} className="stroke-[2.5]" />
+                      </div>
+                    </button>
+                  );
+                })}
               </div>
+            </div>
+
+            {/* Footer Notice */}
+            <div className="px-6 py-3.5 bg-slate-50 border-t border-slate-100 text-center text-xs text-slate-500 shrink-0">
+              Vous pourrez changer de compte ou vous déconnecter à tout moment depuis votre tableau de bord.
             </div>
           </div>
         </div>

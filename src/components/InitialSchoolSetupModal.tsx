@@ -82,22 +82,26 @@ export function InitialSchoolSetupModal({ isOpen, onSuccess, onClose }: InitialS
 
       // 2. Link the current director profile to this new school
       if (user?.id) {
-        const { error: profileErr } = await supabase
-          .from("profiles")
-          .upsert({
-            id: user.id,
-            email: user.email,
-            full_name: user.name || "Directeur",
-            school_id: newSchool.id,
-            role: "SCHOOL_ADMIN"
-          });
+        try {
+          const { error: profileErr } = await supabase
+            .from("profiles")
+            .upsert({
+              id: user.id,
+              email: user.email,
+              full_name: user.name || "Directeur",
+              school_id: newSchool.id,
+              role: "SCHOOL_ADMIN"
+            });
 
-        if (profileErr) {
-          console.warn("Could not upsert profile, attempting update:", profileErr);
-          await supabase.from("profiles").update({
-            school_id: newSchool.id,
-            role: "SCHOOL_ADMIN"
-          }).eq("id", user.id);
+          if (profileErr) {
+            console.warn("Could not upsert profile, attempting update:", profileErr);
+            await supabase.from("profiles").update({
+              school_id: newSchool.id,
+              role: "SCHOOL_ADMIN"
+            }).eq("id", user.id);
+          }
+        } catch (profileCatchErr) {
+          console.warn("Non-fatal profile RLS error during modal setup:", profileCatchErr);
         }
       }
 

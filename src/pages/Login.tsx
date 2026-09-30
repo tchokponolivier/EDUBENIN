@@ -3,6 +3,9 @@ import { useAuth } from "../lib/auth";
 import { useNavigate } from "react-router-dom";
 import { EduBeninLogo } from "../components/Logo";
 import { formatErrorMessage } from "../lib/errorHandler";
+import imgMorningWalk from "../assets/images/students_morning_walk_1790762616576.jpg";
+import imgClassroomStudy from "../assets/images/students_classroom_study_1790762632580.jpg";
+import imgCampusOutdoor from "../assets/images/students_campus_outdoor_1790762644820.jpg";
 import {
   X,
   Building,
@@ -26,19 +29,22 @@ import {
 
 const CAROUSEL_SLIDES = [
   {
-    image: "/src/assets/images/students_morning_walk_1790762616576.jpg",
+    image: imgMorningWalk,
+    fallback: "/images/students_morning_walk_1790762616576.jpg",
     title: "L'excellence éducative au Bénin & en Afrique",
     subtitle: "Une plateforme unifiée au service des élèves, de la direction et des enseignants.",
     tag: "Avenir & Réussite"
   },
   {
-    image: "/src/assets/images/students_classroom_study_1790762632580.jpg",
+    image: imgClassroomStudy,
+    fallback: "/images/students_classroom_study_1790762632580.jpg",
     title: "Rigueur pédagogique & suivi en temps réel",
     subtitle: "Notes, présences, emplois du temps et bulletins centralisés avec clarté.",
     tag: "Pédagogie Moderne"
   },
   {
-    image: "/src/assets/images/students_campus_outdoor_1790762644820.jpg",
+    image: imgCampusOutdoor,
+    fallback: "/images/students_campus_outdoor_1790762644820.jpg",
     title: "Collaboration école, équipe & familles",
     subtitle: "La solution de référence reliant la direction, les professeurs, la caisse et les parents.",
     tag: "Vie Scolaire"
@@ -52,7 +58,11 @@ const ROLES = [
     desc: "Gestion globale, décisions & paramétrage école",
     icon: Building,
     badge: "DIRECTION",
-    color: "bg-emerald-50 text-emerald-700 border-emerald-200 group-hover:border-emerald-500 group-hover:bg-emerald-600 group-hover:text-white"
+    cardBase: "bg-emerald-50/90 border-emerald-300 text-emerald-950 shadow-sm",
+    cardHover: "hover:bg-emerald-100 hover:border-emerald-600 hover:shadow-lg hover:ring-2 hover:ring-emerald-500/30 hover:-translate-y-0.5",
+    iconBox: "bg-emerald-600 text-white border-emerald-600 group-hover:bg-emerald-700",
+    badgeColor: "bg-emerald-200/80 text-emerald-900 border border-emerald-300/80 group-hover:bg-emerald-300",
+    arrowColor: "bg-emerald-200 text-emerald-800 group-hover:bg-emerald-600 group-hover:text-white"
   },
   {
     id: "DIRECTOR_OF_STUDIES",
@@ -60,7 +70,11 @@ const ROLES = [
     desc: "Pédagogie, planification, cours & bulletins",
     icon: GraduationCap,
     badge: "PÉDAGOGIE",
-    color: "bg-indigo-50 text-indigo-700 border-indigo-200 group-hover:border-indigo-500 group-hover:bg-indigo-600 group-hover:text-white"
+    cardBase: "bg-indigo-50/90 border-indigo-300 text-indigo-950 shadow-sm",
+    cardHover: "hover:bg-indigo-100 hover:border-indigo-600 hover:shadow-lg hover:ring-2 hover:ring-indigo-500/30 hover:-translate-y-0.5",
+    iconBox: "bg-indigo-600 text-white border-indigo-600 group-hover:bg-indigo-700",
+    badgeColor: "bg-indigo-200/80 text-indigo-900 border border-indigo-300/80 group-hover:bg-indigo-300",
+    arrowColor: "bg-indigo-200 text-indigo-800 group-hover:bg-indigo-600 group-hover:text-white"
   },
   {
     id: "SECRETARY",
@@ -68,7 +82,11 @@ const ROLES = [
     desc: "Inscriptions d'élèves, absences & certificats",
     icon: FileText,
     badge: "ADMINISTRATION",
-    color: "bg-blue-50 text-blue-700 border-blue-200 group-hover:border-blue-500 group-hover:bg-blue-600 group-hover:text-white"
+    cardBase: "bg-blue-50/90 border-blue-300 text-blue-950 shadow-sm",
+    cardHover: "hover:bg-blue-100 hover:border-blue-600 hover:shadow-lg hover:ring-2 hover:ring-blue-500/30 hover:-translate-y-0.5",
+    iconBox: "bg-blue-600 text-white border-blue-600 group-hover:bg-blue-700",
+    badgeColor: "bg-blue-200/80 text-blue-900 border border-blue-300/80 group-hover:bg-blue-300",
+    arrowColor: "bg-blue-200 text-blue-800 group-hover:bg-blue-600 group-hover:text-white"
   },
   {
     id: "SUPERVISOR",
@@ -76,7 +94,11 @@ const ROLES = [
     desc: "Discipline, retards, absences & matériel",
     icon: Shield,
     badge: "VIE SCOLAIRE",
-    color: "bg-amber-50 text-amber-700 border-amber-200 group-hover:border-amber-500 group-hover:bg-amber-600 group-hover:text-white"
+    cardBase: "bg-amber-50/90 border-amber-300 text-amber-950 shadow-sm",
+    cardHover: "hover:bg-amber-100 hover:border-amber-600 hover:shadow-lg hover:ring-2 hover:ring-amber-500/30 hover:-translate-y-0.5",
+    iconBox: "bg-amber-600 text-white border-amber-600 group-hover:bg-amber-700",
+    badgeColor: "bg-amber-200/80 text-amber-900 border border-amber-300/80 group-hover:bg-amber-300",
+    arrowColor: "bg-amber-200 text-amber-800 group-hover:bg-amber-600 group-hover:text-white"
   },
   {
     id: "CASHIER",
@@ -84,7 +106,11 @@ const ROLES = [
     desc: "Encaissements, reçus de scolarité & dépenses",
     icon: Wallet,
     badge: "FINANCES",
-    color: "bg-teal-50 text-teal-700 border-teal-200 group-hover:border-teal-500 group-hover:bg-teal-600 group-hover:text-white"
+    cardBase: "bg-teal-50/90 border-teal-300 text-teal-950 shadow-sm",
+    cardHover: "hover:bg-teal-100 hover:border-teal-600 hover:shadow-lg hover:ring-2 hover:ring-teal-500/30 hover:-translate-y-0.5",
+    iconBox: "bg-teal-600 text-white border-teal-600 group-hover:bg-teal-700",
+    badgeColor: "bg-teal-200/80 text-teal-900 border border-teal-300/80 group-hover:bg-teal-300",
+    arrowColor: "bg-teal-200 text-teal-800 group-hover:bg-teal-600 group-hover:text-white"
   },
   {
     id: "PARENT",
@@ -92,7 +118,11 @@ const ROLES = [
     desc: "Inscriptions, paiements & suivi des enfants",
     icon: Users,
     badge: "FAMILLE",
-    color: "bg-rose-50 text-rose-700 border-rose-200 group-hover:border-rose-500 group-hover:bg-rose-600 group-hover:text-white"
+    cardBase: "bg-rose-50/90 border-rose-300 text-rose-950 shadow-sm",
+    cardHover: "hover:bg-rose-100 hover:border-rose-600 hover:shadow-lg hover:ring-2 hover:ring-rose-500/30 hover:-translate-y-0.5",
+    iconBox: "bg-rose-600 text-white border-rose-600 group-hover:bg-rose-700",
+    badgeColor: "bg-rose-200/80 text-rose-900 border border-rose-300/80 group-hover:bg-rose-300",
+    arrowColor: "bg-rose-200 text-rose-800 group-hover:bg-rose-600 group-hover:text-white"
   },
   {
     id: "TEACHER",
@@ -100,7 +130,11 @@ const ROLES = [
     desc: "Saisie des notes, évaluations & cours",
     icon: BookOpen,
     badge: "ENSEIGNANT",
-    color: "bg-purple-50 text-purple-700 border-purple-200 group-hover:border-purple-500 group-hover:bg-purple-600 group-hover:text-white"
+    cardBase: "bg-purple-50/90 border-purple-300 text-purple-950 shadow-sm",
+    cardHover: "hover:bg-purple-100 hover:border-purple-600 hover:shadow-lg hover:ring-2 hover:ring-purple-500/30 hover:-translate-y-0.5",
+    iconBox: "bg-purple-600 text-white border-purple-600 group-hover:bg-purple-700",
+    badgeColor: "bg-purple-200/80 text-purple-900 border border-purple-300/80 group-hover:bg-purple-300",
+    arrowColor: "bg-purple-200 text-purple-800 group-hover:bg-purple-600 group-hover:text-white"
   },
 ];
 
@@ -225,6 +259,9 @@ export function LoginPage() {
               >
                 <img
                   src={slide.image}
+                  onError={(e) => {
+                    (e.currentTarget as HTMLImageElement).src = slide.fallback;
+                  }}
                   alt={slide.title}
                   referrerPolicy="no-referrer"
                   className="w-full h-full object-cover"
@@ -454,25 +491,25 @@ export function LoginPage() {
                     <button
                       key={role.id}
                       onClick={() => handleRoleCardClick(role)}
-                      className="group flex items-start gap-3.5 p-4 border border-slate-200 rounded-2xl hover:border-emerald-500 hover:bg-emerald-50/30 hover:shadow-md transition-all text-left bg-white relative cursor-pointer"
+                      className={`group flex items-start gap-3.5 p-4 border rounded-2xl transition-all duration-200 text-left relative cursor-pointer ${role.cardBase} ${role.cardHover}`}
                     >
-                      <div className={`w-10 h-10 sm:w-11 sm:h-11 rounded-xl flex items-center justify-center shrink-0 border transition-all ${role.color}`}>
+                      <div className={`w-10 h-10 sm:w-11 sm:h-11 rounded-xl flex items-center justify-center shrink-0 border transition-all duration-200 shadow-sm ${role.iconBox}`}>
                         <Icon size={20} />
                       </div>
                       <div className="flex-1 min-w-0 pr-6">
                         <div className="flex items-center gap-2">
-                          <h4 className="text-sm font-bold text-gray-800 group-hover:text-emerald-900 transition-colors truncate">
+                          <h4 className="text-sm font-black tracking-tight truncate">
                             {role.title}
                           </h4>
                         </div>
-                        <span className="inline-block text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 group-hover:bg-emerald-100 group-hover:text-emerald-800 transition-colors mt-1">
+                        <span className={`inline-block text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded-md mt-1 transition-colors ${role.badgeColor}`}>
                           {role.badge}
                         </span>
-                        <p className="text-xs text-slate-500 mt-1.5 line-clamp-2 leading-relaxed">
+                        <p className="text-xs text-slate-600 font-medium mt-1.5 line-clamp-2 leading-relaxed">
                           {role.desc}
                         </p>
                       </div>
-                      <div className="absolute right-3.5 top-1/2 -translate-y-1/2 w-7 h-7 rounded-full bg-slate-100 group-hover:bg-emerald-600 group-hover:text-white text-slate-400 flex items-center justify-center transition-all shadow-sm">
+                      <div className={`absolute right-3.5 top-1/2 -translate-y-1/2 w-7 h-7 rounded-full flex items-center justify-center transition-all duration-200 shadow-sm ${role.arrowColor}`}>
                         <ChevronRight size={14} className="stroke-[2.5]" />
                       </div>
                     </button>
@@ -519,21 +556,13 @@ export function LoginPage() {
                 </p>
               </div>
 
-              <div className="pt-2 flex flex-col gap-2.5">
-                <button
-                  type="button"
-                  onClick={() => executeRoleSelection(selectedNoticeRole.id)}
-                  className="w-full flex items-center justify-center gap-2 py-3.5 px-4 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-black uppercase tracking-wider shadow-md shadow-emerald-600/25 transition cursor-pointer"
-                >
-                  <CheckCircle2 size={16} />
-                  <span>J'ai déjà été invité (Continuer)</span>
-                </button>
+              <div className="pt-2">
                 <button
                   type="button"
                   onClick={() => setSelectedNoticeRole(null)}
-                  className="w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl border border-slate-200 text-xs font-bold text-slate-600 hover:text-slate-900 hover:bg-slate-50 transition cursor-pointer"
+                  className="w-full flex items-center justify-center gap-2 py-3 px-4 rounded-xl border border-slate-300 bg-white text-xs font-bold text-slate-700 hover:text-slate-900 hover:bg-slate-50 transition shadow-sm cursor-pointer"
                 >
-                  <ChevronLeft size={14} />
+                  <ChevronLeft size={15} />
                   <span>Retour au choix des profils</span>
                 </button>
               </div>

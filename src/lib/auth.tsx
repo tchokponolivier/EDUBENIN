@@ -185,10 +185,14 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           // Profile was deleted or not created yet
           const chosenRole = (localStorage.getItem("pending_google_role") as any) || getRoleForSupabaseUser(sessionUser.email || "");
           
-          // If SCHOOL_ADMIN or PARENT or SUPER_ADMIN, schoolId MUST be undefined to prompt onboarding/setup
-          const fallbackSchoolId = (chosenRole === 'SCHOOL_ADMIN' || chosenRole === 'SUPER_ADMIN' || chosenRole === 'PARENT') 
+          // Check if an active school exists in localStorage (e.g. just created during onboarding)
+          const activeSchoolFromStorage = localStorage.getItem('edubenin_active_school_id') || undefined;
+
+          // For SUPER_ADMIN or PARENT, schoolId is undefined
+          // For SCHOOL_ADMIN, if they have an active school in storage, use it; otherwise undefined to prompt onboarding
+          const fallbackSchoolId = (chosenRole === 'SUPER_ADMIN' || chosenRole === 'PARENT') 
             ? undefined 
-            : (localStorage.getItem('edubenin_active_school_id') || undefined);
+            : activeSchoolFromStorage;
 
           setUser({
             id: sessionUser.id,

@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../lib/auth';
 import { EduBeninLogo } from '../components/Logo';
+import { CountryDialPicker } from '../components/CountryDialPicker';
 import { 
   Building, 
   MapPin, 
@@ -17,25 +18,6 @@ import {
   School
 } from 'lucide-react';
 
-const COUNTRY_DIAL_CODES = [
-  { code: 'BJ', dial: '+229', flag: '🇧🇯', name: 'Bénin (BJ)' },
-  { code: 'TG', dial: '+228', flag: '🇹🇬', name: 'Togo (TG)' },
-  { code: 'CI', dial: '+225', flag: '🇨🇮', name: "Côte d'Ivoire (CI)" },
-  { code: 'SN', dial: '+221', flag: '🇸🇳', name: 'Sénégal (SN)' },
-  { code: 'BF', dial: '+226', flag: '🇧🇫', name: 'Burkina Faso (BF)' },
-  { code: 'NE', dial: '+227', flag: '🇳🇪', name: 'Niger (NE)' },
-  { code: 'ML', dial: '+223', flag: '🇲🇱', name: 'Mali (ML)' },
-  { code: 'GN', dial: '+224', flag: '🇬🇳', name: 'Guinée (GN)' },
-  { code: 'CM', dial: '+237', flag: '🇨🇲', name: 'Cameroun (CM)' },
-  { code: 'GA', dial: '+241', flag: '🇬🇦', name: 'Gabon (GA)' },
-  { code: 'CD', dial: '+243', flag: '🇨🇩', name: 'RDC (CD)' },
-  { code: 'CG', dial: '+242', flag: '🇨🇬', name: 'Congo (CG)' },
-  { code: 'TD', dial: '+235', flag: '🇹🇩', name: 'Tchad (TD)' },
-  { code: 'MR', dial: '+222', flag: '🇲🇷', name: 'Mauritanie (MR)' },
-  { code: 'FR', dial: '+33',  flag: '🇫🇷', name: 'France (FR)' },
-  { code: 'US', dial: '+1',   flag: '🇺🇸', name: 'États-Unis (US)' },
-];
-
 export function SchoolOnboarding() {
   const { user, updateUserSchool } = useAuth();
   const navigate = useNavigate();
@@ -44,8 +26,6 @@ export function SchoolOnboarding() {
   
   const [phoneDial, setPhoneDial] = useState('+229');
   const [phoneNumber, setPhoneNumber] = useState('');
-
-  const selectedCountry = COUNTRY_DIAL_CODES.find((c) => c.dial === phoneDial) || COUNTRY_DIAL_CODES[0];
 
   const [formData, setFormData] = useState({
     name: '',
@@ -354,25 +334,11 @@ export function SchoolOnboarding() {
                   Numéro de téléphone <span className="text-rose-500">*</span>
                 </label>
                 <div className="flex gap-2.5">
-                  {/* Choix de l'indicatif avec le drapeau du pays à côté */}
-                  <div className="relative w-44 sm:w-52 shrink-0">
-                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-xl select-none z-10" aria-hidden="true">
-                      <span className="leading-none">{selectedCountry.flag}</span>
-                    </div>
-                    <select
-                      id="phoneDial"
-                      value={phoneDial}
-                      onChange={(e) => setPhoneDial(e.target.value)}
-                      className="block w-full py-3 pl-10 pr-4 bg-slate-50 border border-slate-300 rounded-xl text-xs sm:text-sm font-bold text-gray-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition cursor-pointer"
-                      title="Choisir l'indicatif du pays"
-                    >
-                      {COUNTRY_DIAL_CODES.map((c) => (
-                        <option key={c.code} value={c.dial}>
-                          {c.flag} {c.dial} — {c.name}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
+                  {/* Choix de l'indicatif avec le vrai drapeau du pays à côté */}
+                  <CountryDialPicker
+                    value={phoneDial}
+                    onChange={(dial) => setPhoneDial(dial)}
+                  />
 
                   {/* Saisie du numéro */}
                   <div className="relative flex-1 rounded-xl shadow-sm">

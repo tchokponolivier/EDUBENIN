@@ -4,6 +4,7 @@ import { useAuth } from "../lib/auth";
 import { useToast } from "../lib/toast";
 import { formatErrorMessage } from "../lib/errorHandler";
 import { School, Building, Phone, Coins, MapPin, CheckCircle2, AlertCircle } from "lucide-react";
+import { CountryDialPicker } from "./CountryDialPicker";
 
 interface InitialSchoolSetupModalProps {
   isOpen: boolean;
@@ -18,25 +19,6 @@ const CURRENCIES = [
   { code: "USD", label: "Dollar US ($)", symbol: "$" }
 ];
 
-const QUICK_COUNTRIES = [
-  { code: "bj", dial: "+229", flag: "🇧🇯", name: "Bénin" },
-  { code: "tg", dial: "+228", flag: "🇹🇬", name: "Togo" },
-  { code: "ci", dial: "+225", flag: "🇨🇮", name: "Côte d'Ivoire" },
-  { code: "sn", dial: "+221", flag: "🇸🇳", name: "Sénégal" },
-  { code: "ne", dial: "+227", flag: "🇳🇪", name: "Niger" },
-  { code: "bf", dial: "+226", flag: "🇧🇫", name: "Burkina Faso" },
-  { code: "ml", dial: "+223", flag: "🇲🇱", name: "Mali" },
-  { code: "gn", dial: "+224", flag: "🇬🇳", name: "Guinée" },
-  { code: "cm", dial: "+237", flag: "🇨🇲", name: "Cameroun" },
-  { code: "ga", dial: "+241", flag: "🇬🇦", name: "Gabon" },
-  { code: "cd", dial: "+243", flag: "🇨🇩", name: "RDC" },
-  { code: "cg", dial: "+242", flag: "🇨🇬", name: "Congo" },
-  { code: "td", dial: "+235", flag: "🇹🇩", name: "Tchad" },
-  { code: "mr", dial: "+222", flag: "🇲🇷", name: "Mauritanie" },
-  { code: "fr", dial: "+33",  flag: "🇫🇷", name: "France" },
-  { code: "us", dial: "+1",   flag: "🇺🇸", name: "USA / Canada" }
-];
-
 export function InitialSchoolSetupModal({ isOpen, onSuccess, onClose }: InitialSchoolSetupModalProps) {
   const { user, updateUserSchool, logout } = useAuth();
   const toast = useToast();
@@ -48,8 +30,6 @@ export function InitialSchoolSetupModal({ isOpen, onSuccess, onClose }: InitialS
   const [locality, setLocality] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  const selectedCountry = QUICK_COUNTRIES.find((c) => c.dial === phoneDial) || QUICK_COUNTRIES[0];
 
   if (!isOpen) return null;
 
@@ -193,22 +173,11 @@ export function InitialSchoolSetupModal({ isOpen, onSuccess, onClose }: InitialS
               2. Numéro de téléphone de contact <span className="text-rose-500">*</span>
             </label>
             <div className="flex gap-2">
-              <div className="relative w-36 sm:w-44 shrink-0">
-                <div className="absolute inset-y-0 left-0 pl-2.5 flex items-center pointer-events-none text-lg select-none z-10" aria-hidden="true">
-                  <span className="leading-none">{selectedCountry.flag}</span>
-                </div>
-                <select
-                  value={phoneDial}
-                  onChange={(e) => setPhoneDial(e.target.value)}
-                  className="w-full pl-9 pr-3 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-xs font-bold text-gray-700 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500 cursor-pointer"
-                >
-                  {QUICK_COUNTRIES.map((c) => (
-                    <option key={c.code} value={c.dial}>
-                      {c.flag} {c.dial} ({c.name})
-                    </option>
-                  ))}
-                </select>
-              </div>
+              <CountryDialPicker
+                value={phoneDial}
+                onChange={(dial) => setPhoneDial(dial)}
+                size="sm"
+              />
               <div className="relative flex-1">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
                   <Phone className="h-4 w-4" />

@@ -139,19 +139,34 @@ export function SchoolAdminDashboard() {
   }, [user]);
 
   const fetchSchoolMembers = async () => {
-    if (!user?.schoolId) return;
-    const { data } = await supabase.from('profiles').select('*').eq('school_id', user.schoolId);
-    if (data) setSchoolMembers(data.filter(p => p.id !== user.id)); // Exclude self
+    let targetSchoolId = user?.schoolId || localStorage.getItem('edubenin_active_school_id');
+    if (!targetSchoolId) {
+      try {
+        const { data: sc } = await supabase.from('schools').select('id').order('created_at', { ascending: false }).limit(1).maybeSingle();
+        if (sc?.id) targetSchoolId = sc.id;
+      } catch (e) {}
+    }
+    const { data } = await supabase.from('profiles').select('*');
+    if (data) {
+      setSchoolMembers(data.filter(p => p.id !== user?.id && (!targetSchoolId || !p.school_id || p.school_id === targetSchoolId || p.school_id === "11111111-1111-4111-8111-111111111111")));
+    }
   };
 
   const fetchSchoolSettings = async () => {
-    if (!user?.schoolId) {
+    let targetSchoolId = user?.schoolId || localStorage.getItem('edubenin_active_school_id');
+    if (!targetSchoolId) {
       if (user?.role === 'SCHOOL_ADMIN') {
         setShowInitialSetupModal(true);
       }
-      return;
+      try {
+        const { data: sc } = await supabase.from('schools').select('id').order('created_at', { ascending: false }).limit(1).maybeSingle();
+        if (sc?.id) targetSchoolId = sc.id;
+        else return;
+      } catch (e) {
+        return;
+      }
     }
-    const { data, error } = await supabase.from('schools').select('*').eq('id', user.schoolId).single();
+    const { data, error } = await supabase.from('schools').select('*').eq('id', targetSchoolId).maybeSingle();
     if (data && data.name) {
       if (data.contacts) {
         const match = data.contacts.match(/^(\+\d+)\s+/);
@@ -162,7 +177,7 @@ export function SchoolAdminDashboard() {
       }
       let extra = {};
       try {
-        const savedExtra = localStorage.getItem('schoolSettings_extra_' + user.schoolId);
+        const savedExtra = localStorage.getItem('schoolSettings_extra_' + targetSchoolId);
         if (savedExtra) extra = JSON.parse(savedExtra);
       } catch (e) {}
       setSettings({
@@ -216,16 +231,23 @@ export function SchoolAdminDashboard() {
   };
 
   const fetchDashboardData = async () => {
-    if (!user?.schoolId) return;
+    let targetSchoolId = user?.schoolId || localStorage.getItem('edubenin_active_school_id');
+    if (!targetSchoolId) {
+      try {
+        const { data: sc } = await supabase.from('schools').select('id').order('created_at', { ascending: false }).limit(1).maybeSingle();
+        if (sc?.id) targetSchoolId = sc.id;
+      } catch (e) {}
+    }
     
     try {
       const [studentsRes, paymentsRes] = await Promise.all([
-        supabase.from('students').select('*').eq('school_id', user.schoolId),
-        supabase.from('payments').select('*').eq('school_id', user.schoolId)
+        supabase.from('students').select('*'),
+        targetSchoolId ? supabase.from('payments').select('*').eq('school_id', targetSchoolId) : { data: [] }
       ]);
       
       if (studentsRes.data) {
-        setStudents(studentsRes.data.map(d => ({...d, createdAt: d.created_at, firstName: d.first_name, lastName: d.last_name})) as any);
+        const filtered = (studentsRes.data || []).filter((d: any) => !targetSchoolId || !d.school_id || d.school_id === targetSchoolId || d.school_id === "11111111-1111-4111-8111-111111111111");
+        setStudents(filtered.map((d: any) => ({...d, createdAt: d.created_at, firstName: d.first_name, lastName: d.last_name})) as any);
       }
       if (paymentsRes.data) {
         setPayments(paymentsRes.data as any);

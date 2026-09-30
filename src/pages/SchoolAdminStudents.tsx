@@ -122,13 +122,24 @@ export function SchoolAdminStudents() {
                (f === "junior" && l === "kodjo");
       };
 
-      const targetSchoolId = user?.schoolId || localStorage.getItem('edubenin_active_school_id') || "11111111-1111-4111-8111-111111111111";
+      let targetSchoolId = user?.schoolId || localStorage.getItem('edubenin_active_school_id');
+      if (!targetSchoolId) {
+        try {
+          const { supabase } = await import('../lib/supabase');
+          const { data: sc } = await supabase.from('schools').select('id, academic_year').order('created_at', { ascending: false }).limit(1).maybeSingle();
+          if (sc?.id) {
+            targetSchoolId = sc.id;
+            localStorage.setItem('edubenin_active_school_id', sc.id);
+          }
+        } catch (e) {}
+      }
+      if (!targetSchoolId) targetSchoolId = "11111111-1111-4111-8111-111111111111";
 
       try {
         const { supabase } = await import('../lib/supabase');
         const [studentsRes, yearsRes] = await Promise.all([
-           supabase.from('students').select('*').eq('school_id', targetSchoolId),
-           supabase.from('academic_years').select('id, name').eq('school_id', targetSchoolId)
+           supabase.from('students').select('*'),
+           supabase.from('academic_years').select('id, name')
         ]);
         if (yearsRes.data) setAcademicYears(yearsRes.data);
         
@@ -154,7 +165,7 @@ export function SchoolAdminStudents() {
         } catch(e) {}
 
         const mappedStudents = list
-          .filter(d => !isDummyStudent(d) && (!d.school_id || d.school_id === targetSchoolId))
+          .filter(d => !isDummyStudent(d) && (!d.school_id || d.school_id === targetSchoolId || d.school_id === "11111111-1111-4111-8111-111111111111"))
           .map(d => ({
             ...d,
             id: d.id,

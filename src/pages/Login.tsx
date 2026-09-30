@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useAuth } from "../lib/auth";
 import { useNavigate } from "react-router-dom";
+import { supabase } from "../lib/supabase";
 import { EduBeninLogo } from "../components/Logo";
 import { formatErrorMessage } from "../lib/errorHandler";
 import imgMorningWalk from "../assets/images/students_morning_walk_1790762616576.jpg";
@@ -187,13 +188,87 @@ export function LoginPage() {
     setShowRoleModal(true);
   };
 
-  const handleRoleCardClick = (role: typeof ROLES[0]) => {
-    // If Director, proceed directly
+  // Check for login notice from Google OAuth callback (e.g. uninvited user)
+  useEffect(() => {
+    const notice = sessionStorage.getItem('edubenin_login_notice');
+    if (notice) {
+      sessionStorage.removeItem('edubenin_login_notice');
+      try {
+        const parsed = JSON.parse(notice);
+        const roleObj = ROLES.find(r => r.id === parsed.role) || ROLES.find(r => r.id === 'TEACHER');
+        if (roleObj) {
+          setSelectedNoticeRole({ ...roleObj, uninvitedEmail: parsed.email });
+        }
+      } catch (e) {}
+    }
+  }, []);
+
+  const handleRoleCardClick = async (role: typeof ROLES[0]) => {
+    // 1. If Google Login:
+    if (loginMethod === 'google') {
+      // Proceed directly to Google authentication!
+      // The invitation verification takes place upon Google callback with their real email.
+      await executeRoleSelection(role.id);
+      return;
+    }
+
+    // 2. If Director with Email/Password:
     if (role.id === "SCHOOL_ADMIN") {
-      executeRoleSelection("SCHOOL_ADMIN");
-    } else {
-      // For all other roles, inform that invitation by school director is required
-      setSelectedNoticeRole(role);
+      await executeRoleSelection("SCHOOL_ADMIN");
+      return;
+    }
+
+    // 3. For any other role with Email/Password:
+    // Verify whether this user was invited by their school director!
+    setIsSubmitting(true);
+    setError("");
+    const cleanEmail = email.trim().toLowerCase();
+
+    try {
+      // Check in Supabase invitations table
+      const { data: inv } = await supabase
+        .from('invitations')
+        .select('*')
+        .ilike('email', cleanEmail)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      // Check in mock_db_invitations (localStorage fallback)
+      let localInv = null;
+      try {
+        const localInvs = JSON.parse(localStorage.getItem('mock_db_invitations') || '[]');
+        localInv = localInvs.find((i: any) => i.email && i.email.toLowerCase().trim() === cleanEmail);
+      } catch (e) {}
+
+      // Check in profiles table (already registered member)
+      let existingProf = null;
+      try {
+        const { data: p } = await supabase
+          .from('profiles')
+          .select('id, role, school_id')
+          .ilike('email', cleanEmail)
+          .maybeSingle();
+        existingProf = p;
+      } catch (e) {}
+
+      const isInvitedOrRegistered = !!(inv || localInv || (existingProf && (existingProf.school_id || existingProf.role === role.id)));
+
+      if (isInvitedOrRegistered) {
+        // User was invited or already has a valid school profile: proceed to dashboard!
+        setShowRoleModal(false);
+        await executeRoleSelection(role.id);
+      } else {
+        // User has not received an invitation: show the invitation notice
+        setShowRoleModal(false);
+        setSelectedNoticeRole({ ...role, uninvitedEmail: cleanEmail });
+      }
+    } catch (err: any) {
+      console.warn("Invitation check error, proceeding to login:", err);
+      setShowRoleModal(false);
+      await executeRoleSelection(role.id);
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -204,7 +279,7 @@ export function LoginPage() {
 
     if (loginMethod === 'email') {
       try {
-        login(email, undefined, password, roleId);
+        await login(email, undefined, password, roleId);
         navigate("/dashboard");
       } catch (err: any) {
         setError(formatErrorMessage(err));
@@ -548,6 +623,11 @@ export function LoginPage() {
                   <AlertCircle size={15} className="text-amber-600 shrink-0" />
                   Vous devez être invité par le Directeur de votre école :
                 </p>
+                {selectedNoticeRole.uninvitedEmail && (
+                  <p className="bg-white/90 p-2.5 rounded-xl border border-amber-300 font-medium text-slate-800 text-[11px]">
+                    Adresse vérifiée : <span className="text-amber-800 underline font-bold">{selectedNoticeRole.uninvitedEmail}</span> (aucune invitation active trouvée pour cet établissement)
+                  </p>
+                )}
                 <p>
                   Pour accéder à cet espace en tant que <strong>{selectedNoticeRole.title}</strong>, vous devez avoir reçu une invitation par email de la part de la direction de votre établissement.
                 </p>

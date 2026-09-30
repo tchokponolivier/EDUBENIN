@@ -106,39 +106,113 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     const fetchSupabaseProfile = async (sessionUser: any) => {
       try {
         const pendingRole = localStorage.getItem("pending_google_role");
-        
-        if (pendingRole) {
-          localStorage.removeItem("pending_google_role");
-          // If they chose a role during Google Sign-In, update their profile
-          // This overrides the default 'PARENT' role created by the database trigger
-          // Fetch current profile to see if school_id is missing
-          const { data: tempProfile } = await supabase.from('profiles').select('school_id').eq('id', sessionUser.id).single();
-          let schoolId = tempProfile?.school_id;
-          if (pendingRole === 'SCHOOL_ADMIN' && !schoolId) {
-             // Do not automatically create a school. Let the user go to onboarding.
-             schoolId = null;
+        const userEmail = sessionUser.email ? sessionUser.email.toLowerCase().trim() : "";
+
+        // Check if there is an active invitation for this user's email
+        let invitedSchoolId: string | null = null;
+        let invitedRole: string | null = null;
+        if (userEmail) {
+          try {
+            const { data: inv } = await supabase
+              .from('invitations')
+              .select('*')
+              .ilike('email', userEmail)
+              .order('created_at', { ascending: false })
+              .limit(1)
+              .maybeSingle();
+            if (inv) {
+              invitedSchoolId = inv.school_id;
+              invitedRole = inv.role;
+            }
+          } catch (e) {
+            console.warn("Could not query invitations table:", e);
           }
-          const { error: updateError } = await supabase.from('profiles').update({ role: pendingRole, school_id: schoolId }).eq('id', sessionUser.id);
-          if (updateError) {
-            console.error("Erreur lors de la mise à jour du rôle :", updateError);
-            alert(`Erreur: Le rôle n'a pas pu être mis à jour. Détail: ${updateError.message}`);
+
+          if (!invitedSchoolId) {
+            try {
+              const localInvs = JSON.parse(localStorage.getItem('mock_db_invitations') || '[]');
+              const localInv = localInvs.find((i: any) => i.email && i.email.toLowerCase().trim() === userEmail);
+              if (localInv) {
+                invitedSchoolId = localInv.school_id;
+                invitedRole = localInv.role;
+              }
+            } catch (e) {}
           }
         }
 
+        // Fetch current profile if it exists
         const { data: profile } = await supabase
           .from('profiles')
           .select('role, full_name, school_id, avatar_url')
           .eq('id', sessionUser.id)
           .maybeSingle();
 
-        if (profile) {
-          if (sessionUser.email === 'contact.tchok@gmail.com' && profile.role !== 'SUPER_ADMIN') {
+        if (pendingRole) {
+          localStorage.removeItem("pending_google_role");
+
+          if (pendingRole === 'SCHOOL_ADMIN') {
+            // For director: keep existing school or leave null for onboarding
+            let schoolId = profile?.school_id || null;
+            try {
+              await supabase.from('profiles').upsert({
+                id: sessionUser.id,
+                email: sessionUser.email,
+                role: 'SCHOOL_ADMIN',
+                school_id: schoolId,
+                full_name: sessionUser.user_metadata?.full_name || sessionUser.email?.split('@')[0],
+                avatar_url: sessionUser.user_metadata?.avatar_url
+              });
+            } catch (e) {}
+          } else {
+            // Non-director role selected (e.g. TEACHER, DIRECTOR_OF_STUDIES, etc.)
+            const targetSchoolId = invitedSchoolId || profile?.school_id;
+
+            if (targetSchoolId) {
+              // VERIFIED: User has an invitation or existing school!
+              const targetRole = pendingRole || invitedRole || profile?.role || 'TEACHER';
+              try {
+                await supabase.from('profiles').upsert({
+                  id: sessionUser.id,
+                  email: sessionUser.email,
+                  role: targetRole,
+                  school_id: targetSchoolId,
+                  full_name: sessionUser.user_metadata?.full_name || sessionUser.email?.split('@')[0],
+                  avatar_url: sessionUser.user_metadata?.avatar_url
+                });
+              } catch (e) {}
+              localStorage.setItem('edubenin_active_school_id', targetSchoolId);
+            } else {
+              // NOT VERIFIED: New uninvited user trying to access non-director role
+              // Must not let them through to uninvited dashboard
+              await supabase.auth.signOut({ scope: 'local' });
+              sessionStorage.setItem('edubenin_login_notice', JSON.stringify({
+                email: sessionUser.email,
+                role: pendingRole
+              }));
+              setUser(null);
+              setIsLoading(false);
+              return;
+            }
+          }
+        }
+
+        // Re-fetch profile to get up-to-date state
+        const { data: updatedProfile } = await supabase
+          .from('profiles')
+          .select('role, full_name, school_id, avatar_url')
+          .eq('id', sessionUser.id)
+          .maybeSingle();
+
+        const currentProfile = updatedProfile || profile;
+
+        if (currentProfile) {
+          if (sessionUser.email === 'contact.tchok@gmail.com' && currentProfile.role !== 'SUPER_ADMIN') {
              await supabase.from('profiles').update({ role: 'SUPER_ADMIN', school_id: null }).eq('id', sessionUser.id);
-             profile.role = 'SUPER_ADMIN';
-             profile.school_id = null;
+             currentProfile.role = 'SUPER_ADMIN';
+             currentProfile.school_id = null;
           }
 
-          let resolvedSchoolId = profile.school_id;
+          let resolvedSchoolId = currentProfile.school_id || invitedSchoolId;
           
           // Verify if the assigned school actually exists in schools table
           if (resolvedSchoolId) {
@@ -154,7 +228,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           }
 
           // ONLY for staff (non-director), if schoolId is missing, check active school
-          if (!resolvedSchoolId && profile.role !== 'SUPER_ADMIN' && profile.role !== 'PARENT' && profile.role !== 'SCHOOL_ADMIN') {
+          if (!resolvedSchoolId && currentProfile.role !== 'SUPER_ADMIN' && currentProfile.role !== 'PARENT' && currentProfile.role !== 'SCHOOL_ADMIN') {
             const activeFallback = localStorage.getItem('edubenin_active_school_id');
             if (activeFallback) {
               resolvedSchoolId = activeFallback;
@@ -163,30 +237,30 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
           // If SCHOOL_ADMIN has no school (new or school deleted), do NOT invent a fallback school!
           // Leave resolvedSchoolId undefined so onboarding is properly triggered.
-          const finalSchoolId = (profile.role === 'SUPER_ADMIN' || profile.role === 'PARENT' || (profile.role === 'SCHOOL_ADMIN' && !resolvedSchoolId)) 
+          const finalSchoolId = (currentProfile.role === 'SUPER_ADMIN' || currentProfile.role === 'PARENT' || (currentProfile.role === 'SCHOOL_ADMIN' && !resolvedSchoolId)) 
             ? undefined 
             : (resolvedSchoolId || undefined);
 
           if (finalSchoolId) {
             localStorage.setItem('edubenin_active_school_id', finalSchoolId);
-          } else if (profile.role === 'SCHOOL_ADMIN') {
+          } else if (currentProfile.role === 'SCHOOL_ADMIN') {
             localStorage.removeItem('edubenin_active_school_id');
           }
 
           setUser({
             id: sessionUser.id,
             email: sessionUser.email || "",
-            name: profile.full_name || sessionUser.user_metadata?.full_name || sessionUser.email?.split("@")[0] || "User",
-            role: profile.role as any,
+            name: currentProfile.full_name || sessionUser.user_metadata?.full_name || sessionUser.email?.split("@")[0] || "User",
+            role: currentProfile.role as any,
             schoolId: finalSchoolId,
-            avatar: profile.avatar_url,
+            avatar: currentProfile.avatar_url,
           });
         } else {
           // Profile was deleted or not created yet
           const chosenRole = (localStorage.getItem("pending_google_role") as any) || getRoleForSupabaseUser(sessionUser.email || "");
           
           // Check if an active school exists in localStorage (e.g. just created during onboarding)
-          const activeSchoolFromStorage = localStorage.getItem('edubenin_active_school_id') || undefined;
+          const activeSchoolFromStorage = invitedSchoolId || localStorage.getItem('edubenin_active_school_id') || undefined;
 
           // For SUPER_ADMIN or PARENT, schoolId is undefined
           // For SCHOOL_ADMIN, if they have an active school in storage, use it; otherwise undefined to prompt onboarding
@@ -276,11 +350,40 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   };
 
   const login = async (email: string, fullName?: string, password?: string, role?: string) => {
-    let foundUser = MOCK_USERS[email];
+    let cleanEmail = email.trim().toLowerCase();
+    let foundUser = MOCK_USERS[cleanEmail] || MOCK_USERS[email];
     let mockPassword = password || "password123";
-    const effectiveRole = (role || (foundUser ? foundUser.role : "PARENT")) as any;
 
-    const activeSchoolFallback = localStorage.getItem('edubenin_active_school_id') || realSchoolId;
+    // Check if an invitation exists for this email
+    let invitedSchoolId: string | null = null;
+    let invitedRole: string | null = null;
+    try {
+      const { data: inv } = await supabase
+        .from('invitations')
+        .select('*')
+        .ilike('email', cleanEmail)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (inv) {
+        invitedSchoolId = inv.school_id;
+        invitedRole = inv.role;
+      }
+    } catch (e) {}
+
+    if (!invitedSchoolId) {
+      try {
+        const localInvs = JSON.parse(localStorage.getItem('mock_db_invitations') || '[]');
+        const localInv = localInvs.find((i: any) => i.email && i.email.toLowerCase().trim() === cleanEmail);
+        if (localInv) {
+          invitedSchoolId = localInv.school_id;
+          invitedRole = localInv.role;
+        }
+      } catch (e) {}
+    }
+
+    const effectiveRole = (role || invitedRole || (foundUser ? foundUser.role : "PARENT")) as any;
+    const activeSchoolFallback = invitedSchoolId || localStorage.getItem('edubenin_active_school_id') || realSchoolId;
     
     // For SCHOOL_ADMIN: if no real school exists in database, do NOT assign a fallback school!
     let schoolIdForUser: string | undefined = undefined;
@@ -288,16 +391,16 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       if (effectiveRole === 'SCHOOL_ADMIN') {
         schoolIdForUser = activeSchoolFallback || undefined;
       } else {
-        schoolIdForUser = activeSchoolFallback || foundUser?.schoolId || undefined;
+        schoolIdForUser = invitedSchoolId || activeSchoolFallback || foundUser?.schoolId || undefined;
       }
     }
 
     let userToSet = foundUser ? 
-      { ...foundUser, role: effectiveRole, schoolId: schoolIdForUser }
+      { ...foundUser, email: cleanEmail, role: effectiveRole, schoolId: schoolIdForUser }
       : {
         id: "00000000-0000-4000-8000-000000000000",
-        email,
-        name: fullName || email.split("@")[0],
+        email: cleanEmail,
+        name: fullName || cleanEmail.split("@")[0],
         role: effectiveRole,
         schoolId: schoolIdForUser
       };
@@ -319,24 +422,26 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
     try {
       // 1. Try to login
-      let { data: authData, error: authError } = await supabase.auth.signInWithPassword({ email, password: mockPassword });
+      let { data: authData, error: authError } = await supabase.auth.signInWithPassword({ email: cleanEmail, password: mockPassword });
       
       if (authError && (authError.message.includes('Invalid login credentials') || authError.message.includes('Invalid') || authError.status === 400)) {
          // 2. Try to signup
-         const signupRes = await supabase.auth.signUp({ email, password: mockPassword });
+         const signupRes = await supabase.auth.signUp({ email: cleanEmail, password: mockPassword });
          authData = signupRes.data;
       }
       
       if (authData?.user) {
          userToSet.id = authData.user.id;
          // Upsert profile
-         await supabase.from('profiles').upsert({
-           id: userToSet.id,
-           email: userToSet.email,
-           full_name: userToSet.name,
-           role: userToSet.role,
-           school_id: userToSet.schoolId || null
-         });
+         try {
+           await supabase.from('profiles').upsert({
+             id: userToSet.id,
+             email: cleanEmail,
+             full_name: userToSet.name,
+             role: userToSet.role,
+             school_id: userToSet.schoolId || null
+           });
+         } catch (e) {}
          
          setUser(userToSet);
          localStorage.removeItem("edubenin_auth");

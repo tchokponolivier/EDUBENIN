@@ -80,7 +80,11 @@ class MockQueryBuilder {
         !p.id?.startsWith("77777777-7777") && 
         p.email !== "prof@school.com" && 
         p.email !== "koffi.dossou@ecole.com" && 
-        p.email !== "claire.ahouangbo@ecole.com"
+        p.email !== "claire.ahouangbo@ecole.com" &&
+        !p.email?.includes("prof.maths") &&
+        !p.email?.includes("prof.francais") &&
+        !p.email?.includes("prof.svt") &&
+        !p.email?.endsWith("@ecole.com")
       );
       let updated = false;
       defaultProfiles.forEach(dp => {
@@ -94,7 +98,8 @@ class MockQueryBuilder {
       // Filter out previously auto-injected dummy invitations
       data = data.filter((inv: any) => 
         inv.id !== "inv_1" && inv.id !== "inv_2" && inv.id !== "inv_3" &&
-        !inv.email?.includes("prof.maths@") && !inv.email?.includes("prof.francais@") && !inv.email?.includes("prof.svt@")
+        !inv.email?.includes("prof.maths") && !inv.email?.includes("prof.francais") && !inv.email?.includes("prof.svt") &&
+        !inv.email?.includes("prof@school.com") && !inv.email?.endsWith("@ecole.com")
       );
       localStorage.setItem(storageKey, JSON.stringify(data));
     } else if (this.table === 'students') {

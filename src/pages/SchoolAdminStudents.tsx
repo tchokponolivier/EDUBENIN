@@ -253,62 +253,61 @@ export function SchoolAdminStudents() {
 
   return (
     <div className="flex flex-col gap-6 animate-in fade-in">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-xl font-bold text-gray-700">Secrétariat & Scolarité</h1>
-          <p className="text-xs text-slate-500 mt-1">Gérez les inscriptions, absences et emplois du temps</p>
-        </div>
-        
-        <div className="flex p-1 bg-slate-100 overflow-x-auto whitespace-nowrap hide-scrollbar rounded-lg shrink-0 overflow-x-auto max-w-full">
-          <button 
-            onClick={() => setActiveTab("STUDENTS")} 
-            className={`px-4 py-2 rounded text-xs whitespace-nowrap shrink-0 font-bold uppercase tracking-wider transition-colors ${activeTab === "STUDENTS" ? "bg-white shadow-sm text-gray-700" : "text-slate-500 hover:text-gray-700"}`}
-          >
-            Inscriptions
-          </button>
-          <button 
-            onClick={() => setActiveTab("ABSENCES")} 
-            className={`px-4 py-2 rounded text-xs whitespace-nowrap shrink-0 font-bold uppercase tracking-wider transition-colors ${activeTab === "ABSENCES" ? "bg-white shadow-sm text-gray-700" : "text-slate-500 hover:text-gray-700"}`}
-          >
-            Absences & Retards
-          </button>
-          <button 
-            onClick={() => setActiveTab("DOCUMENTS")} 
-            className={`px-4 py-2 rounded text-xs whitespace-nowrap shrink-0 font-bold uppercase tracking-wider transition-colors ${activeTab === "DOCUMENTS" ? "bg-white shadow-sm text-gray-700" : "text-slate-500 hover:text-gray-700"}`}
-          >
-            Documents
-          </button>
-          <button 
-            onClick={() => setActiveTab("MAILS")} 
-            className={`px-4 py-2 rounded text-xs whitespace-nowrap shrink-0 font-bold uppercase tracking-wider transition-colors ${activeTab === "MAILS" ? "bg-white shadow-sm text-gray-700" : "text-slate-500 hover:text-gray-700"}`}
-          >
-            Courriers
-          </button>
-          <button 
-            onClick={() => setActiveTab("EXAMS")} 
-            className={`px-4 py-2 rounded text-xs whitespace-nowrap shrink-0 font-bold uppercase tracking-wider transition-colors ${activeTab === "EXAMS" ? "bg-white shadow-sm text-gray-700" : "text-slate-500 hover:text-gray-700"}`}
-          >
-            Épreuves
-          </button>
-          <button 
-            onClick={() => setActiveTab("PLANNING")} 
-            className={`px-4 py-2 rounded text-xs whitespace-nowrap shrink-0 font-bold uppercase tracking-wider transition-colors ${activeTab === "PLANNING" ? "bg-white shadow-sm text-gray-700" : "text-slate-500 hover:text-gray-700"}`}
-          >
-            Planning
-          </button>
-          <button 
-            onClick={() => setActiveTab("TIMETABLES")} 
-            className={`px-4 py-2 rounded text-xs whitespace-nowrap shrink-0 font-bold uppercase tracking-wider transition-colors ${activeTab === "TIMETABLES" ? "bg-white shadow-sm text-gray-700" : "text-slate-500 hover:text-gray-700"}`}
-          >
-            Emplois du temps
-          </button>
-          <button 
-            onClick={() => setActiveTab("HR")} 
-            className={`px-4 py-2 rounded text-xs whitespace-nowrap shrink-0 font-bold uppercase tracking-wider transition-colors flex items-center gap-1.5 ${activeTab === "HR" ? "bg-emerald-600 text-white shadow-sm" : "text-emerald-700 hover:text-emerald-900 bg-emerald-50"}`}
-          >
-            <span>Personnel & RH</span>
-          </button>
-        </div>
+      <div>
+        <h1 className="text-2xl font-bold text-gray-800">Secrétariat & Scolarité</h1>
+        <p className="text-xs text-slate-500 mt-1">Gérez les inscriptions, absences et emplois du temps</p>
+      </div>
+      
+      {/* Navigation Tabs - Ajustés en bas du titre de la page */}
+      <div className="flex p-1.5 bg-slate-100/90 border border-slate-200 overflow-x-auto whitespace-nowrap hide-scrollbar rounded-xl gap-1 max-w-full shadow-inner">
+        <button 
+          onClick={() => setActiveTab("STUDENTS")} 
+          className={`px-4 py-2 rounded-lg text-xs whitespace-nowrap shrink-0 font-bold uppercase tracking-wider transition-all ${activeTab === "STUDENTS" ? "bg-white shadow-xs text-gray-800 border border-slate-200" : "text-slate-500 hover:text-gray-800 hover:bg-white/60"}`}
+        >
+          Inscriptions
+        </button>
+        <button 
+          onClick={() => setActiveTab("ABSENCES")} 
+          className={`px-4 py-2 rounded-lg text-xs whitespace-nowrap shrink-0 font-bold uppercase tracking-wider transition-all ${activeTab === "ABSENCES" ? "bg-white shadow-xs text-gray-800 border border-slate-200" : "text-slate-500 hover:text-gray-800 hover:bg-white/60"}`}
+        >
+          Absences & Retards
+        </button>
+        <button 
+          onClick={() => setActiveTab("DOCUMENTS")} 
+          className={`px-4 py-2 rounded-lg text-xs whitespace-nowrap shrink-0 font-bold uppercase tracking-wider transition-all ${activeTab === "DOCUMENTS" ? "bg-white shadow-xs text-gray-800 border border-slate-200" : "text-slate-500 hover:text-gray-800 hover:bg-white/60"}`}
+        >
+          Documents
+        </button>
+        <button 
+          onClick={() => setActiveTab("MAILS")} 
+          className={`px-4 py-2 rounded-lg text-xs whitespace-nowrap shrink-0 font-bold uppercase tracking-wider transition-all ${activeTab === "MAILS" ? "bg-white shadow-xs text-gray-800 border border-slate-200" : "text-slate-500 hover:text-gray-800 hover:bg-white/60"}`}
+        >
+          Courriers
+        </button>
+        <button 
+          onClick={() => setActiveTab("EXAMS")} 
+          className={`px-4 py-2 rounded-lg text-xs whitespace-nowrap shrink-0 font-bold uppercase tracking-wider transition-all ${activeTab === "EXAMS" ? "bg-white shadow-xs text-gray-800 border border-slate-200" : "text-slate-500 hover:text-gray-800 hover:bg-white/60"}`}
+        >
+          Épreuves
+        </button>
+        <button 
+          onClick={() => setActiveTab("PLANNING")} 
+          className={`px-4 py-2 rounded-lg text-xs whitespace-nowrap shrink-0 font-bold uppercase tracking-wider transition-all ${activeTab === "PLANNING" ? "bg-white shadow-xs text-gray-800 border border-slate-200" : "text-slate-500 hover:text-gray-800 hover:bg-white/60"}`}
+        >
+          Planning
+        </button>
+        <button 
+          onClick={() => setActiveTab("TIMETABLES")} 
+          className={`px-4 py-2 rounded-lg text-xs whitespace-nowrap shrink-0 font-bold uppercase tracking-wider transition-all ${activeTab === "TIMETABLES" ? "bg-white shadow-xs text-gray-800 border border-slate-200" : "text-slate-500 hover:text-gray-800 hover:bg-white/60"}`}
+        >
+          Emplois du temps
+        </button>
+        <button 
+          onClick={() => setActiveTab("HR")} 
+          className={`px-4 py-2 rounded-lg text-xs whitespace-nowrap shrink-0 font-bold uppercase tracking-wider transition-all flex items-center gap-1.5 ${activeTab === "HR" ? "bg-emerald-600 text-white shadow-xs" : "text-emerald-700 hover:text-emerald-900 bg-emerald-50/80"}`}
+        >
+          <span>Personnel & RH</span>
+        </button>
       </div>
 
 

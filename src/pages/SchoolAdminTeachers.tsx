@@ -22,9 +22,9 @@ import {
   GraduationCap,
   FileSpreadsheet,
   Save,
-  Check
+  Check,
+  History
 } from "lucide-react";
-import { AddTeacherModal } from "../components/AddTeacherModal";
 import { LEVELS, SUBJECTS } from "../types";
 
 export function SchoolAdminTeachers() {
@@ -33,9 +33,13 @@ export function SchoolAdminTeachers() {
   const [teachers, setTeachers] = useState<any[]>([]);
   const [courses, setCourses] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [showAddModal, setShowAddModal] = useState(false);
   const [editingTeacherId, setEditingTeacherId] = useState<string | null>(null);
   const [editingTeacher, setEditingTeacher] = useState<any>(null);
+  const [customSubjectInput, setCustomSubjectInput] = useState("");
+
+  // Deletion History State (Director of Studies deletions visible to Director)
+  const [deletionLogs, setDeletionLogs] = useState<any[]>([]);
+  const [showDeletionHistoryModal, setShowDeletionHistoryModal] = useState(false);
 
   // Invitations & Membres Tab State
   const [allInvitations, setAllInvitations] = useState<any[]>([]);
@@ -112,8 +116,8 @@ export function SchoolAdminTeachers() {
   const [isSavingBulk, setIsSavingBulk] = useState(false);
   const [bulkFeedback, setBulkFeedback] = useState<string | null>(null);
 
-  // Edit Teacher State with Main Subject & Classes
-  const [editingTeacherSubject, setEditingTeacherSubject] = useState<string>("");
+  // Edit Teacher State with Subjects (checkboxes) & Classes
+  const [editingTeacherSubjects, setEditingTeacherSubjects] = useState<string[]>([]);
   const [editingTeacherClasses, setEditingTeacherClasses] = useState<string[]>([]);
   const [editingTeacherCoefs, setEditingTeacherCoefs] = useState<Record<string, number>>({});
 
@@ -176,23 +180,37 @@ export function SchoolAdminTeachers() {
       const isDummyTeacher = (p: any) => {
         if (!p) return false;
         const id = String(p.id || '');
-        const email = String(p.email || '').toLowerCase();
-        const name = String(p.full_name || '').toLowerCase();
+        const email = String(p.email || '').toLowerCase().trim();
+        const name = String(p.full_name || '').toLowerCase().trim();
         return id.startsWith("77777777-7777") ||
-               name === "professeur test" ||
-               name.includes("dossou koffi") ||
-               name.includes("ahouangbo claire") ||
+               id === "inv_1" || id === "inv_2" || id === "inv_3" ||
+               email.includes("prof.maths") ||
+               email.includes("prof.francais") ||
+               email.includes("prof.svt") ||
                email === "prof@school.com" ||
                email.includes("koffi.dossou") ||
-               email.includes("claire.ahouangbo");
+               email.includes("claire.ahouangbo") ||
+               email.endsWith("@ecole.com") ||
+               email.endsWith("@ecole.local") ||
+               name === "professeur test" ||
+               name.includes("dossou koffi") ||
+               name.includes("ahouangbo claire");
       };
 
-      // Purge dummy teachers from local caches
+      // Purge dummy teachers and random emails from local caches and Supabase
       try {
         const local = localStorage.getItem('mock_db_profiles');
         if (local) {
           const parsed = JSON.parse(local).filter((p: any) => !isDummyTeacher(p));
           localStorage.setItem('mock_db_profiles', JSON.stringify(parsed));
+        }
+      } catch(e) {}
+
+      try {
+        const localInvs = localStorage.getItem('mock_db_invitations');
+        if (localInvs) {
+          const parsed = JSON.parse(localInvs).filter((p: any) => !isDummyTeacher(p));
+          localStorage.setItem('mock_db_invitations', JSON.stringify(parsed));
         }
       } catch(e) {}
 
@@ -203,6 +221,24 @@ export function SchoolAdminTeachers() {
           localStorage.setItem(`school_custom_teachers_${targetSchoolId}`, JSON.stringify(parsed));
         }
       } catch(e) {}
+
+      // Clean dummy invitations from Supabase if present
+      try {
+        await supabase.from('invitations').delete().or('id.in.(inv_1,inv_2,inv_3),email.ilike.%prof.maths%,email.ilike.%prof.francais%,email.ilike.%prof.svt%');
+      } catch(e) {}
+
+      // Load deletion history logs
+      try {
+        const logsKey = `teacher_deletion_logs_${targetSchoolId}`;
+        const savedLogs = localStorage.getItem(logsKey);
+        if (savedLogs) {
+          setDeletionLogs(JSON.parse(savedLogs));
+        } else {
+          setDeletionLogs([]);
+        }
+      } catch(e) {
+        setDeletionLogs([]);
+      }
 
       // Ensure we harvest from all real sources (DB + local mock DB + custom teachers created by caisse or director)
       let rawProfiles: any[] = allProfilesRes.data && Array.isArray(allProfilesRes.data) ? [...allProfilesRes.data] : [];
@@ -216,6 +252,7 @@ export function SchoolAdminTeachers() {
         });
       } catch(e) {}
 
+      let customTeachers: any[] = [];
       try {
         const customT = localStorage.getItem(`school_custom_teachers_${targetSchoolId}`);
         if (customT) {
@@ -223,16 +260,13 @@ export function SchoolAdminTeachers() {
           parsedCustom.forEach((ct: any) => {
             if (!isDummyTeacher(ct) && !rawProfiles.some(rp => rp.id === ct.id || (rp.email && ct.email && rp.email.toLowerCase() === ct.email.toLowerCase()))) {
               rawProfiles.push(ct);
+              customTeachers.push(ct);
             }
           });
         }
       } catch(e) {}
 
-      // Filter to only teachers belonging to this school or unassigned
-      const allTeachersInDb = rawProfiles.filter(p => isTeacher(p) && !isDummyTeacher(p) && (!p.school_id || p.school_id === targetSchoolId));
-      let teacherProfiles = [...allTeachersInDb];
-
-      // Cross-reference any real teachers referenced in courses
+      // Cross-reference any real courses
       let allCoursesList: any[] = coursesRes.data && Array.isArray(coursesRes.data) ? [...coursesRes.data] : [];
       try {
         const localCourses = localStorage.getItem('mock_db_courses');
@@ -259,70 +293,92 @@ export function SchoolAdminTeachers() {
         }
       });
 
-      allCoursesList.forEach((c: any) => {
-        if (c.profiles && isTeacher(c.profiles) && !isDummyTeacher(c.profiles)) {
-          if (!teacherProfiles.some(tp => tp.id === c.profiles.id || (tp.email && tp.email.toLowerCase() === c.profiles.email?.toLowerCase()))) {
-            teacherProfiles.push(c.profiles);
-          }
-        } else if (c.teacher_id) {
-          const matchProfile = rawProfiles.find((p: any) => (p.id === c.teacher_id || (p.email && p.email.toLowerCase() === String(c.teacher_id).toLowerCase())) && !isDummyTeacher(p));
-          if (matchProfile) {
-            if (!teacherProfiles.some(tp => tp.id === matchProfile.id || (tp.email && tp.email.toLowerCase() === matchProfile.email?.toLowerCase()))) {
-              teacherProfiles.push(matchProfile);
-            }
-          }
-        }
-      });
-
       let allInvs: any[] = invitationsRes.data && Array.isArray(invitationsRes.data) ? [...invitationsRes.data] : [];
       try {
         const localInvs = localStorage.getItem('mock_db_invitations');
         const parsedInvs = localInvs ? JSON.parse(localInvs) : [];
         parsedInvs.forEach((li: any) => {
-          if (!allInvs.some(ri => ri.id === li.id || (ri.email && li.email && ri.email.toLowerCase() === li.email.toLowerCase()))) {
+          if (!isDummyTeacher(li) && !allInvs.some(ri => ri.id === li.id || (ri.email && li.email && ri.email.toLowerCase() === li.email.toLowerCase()))) {
             allInvs.push(li);
           }
         });
       } catch(e) {}
 
-      const defaultInvs = [
-        { id: "inv_1", email: "prof.maths@ecole.com", role: "TEACHER", school_id: targetSchoolId, created_at: new Date(Date.now() - 2 * 24 * 3600 * 1000).toISOString() },
-        { id: "inv_2", email: "prof.francais@ecole.com", role: "TEACHER", school_id: targetSchoolId, created_at: new Date(Date.now() - 5 * 24 * 3600 * 1000).toISOString() },
-        { id: "inv_3", email: "prof.svt@ecole.com", role: "TEACHER", school_id: targetSchoolId, created_at: new Date(Date.now() - 7 * 24 * 3600 * 1000).toISOString() }
-      ];
-      defaultInvs.forEach(di => {
-        if (!allInvs.some(ri => ri.id === di.id || (ri.email && di.email && ri.email.toLowerCase() === di.email.toLowerCase()))) {
-          allInvs.push(di);
+      // Keep only real invitations for this school (filter out dummy emails)
+      allInvs = allInvs.filter((inv: any) => !isDummyTeacher(inv) && (!inv.school_id || inv.school_id === targetSchoolId || inv.school_id === "11111111-1111-4111-8111-111111111111"));
+      setAllInvitations(allInvs);
+
+      let allMembersData = rawProfiles.filter(m => m.role !== 'DELETED' && !isDummyTeacher(m));
+      setSchoolMembers(allMembersData.length > 0 ? allMembersData : []);
+
+      // Load inviter metadata
+      let invMeta: Record<string, any> = {};
+      try {
+        invMeta = JSON.parse(localStorage.getItem(`school_invitations_meta_${targetSchoolId}`) || '{}');
+      } catch (e) {}
+
+      // Filtrer STRICTEMENT les invitations d'enseignants créées par le Directeur ou Directeur des Études
+      const teacherInvs = allInvs.filter((inv: any) => 
+        !isDummyTeacher(inv) && (!inv.role || inv.role === 'TEACHER' || inv.role?.toUpperCase() === 'TEACHER' || inv.role?.toLowerCase().includes('prof'))
+      );
+
+      const invitedEmailsMap = new Map<string, any>();
+      teacherInvs.forEach((inv: any) => {
+        const em = (inv.email || '').toLowerCase().trim();
+        if (em) {
+          const meta = invMeta[em] || {};
+          invitedEmailsMap.set(em, {
+            ...inv,
+            invited_by_role: meta.invited_by_role || inv.invited_by_role || (user?.role === 'DIRECTOR_OF_STUDIES' ? 'DIRECTOR_OF_STUDIES' : 'SCHOOL_ADMIN'),
+            invited_by_name: meta.invited_by_name || inv.invited_by_name || (user?.role === 'DIRECTOR_OF_STUDIES' ? 'Directeur des Études' : 'Directeur')
+          });
         }
       });
 
-      setAllInvitations(allInvs);
+      // Profils existants qui correspondent UNIQUEMENT à une invitation envoyée ou ajoutés manuellement
+      const matchedProfiles = rawProfiles.filter(p => {
+        if (!isTeacher(p) || isDummyTeacher(p)) return false;
+        const pEmail = (p.email || '').toLowerCase().trim();
+        return invitedEmailsMap.has(pEmail) || customTeachers.some(ct => ct.id === p.id || (ct.email && pEmail && ct.email.toLowerCase() === pEmail));
+      }).map(p => {
+        const pEmail = (p.email || '').toLowerCase().trim();
+        const invInfo = invitedEmailsMap.get(pEmail);
+        return {
+          ...p,
+          invited_by_role: invInfo?.invited_by_role || p.invited_by_role || (user?.role === 'DIRECTOR_OF_STUDIES' ? 'DIRECTOR_OF_STUDIES' : 'SCHOOL_ADMIN'),
+          invited_by_name: invInfo?.invited_by_name || p.invited_by_name || (user?.role === 'DIRECTOR_OF_STUDIES' ? 'Directeur des Études' : 'Directeur')
+        };
+      });
 
-      let allMembersData = rawProfiles.filter(m => m.role !== 'DELETED');
-      setSchoolMembers(allMembersData.length > 0 ? allMembersData : teacherProfiles);
+      // Invitations d'enseignants qui ne se sont pas encore connectés (en attente)
+      const matchedEmails = new Set(matchedProfiles.map(p => (p.email || '').toLowerCase().trim()));
+      const pendingInvitedTeachers: any[] = [];
+      teacherInvs.forEach((inv: any) => {
+        const em = (inv.email || '').toLowerCase().trim();
+        if (em && !matchedEmails.has(em)) {
+          const invInfo = invitedEmailsMap.get(em) || inv;
+          pendingInvitedTeachers.push({
+            id: `inv_${inv.id}`,
+            full_name: inv.email ? inv.email.split('@')[0].toUpperCase() : "Professeur Invité",
+            email: inv.email,
+            phone: "",
+            role: "TEACHER",
+            title: "Invité",
+            isInvitation: true,
+            invitationId: inv.id,
+            school_id: targetSchoolId,
+            invited_by_role: invInfo.invited_by_role,
+            invited_by_name: invInfo.invited_by_name
+          });
+        }
+      });
 
-      const teacherInvs = allInvs.filter((inv: any) => 
-        !inv.role || inv.role === 'TEACHER' || inv.role?.toUpperCase() === 'TEACHER' || inv.role?.toLowerCase().includes('prof') || inv.email?.toLowerCase().includes('prof')
-      );
-
-      const invitedTeachers = teacherInvs.map((inv: any) => ({
-        id: `inv_${inv.id}`,
-        full_name: inv.email ? inv.email.split('@')[0].toUpperCase() : "Professeur Invité",
-        email: inv.email,
-        phone: "",
-        role: "TEACHER",
-        title: "Invité",
-        isInvitation: true,
-        invitationId: inv.id,
-        school_id: targetSchoolId
-      }));
-
-      // Combine real profiles and pending invitations (avoiding duplicate emails)
-      const existingEmails = new Set(teacherProfiles.map(t => (t.email || '').toLowerCase()));
-      const combinedTeachers = [
-        ...teacherProfiles,
-        ...invitedTeachers.filter(inv => !existingEmails.has((inv.email || '').toLowerCase()))
-      ];
+      const combinedTeachers = [...matchedProfiles, ...pendingInvitedTeachers];
+      customTeachers.forEach(ct => {
+        if (!isDummyTeacher(ct) && !combinedTeachers.some(t => t.id === ct.id || (t.email && ct.email && t.email.toLowerCase() === ct.email.toLowerCase()))) {
+          combinedTeachers.push(ct);
+        }
+      });
 
       let configuredYear = "";
       try {
@@ -390,6 +446,21 @@ export function SchoolAdminTeachers() {
         }
       } catch(e) {}
 
+      const inviterRole = user?.role === 'DIRECTOR_OF_STUDIES' ? 'DIRECTOR_OF_STUDIES' : 'SCHOOL_ADMIN';
+      const inviterName = user?.name || (user?.role === 'DIRECTOR_OF_STUDIES' ? "Directeur des Études" : "Directeur");
+
+      // Save invitation metadata
+      try {
+        const metaKey = `school_invitations_meta_${targetSchoolId}`;
+        const metaData = JSON.parse(localStorage.getItem(metaKey) || '{}');
+        metaData[cleanEmail] = {
+          invited_by_role: inviterRole,
+          invited_by_name: inviterName,
+          invited_at: new Date().toISOString()
+        };
+        localStorage.setItem(metaKey, JSON.stringify(metaData));
+      } catch(e) {}
+
       try {
         const { error } = await supabase.from('invitations').insert([{
           school_id: targetSchoolId,
@@ -405,6 +476,8 @@ export function SchoolAdminTeachers() {
           school_id: targetSchoolId,
           email: cleanEmail,
           role: effectiveRole,
+          invited_by_role: inviterRole,
+          invited_by_name: inviterName,
           created_at: new Date().toISOString()
         });
         localStorage.setItem('mock_db_invitations', JSON.stringify(localInvs));
@@ -635,7 +708,8 @@ export function SchoolAdminTeachers() {
   };
 
   const handleDeleteTeacher = async (t: any) => {
-    if (!window.confirm(`Voulez-vous vraiment supprimer le professeur ${t.full_name || t.email} ?`)) return;
+    const teacherName = t.full_name || t.email?.split('@')[0] || "ce professeur";
+    if (!window.confirm(`Êtes-vous sûr de vouloir supprimer ${teacherName} ? Cette action sera consignée dans l'historique.`)) return;
     try {
       if (t.isInvitation && t.invitationId) {
         await supabase.from('invitations').delete().eq('id', t.invitationId);
@@ -660,22 +734,60 @@ export function SchoolAdminTeachers() {
         }
       } catch (e) {}
 
-      fetchData();
+      try {
+        const localInvs = localStorage.getItem('mock_db_invitations');
+        if (localInvs) {
+          const parsedInvs = JSON.parse(localInvs).filter((inv: any) => inv.id !== t.invitationId && inv.id !== t.id && (!t.email || inv.email?.toLowerCase() !== t.email.toLowerCase()));
+          localStorage.setItem('mock_db_invitations', JSON.stringify(parsedInvs));
+        }
+      } catch (e) {}
+
+      // Enregistrer dans l'historique de suppression (Directeur des Études / Directeur)
+      const currentTeacherCourses = getTeacherCourses(t);
+      const logEntry = {
+        id: `del_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+        teacher_id: t.id,
+        teacher_name: t.full_name || t.email?.split('@')[0] || "Professeur",
+        teacher_email: t.email || "",
+        teacher_phone: t.phone || "",
+        teacher_subjects: currentTeacherCourses.map(c => c.name).filter(Boolean),
+        deleted_by_role: user?.role === 'DIRECTOR_OF_STUDIES' ? 'DIRECTOR_OF_STUDIES' : (user?.role || 'SCHOOL_ADMIN'),
+        deleted_by_name: user?.name || (user?.role === 'DIRECTOR_OF_STUDIES' ? "Directeur des Études" : "Directeur"),
+        deleted_by_email: user?.email || "",
+        deleted_at: new Date().toISOString(),
+        school_id: targetSchoolId
+      };
+
+      const logsKey = `teacher_deletion_logs_${targetSchoolId}`;
+      const existingLogs = JSON.parse(localStorage.getItem(logsKey) || '[]');
+      const updatedLogs = [logEntry, ...existingLogs];
+      localStorage.setItem(logsKey, JSON.stringify(updatedLogs));
+      setDeletionLogs(updatedLogs);
+
+      if (user?.role === 'DIRECTOR_OF_STUDIES') {
+        alert(`Le professeur ${teacherName} a été supprimé. L'historique de cette suppression a été transmis au Directeur d'établissement.`);
+      } else {
+        alert(`Le professeur ${teacherName} a été supprimé avec succès.`);
+      }
+
+      await fetchData();
     } catch (err: any) {
       alert("Erreur lors de la suppression: " + err.message);
     }
   };
 
-  // Open Edit Teacher Modal with Pre-populated Main Subject & Classes
+  // Open Edit Teacher Modal with Pre-populated Subjects & Classes
   const openEditTeacherModal = (t: any) => {
     setEditingTeacher(t);
     setEditingTeacherId(t.id);
     const currentCourses = getTeacherCourses(t);
-    const mainSubject = currentCourses.length > 0 
-      ? currentCourses[0].name 
-      : (existingSchoolSubjects[0] || SUBJECTS[0]);
-    setEditingTeacherSubject(mainSubject);
-    const classList = currentCourses.map(c => c.level);
+    const currentSubjectNames = Array.from(new Set(currentCourses.map(c => c.name))).filter(Boolean);
+    const storedSubjects = Array.isArray(t.subjects) ? t.subjects : [];
+    const initialSubjects = currentSubjectNames.length > 0 
+      ? currentSubjectNames 
+      : (storedSubjects.length > 0 ? storedSubjects : [existingSchoolSubjects[0] || SUBJECTS[0]]);
+    setEditingTeacherSubjects(initialSubjects);
+    const classList = Array.from(new Set(currentCourses.map(c => c.level))).filter(Boolean);
     setEditingTeacherClasses(classList);
     const coefMap: Record<string, number> = {};
     currentCourses.forEach(c => {
@@ -699,13 +811,23 @@ export function SchoolAdminTeachers() {
         delete next[cls];
         return next;
       } else {
-        const existing = courses.find(c => c.name.toLowerCase() === editingTeacherSubject.toLowerCase() && c.level === cls);
+        const existing = courses.find(c => editingTeacherSubjects.some(s => s.toLowerCase() === c.name.toLowerCase()) && c.level === cls);
         return { ...prev, [cls]: existing?.coefficient || 2 };
       }
     });
   };
 
-  // Profile Edit Save - updates profile AND assigns the chosen subject & classes
+  const handleToggleEditTeacherSubject = (subj: string) => {
+    setEditingTeacherSubjects(prev => {
+      if (prev.includes(subj)) {
+        return prev.filter(s => s !== subj);
+      } else {
+        return [...prev, subj];
+      }
+    });
+  };
+
+  // Profile Edit Save - updates profile AND assigns the chosen subjects & classes
   const handleSaveTeacherProfile = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingTeacher) return;
@@ -766,7 +888,7 @@ export function SchoolAdminTeachers() {
         }
       }
 
-      // Also persist to custom teachers in local storage
+      // Also persist to custom teachers in local storage with subjects
       try {
         const customKey = `school_custom_teachers_${effectiveSchoolId}`;
         const customList = JSON.parse(localStorage.getItem(customKey) || '[]');
@@ -778,33 +900,31 @@ export function SchoolAdminTeachers() {
           phone: editingTeacher.phone,
           role: 'TEACHER',
           school_id: effectiveSchoolId,
-          title: editingTeacher.title || 'Permanent'
+          title: editingTeacher.title || 'Permanent',
+          subjects: editingTeacherSubjects
         };
         if (existingIdx >= 0) customList[existingIdx] = teacherObj;
         else customList.push(teacherObj);
         localStorage.setItem(customKey, JSON.stringify(customList));
       } catch(e) {}
 
-      // 2. Update subject & classes attributions for this teacher
-      if (editingTeacherSubject) {
-        const yearToUse = filterYear !== "ALL" ? filterYear : (currentConfiguredYear || null);
-        
-        // Unlink courses previously assigned to this teacher that are not in the new selection
-        const previousCourses = getTeacherCourses(editingTeacher);
-        for (const oldC of previousCourses) {
-          if (oldC.name !== editingTeacherSubject || !editingTeacherClasses.includes(oldC.level)) {
-            try {
-              await supabase.from('courses').update({ teacher_id: null }).eq('id', oldC.id);
-            } catch(e) {}
-          }
+      // 2. Update subjects & classes attributions for this teacher
+      const previousCourses = getTeacherCourses(editingTeacher);
+      for (const oldC of previousCourses) {
+        if (!editingTeacherSubjects.includes(oldC.name) || !editingTeacherClasses.includes(oldC.level)) {
+          try {
+            await supabase.from('courses').update({ teacher_id: null }).eq('id', oldC.id);
+          } catch(e) {}
         }
+      }
 
-        // Assign or create the chosen classes for this subject
+      const yearToUse = filterYear !== "ALL" ? filterYear : (currentConfiguredYear || null);
+      for (const subj of editingTeacherSubjects) {
         for (const cls of editingTeacherClasses) {
           const coef = editingTeacherCoefs[cls] || 2;
           const existingCourse = courses.find(
             c => (c.school_id === effectiveSchoolId || !c.school_id) && 
-                 c.name.trim().toLowerCase() === editingTeacherSubject.trim().toLowerCase() && 
+                 c.name.trim().toLowerCase() === subj.trim().toLowerCase() && 
                  c.level === cls
           );
 
@@ -816,13 +936,13 @@ export function SchoolAdminTeachers() {
             } catch(e) {}
 
             setCourseMeta(effectiveSchoolId, existingCourse.id, { coefficient: coef, academic_year: yearToUse });
-            setCourseMeta(effectiveSchoolId, `${editingTeacherSubject.trim().toLowerCase()}_${cls}`, { coefficient: coef, academic_year: yearToUse });
+            setCourseMeta(effectiveSchoolId, `${subj.trim().toLowerCase()}_${cls}`, { coefficient: coef, academic_year: yearToUse });
           } else {
             let newCourseId = `c_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
             try {
               const { data: newRow } = await supabase.from('courses').insert([{
                 school_id: effectiveSchoolId,
-                name: editingTeacherSubject.trim(),
+                name: subj.trim(),
                 level: cls,
                 teacher_id: teacherUuid
               }]).select().maybeSingle();
@@ -833,7 +953,7 @@ export function SchoolAdminTeachers() {
             } catch(e) {}
 
             setCourseMeta(effectiveSchoolId, newCourseId, { coefficient: coef, academic_year: yearToUse });
-            setCourseMeta(effectiveSchoolId, `${editingTeacherSubject.trim().toLowerCase()}_${cls}`, { coefficient: coef, academic_year: yearToUse });
+            setCourseMeta(effectiveSchoolId, `${subj.trim().toLowerCase()}_${cls}`, { coefficient: coef, academic_year: yearToUse });
           }
         }
       }
@@ -1047,21 +1167,38 @@ export function SchoolAdminTeachers() {
     }
   };
 
+  const dosDeletions = deletionLogs.filter(l => l.deleted_by_role === 'DIRECTOR_OF_STUDIES');
+
   return (
-    <div className="flex flex-col gap-6 animate-in fade-in">
+    <div className="flex flex-col gap-5 animate-in fade-in">
       {/* Top Header */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
           <h1 className="text-2xl font-bold text-gray-800 flex items-center gap-2">
             <User className="text-emerald-600" />
             Gestion des Professeurs, Heures & Matières
           </h1>
-          <p className="text-slate-500 mt-1">
+          <p className="text-slate-500 text-xs sm:text-sm mt-1">
             Gérez vos enseignants, attribuez les heures par classe, paramétrez les taux horaires et les matières officielles.
           </p>
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
+          {user?.role === 'SCHOOL_ADMIN' && dosDeletions.length > 0 && (
+            <button
+              type="button"
+              onClick={() => setShowDeletionHistoryModal(true)}
+              className="flex items-center gap-2 bg-amber-50 border border-amber-300 text-amber-900 px-3.5 py-2.5 rounded-lg font-bold uppercase tracking-wider text-xs hover:bg-amber-100 transition shadow-xs cursor-pointer"
+              title="Voir l'historique des professeurs supprimés par le Directeur des Études"
+            >
+              <History size={15} className="text-amber-700" />
+              <span>Suppressions Dir. Études</span>
+              <span className="px-1.5 py-0.5 bg-amber-600 text-white rounded-full text-[10px] font-black leading-none">
+                {dosDeletions.length}
+              </span>
+            </button>
+          )}
+
           <button
             onClick={openBulkEditModal}
             className="flex items-center gap-2 bg-indigo-600 text-white px-3.5 py-2.5 rounded-lg font-bold uppercase tracking-wider text-xs hover:bg-indigo-700 transition shadow-sm"
@@ -1071,20 +1208,12 @@ export function SchoolAdminTeachers() {
           </button>
 
           {activeTab === "TEACHERS" && (
-            <>
-              <button 
-                onClick={() => setActiveTab("MEMBERS")} 
-                className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2.5 rounded-lg font-bold uppercase tracking-wider text-xs hover:bg-blue-700 transition shadow-sm"
-              >
-                <Mail size={16} /> Inviter un professeur
-              </button>
-              <button 
-                onClick={() => setShowAddModal(true)} 
-                className="flex items-center gap-2 bg-emerald-600 text-white px-4 py-2.5 rounded-lg font-bold uppercase tracking-wider text-xs hover:bg-emerald-700 transition shadow-sm"
-              >
-                <Plus size={16} /> Inscrire un professeur
-              </button>
-            </>
+            <button 
+              onClick={() => setActiveTab("MEMBERS")} 
+              className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2.5 rounded-lg font-bold uppercase tracking-wider text-xs hover:bg-blue-700 transition shadow-sm cursor-pointer"
+            >
+              <Mail size={16} /> Inviter un professeur
+            </button>
           )}
 
           {activeTab === "MEMBERS" && (
@@ -1122,57 +1251,86 @@ export function SchoolAdminTeachers() {
         </div>
       </div>
 
-      {/* Main Tabs Navigation */}
-      <div className="flex border-b border-slate-200 overflow-x-auto whitespace-nowrap hide-scrollbar">
+      {/* Main Tabs Navigation - Directement sous le titre */}
+      <div className="flex border border-slate-200 overflow-x-auto whitespace-nowrap hide-scrollbar bg-slate-100/80 p-1.5 rounded-xl shadow-inner gap-1 max-w-full">
         <button
           onClick={() => setActiveTab("TEACHERS")}
-          className={`py-3 px-6 font-bold text-xs uppercase tracking-wider border-b-2 flex items-center gap-2 transition-colors shrink-0 ${
+          className={`py-2 px-5 font-bold text-xs uppercase tracking-wider rounded-lg flex items-center gap-2 transition-all shrink-0 cursor-pointer ${
             activeTab === "TEACHERS"
-              ? "border-emerald-600 text-emerald-600 bg-emerald-50/50"
-              : "border-transparent text-slate-500 hover:text-gray-700 hover:bg-slate-50"
+              ? "bg-white text-emerald-800 shadow-sm border border-slate-200/80"
+              : "text-slate-600 hover:text-gray-900 hover:bg-white/60"
           }`}
         >
-          <User size={16} />
+          <User size={15} />
           Professeurs ({teachers.length})
         </button>
         <button
           onClick={() => setActiveTab("MEMBERS")}
-          className={`py-3 px-6 font-bold text-xs uppercase tracking-wider border-b-2 flex items-center gap-2 transition-colors shrink-0 ${
+          className={`py-2 px-5 font-bold text-xs uppercase tracking-wider rounded-lg flex items-center gap-2 transition-all shrink-0 cursor-pointer ${
             activeTab === "MEMBERS"
-              ? "border-emerald-600 text-emerald-600 bg-emerald-50/50"
-              : "border-transparent text-slate-500 hover:text-gray-700 hover:bg-slate-50"
+              ? "bg-white text-emerald-800 shadow-sm border border-slate-200/80"
+              : "text-slate-600 hover:text-gray-900 hover:bg-white/60"
           }`}
         >
-          <Mail size={16} />
+          <Mail size={15} />
           Membres & Invitations ({allInvitations.length})
         </button>
         <button
           onClick={() => setActiveTab("SUBJECTS")}
-          className={`py-3 px-6 font-bold text-xs uppercase tracking-wider border-b-2 flex items-center gap-2 transition-colors shrink-0 ${
+          className={`py-2 px-5 font-bold text-xs uppercase tracking-wider rounded-lg flex items-center gap-2 transition-all shrink-0 cursor-pointer ${
             activeTab === "SUBJECTS"
-              ? "border-emerald-600 text-emerald-600 bg-emerald-50/50"
-              : "border-transparent text-slate-500 hover:text-gray-700 hover:bg-slate-50"
+              ? "bg-white text-emerald-800 shadow-sm border border-slate-200/80"
+              : "text-slate-600 hover:text-gray-900 hover:bg-white/60"
           }`}
         >
-          <Layers size={16} />
+          <Layers size={15} />
           Matières par Classe ({courses.length})
         </button>
         <button
           onClick={() => setActiveTab("HOURS")}
-          className={`py-3 px-6 font-bold text-xs uppercase tracking-wider border-b-2 flex items-center gap-2 transition-colors shrink-0 ${
+          className={`py-2 px-5 font-bold text-xs uppercase tracking-wider rounded-lg flex items-center gap-2 transition-all shrink-0 cursor-pointer ${
             activeTab === "HOURS"
-              ? "border-emerald-600 text-emerald-600 bg-emerald-50/50"
-              : "border-transparent text-slate-500 hover:text-gray-700 hover:bg-slate-50"
+              ? "bg-white text-emerald-800 shadow-sm border border-slate-200/80"
+              : "text-slate-600 hover:text-gray-900 hover:bg-white/60"
           }`}
         >
-          <Clock size={16} />
+          <Clock size={15} />
           Heures par Classe
         </button>
       </div>
 
       {/* Tab Professeurs */}
       {activeTab === "TEACHERS" && (
-        <>
+        <div className="flex flex-col gap-4">
+          {/* Historique des suppressions effectuées par le Directeur des Études (visible par le Directeur) */}
+          {user?.role === 'SCHOOL_ADMIN' && dosDeletions.length > 0 && (
+            <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs">
+              <div className="flex items-start gap-3">
+                <div className="w-8 h-8 bg-amber-100 text-amber-800 rounded-lg flex items-center justify-center shrink-0 border border-amber-300">
+                  <History size={16} />
+                </div>
+                <div>
+                  <h4 className="text-xs font-black text-amber-950 uppercase tracking-wide flex items-center gap-2">
+                    Historique des suppressions effectuées par le Directeur des Études
+                    <span className="px-2 py-0.5 bg-amber-200 text-amber-900 rounded-full text-[10px] font-bold">
+                      {dosDeletions.length} suppression{dosDeletions.length > 1 ? 's' : ''}
+                    </span>
+                  </h4>
+                  <p className="text-xs text-amber-900/80 mt-0.5">
+                    Dernier professeur supprimé : <strong>{dosDeletions[0].teacher_name}</strong> ({dosDeletions[0].teacher_email || 'Sans email'}) le {new Date(dosDeletions[0].deleted_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })} par <em>{dosDeletions[0].deleted_by_name}</em>.
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowDeletionHistoryModal(true)}
+                className="px-3.5 py-2 bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold rounded-lg transition-colors shrink-0 shadow-xs cursor-pointer"
+              >
+                Consulter tout l'historique
+              </button>
+            </div>
+          )}
+
           {/* Filters Bar */}
           <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex flex-col md:flex-row gap-4 justify-between items-stretch md:items-center">
             <div className="relative flex-1 max-w-md">
@@ -1242,15 +1400,16 @@ export function SchoolAdminTeachers() {
           ) : teachers.length === 0 ? (
             <div className="bg-white rounded-xl border border-dashed border-slate-300 p-12 text-center">
               <User size={48} className="mx-auto text-slate-300 mb-3" />
-              <h3 className="font-bold text-gray-700 text-lg mb-1">Aucun professeur enregistré</h3>
+              <h3 className="font-bold text-gray-700 text-lg mb-1">Aucun professeur invité pour le moment</h3>
               <p className="text-slate-500 text-sm mb-4 max-w-md mx-auto">
-                Commencez par inscrire vos enseignants pour leur attribuer leurs classes et leurs matières d'enseignement.
+                Cette liste affiche exclusivement les professeurs invités par le Directeur ou le Directeur des Études. Invitez un professeur pour lui assigner des matières et des classes.
               </p>
               <button 
-                onClick={() => setShowAddModal(true)} 
-                className="inline-flex items-center gap-2 bg-emerald-600 text-white px-4 py-2 rounded-lg font-bold text-xs uppercase tracking-wider hover:bg-emerald-700 transition"
+                type="button"
+                onClick={() => setActiveTab("MEMBERS")} 
+                className="inline-flex items-center gap-2 bg-emerald-600 text-white px-5 py-2.5 rounded-lg font-bold text-xs uppercase tracking-wider hover:bg-emerald-700 transition shadow-sm cursor-pointer"
               >
-                <Plus size={16} /> Inscrire le premier professeur
+                <Mail size={16} /> Inviter un premier professeur
               </button>
             </div>
           ) : (
@@ -1297,7 +1456,7 @@ export function SchoolAdminTeachers() {
                         </div>
                         <div className="flex-1 min-w-0">
                           <h3 className="font-bold text-gray-900 truncate text-base">{t.full_name || "Enseignant"}</h3>
-                          <div className="flex items-center gap-2 mt-0.5">
+                          <div className="flex flex-wrap items-center gap-1.5 mt-0.5">
                             <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${
                               teacherType === "Vacataire" ? "bg-amber-100 text-amber-800 border border-amber-200" :
                               teacherType === "Invité" ? "bg-blue-100 text-blue-800 border border-blue-200" : 
@@ -1305,7 +1464,12 @@ export function SchoolAdminTeachers() {
                             }`}>
                               {teacherType}
                             </span>
-                            {t.phone && <span className="text-xs text-slate-500">{t.phone}</span>}
+                            {t.invited_by_name && (
+                              <span className="px-2 py-0.5 bg-slate-100 text-slate-700 border border-slate-200 rounded text-[10px] font-semibold">
+                                Invité par {t.invited_by_name}
+                              </span>
+                            )}
+                            {t.phone && <span className="text-xs text-slate-500 font-medium">{t.phone}</span>}
                           </div>
                           {t.email && !t.email.endsWith('@ecole.local') && (
                             <p className="text-xs text-slate-400 truncate mt-0.5" title={t.email}>{t.email}</p>
@@ -1315,7 +1479,7 @@ export function SchoolAdminTeachers() {
                           <button 
                             onClick={() => openEditTeacherModal(t)} 
                             className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors" 
-                            title="Modifier le professeur & matière principale"
+                            title="Modifier le professeur & matières enseignées"
                           >
                             <Edit2 size={16} />
                           </button>
@@ -1332,12 +1496,26 @@ export function SchoolAdminTeachers() {
                       {/* Classes & Matières Section */}
                       <div className="p-4 flex-1 flex flex-col gap-4">
                         <div>
-                          {teacherCourses.length > 0 && (
-                            <div className="mb-2 px-2.5 py-1.5 bg-emerald-50 rounded-lg border border-emerald-200/80 flex items-center justify-between text-xs">
-                              <span className="font-semibold text-emerald-800">Matière principale :</span>
-                              <strong className="font-bold text-emerald-950">{teacherCourses[0].name}</strong>
-                            </div>
-                          )}
+                          {/* Badges de toutes les matières enseignées */}
+                          {(() => {
+                            const distinctSubjects = Array.from(new Set([
+                              ...teacherCourses.map(c => c.name),
+                              ...(Array.isArray(t.subjects) ? t.subjects : [])
+                            ])).filter(Boolean);
+                            if (distinctSubjects.length === 0) return null;
+                            return (
+                              <div className="mb-2.5 p-2 bg-emerald-50/90 rounded-lg border border-emerald-200/80 flex flex-wrap items-center gap-1.5 text-xs">
+                                <span className="font-bold text-emerald-900 text-[10px] uppercase tracking-wider mr-1">
+                                  {distinctSubjects.length > 1 ? "Matières :" : "Matière :"}
+                                </span>
+                                {distinctSubjects.map(sub => (
+                                  <span key={sub} className="px-2 py-0.5 bg-white border border-emerald-300 text-emerald-800 rounded font-bold text-xs shadow-2xs">
+                                    {sub}
+                                  </span>
+                                ))}
+                              </div>
+                            );
+                          })()}
 
                           <div className="flex items-center justify-between mb-2">
                             <h4 className="text-xs font-bold uppercase tracking-wider text-slate-600 flex items-center gap-1.5">
@@ -1433,7 +1611,7 @@ export function SchoolAdminTeachers() {
                 })}
             </div>
           )}
-        </>
+        </div>
       )}
 
       {/* Tab Membres & Invitations */}
@@ -2068,14 +2246,101 @@ export function SchoolAdminTeachers() {
         </div>
       )}
 
-      {/* MODAL 1: Inscription Professeur */}
-      <AddTeacherModal 
-        isOpen={showAddModal} 
-        onClose={() => setShowAddModal(false)} 
-        onSuccess={fetchData} 
-        currentAcademicYear={currentConfiguredYear || (filterYear !== "ALL" ? filterYear : undefined)}
-        schoolSubjects={existingSchoolSubjects}
-      />
+      {/* MODAL 1: Historique des suppressions par le Directeur des Études */}
+      {showDeletionHistoryModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl overflow-hidden animate-in zoom-in-95 max-h-[90vh] flex flex-col border border-slate-200">
+            <div className="p-5 border-b border-slate-100 bg-amber-900 text-white flex justify-between items-center">
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-xl bg-amber-800 flex items-center justify-center border border-amber-600">
+                  <History size={18} className="text-amber-200" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-base text-white">Historique des suppressions d'enseignants</h3>
+                  <p className="text-amber-200 text-xs">
+                    Suppressions effectuées par le Directeur des Études
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowDeletionHistoryModal(false)}
+                className="text-amber-200 hover:text-white p-1 rounded-lg hover:bg-amber-800 transition cursor-pointer"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            <div className="p-5 flex-1 overflow-y-auto space-y-3">
+              {dosDeletions.length === 0 ? (
+                <div className="p-10 text-center text-slate-400">
+                  <History size={36} className="mx-auto mb-2 text-slate-300 opacity-60" />
+                  <p className="text-sm font-semibold text-slate-600">Aucune suppression enregistrée</p>
+                  <p className="text-xs text-slate-400 mt-1">
+                    Les suppressions de professeurs effectuées par le Directeur des Études apparaîtront ici.
+                  </p>
+                </div>
+              ) : (
+                dosDeletions.map(log => (
+                  <div key={log.id} className="p-4 bg-amber-50/70 border border-amber-200 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-2xs">
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-2">
+                        <strong className="text-sm font-bold text-amber-950">{log.teacher_name}</strong>
+                        <span className="px-2 py-0.5 bg-amber-200 text-amber-900 text-[10px] font-bold rounded-full">
+                          Supprimé
+                        </span>
+                      </div>
+                      <div className="text-xs text-slate-600 flex flex-wrap items-center gap-2">
+                        {log.teacher_email && <span>{log.teacher_email}</span>}
+                        {log.teacher_phone && <span>• Tél: {log.teacher_phone}</span>}
+                      </div>
+                      {Array.isArray(log.teacher_subjects) && log.teacher_subjects.length > 0 && (
+                        <div className="flex flex-wrap gap-1 pt-1">
+                          {log.teacher_subjects.map((sub: string) => (
+                            <span key={sub} className="px-1.5 py-0.5 bg-white border border-amber-300 text-amber-900 text-[10px] font-bold rounded">
+                              {sub}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                      <div className="text-[11px] text-amber-800/80 pt-1">
+                        Supprimé le {new Date(log.deleted_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })} par <strong>{log.deleted_by_name}</strong> ({log.deleted_by_email || 'Directeur des Études'})
+                      </div>
+                    </div>
+                    {log.teacher_email && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setInviteEmail(log.teacher_email);
+                          setActiveTab("MEMBERS");
+                          setShowDeletionHistoryModal(false);
+                        }}
+                        className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold transition flex items-center justify-center gap-1.5 shrink-0 shadow-xs cursor-pointer"
+                      >
+                        <Mail size={13} />
+                        <span>Réinviter</span>
+                      </button>
+                    )}
+                  </div>
+                ))
+              )}
+            </div>
+
+            <div className="p-4 bg-slate-50 border-t border-slate-200 flex justify-between items-center">
+              <span className="text-xs text-slate-500 font-medium">
+                Total : {dosDeletions.length} enseignant{dosDeletions.length > 1 ? 's' : ''} supprimé{dosDeletions.length > 1 ? 's' : ''}
+              </span>
+              <button
+                type="button"
+                onClick={() => setShowDeletionHistoryModal(false)}
+                className="px-4 py-2 bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold text-xs rounded-xl transition cursor-pointer"
+              >
+                Fermer
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* MODAL 2: Attribution Pédagogique Professionnelle (Classes & Matières) */}
       {assigningTeacher && (
@@ -2309,34 +2574,78 @@ export function SchoolAdminTeachers() {
                 />
               </div>
 
-              {/* Matière principale créée dans le tab matières par classe */}
+              {/* Matières d'enseignement sous forme de Checkboxes */}
               <div className="pt-2 border-t border-slate-100">
-                <label className="block text-xs font-bold text-gray-800 uppercase mb-1">
-                  Matière principale d'enseignement
-                </label>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="block text-xs font-bold text-gray-800 uppercase">
+                    Matières d'enseignement ({editingTeacherSubjects.length} sélectionnée{editingTeacherSubjects.length > 1 ? 's' : ''})
+                  </label>
+                  <span className="text-[10px] text-emerald-600 font-bold">
+                    Cochez une ou plusieurs matières
+                  </span>
+                </div>
                 <p className="text-[11px] text-slate-500 mb-2">
-                  Sélectionnez la matière créée dans la gestion des matières par classe.
+                  Sélectionnez les matières enseignées par ce professeur :
                 </p>
-                <select
-                  value={editingTeacherSubject}
-                  onChange={e => setEditingTeacherSubject(e.target.value)}
-                  className="w-full px-3 py-2.5 border border-emerald-300 rounded-lg outline-none focus:ring-emerald-500 text-sm bg-white font-semibold text-emerald-950 shadow-xs"
-                >
-                  <option value="" disabled>-- Choisir une matière --</option>
-                  {existingSchoolSubjects.map(sub => (
-                    <option key={sub} value={sub}>{sub}</option>
-                  ))}
-                </select>
+
+                <div className="grid grid-cols-2 gap-1.5 p-2 bg-slate-50 rounded-xl border border-slate-200 max-h-44 overflow-y-auto">
+                  {existingSchoolSubjects.map(sub => {
+                    const isChecked = editingTeacherSubjects.includes(sub);
+                    return (
+                      <label 
+                        key={sub}
+                        className={`flex items-center gap-2 p-1.5 px-2 rounded-lg border text-xs font-semibold cursor-pointer transition select-none ${
+                          isChecked 
+                            ? "bg-emerald-50 border-emerald-400 text-emerald-900 shadow-2xs font-bold" 
+                            : "bg-white border-slate-200 text-slate-700 hover:bg-slate-100/70"
+                        }`}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={isChecked}
+                          onChange={() => handleToggleEditTeacherSubject(sub)}
+                          className="w-4 h-4 rounded text-emerald-600 focus:ring-emerald-500 shrink-0"
+                        />
+                        <span className="truncate">{sub}</span>
+                      </label>
+                    );
+                  })}
+                </div>
+
+                {/* Option d'ajouter une matière personnalisée */}
+                <div className="mt-2 flex gap-1.5">
+                  <input
+                    type="text"
+                    value={customSubjectInput}
+                    onChange={e => setCustomSubjectInput(e.target.value)}
+                    placeholder="Autre matière (ex: Philosophie...)"
+                    className="flex-1 px-2.5 py-1 text-xs border border-slate-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-emerald-500 bg-white"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const trimmed = customSubjectInput.trim();
+                      if (trimmed && !editingTeacherSubjects.includes(trimmed)) {
+                        setEditingTeacherSubjects(prev => [...prev, trimmed]);
+                        setCustomSubjectInput("");
+                      }
+                    }}
+                    disabled={!customSubjectInput.trim()}
+                    className="px-3 py-1 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-40 text-white rounded-lg text-xs font-bold transition flex items-center gap-1 shrink-0"
+                  >
+                    <Plus size={12} /> Ajouter
+                  </button>
+                </div>
               </div>
 
-              {/* Classes attribuées pour cette matière */}
+              {/* Classes attribuées pour ces matières */}
               <div>
                 <div className="flex items-center justify-between mb-1">
                   <label className="block text-xs font-bold text-gray-800 uppercase">
                     Classes & Coefficients ({editingTeacherClasses.length} classe(s) cochée(s))
                   </label>
-                  <span className="text-[10px] text-emerald-600 font-bold">
-                    Attribuer pour {editingTeacherSubject || "cette matière"}
+                  <span className="text-[10px] text-emerald-600 font-bold truncate max-w-[200px]" title={editingTeacherSubjects.join(", ")}>
+                    {editingTeacherSubjects.length > 0 ? editingTeacherSubjects.join(", ") : "Sélectionnez au moins une matière"}
                   </span>
                 </div>
                 <div className="border border-slate-200 rounded-lg p-2.5 bg-slate-50 max-h-48 overflow-y-auto space-y-1.5">

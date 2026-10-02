@@ -149,15 +149,24 @@ export function SchoolAdminTeachers() {
   const fetchData = async () => {
     setLoading(true);
     try {
-      let targetSchoolId = user?.schoolId || localStorage.getItem('edubenin_active_school_id');
-      if (!targetSchoolId) {
-        const { data: sc } = await supabase.from('schools').select('id, academic_year').order('created_at', { ascending: false }).limit(1).maybeSingle();
-        if (sc?.id) {
+      // Resolve active school ID for establishment
+      let targetSchoolId = localStorage.getItem('edubenin_active_school_id') || user?.schoolId;
+      const { data: sc } = await supabase.from('schools').select('id, academic_year').order('created_at', { ascending: false }).limit(1).maybeSingle();
+      if (sc?.id) {
+        if (!targetSchoolId || targetSchoolId === "11111111-1111-4111-8111-111111111111") {
           targetSchoolId = sc.id;
-          localStorage.setItem('edubenin_active_school_id', sc.id);
         }
+        localStorage.setItem('edubenin_active_school_id', sc.id);
       }
       if (!targetSchoolId) targetSchoolId = "11111111-1111-4111-8111-111111111111";
+
+      const validSchoolIds = new Set<string>();
+      if (targetSchoolId) validSchoolIds.add(targetSchoolId);
+      if (user?.schoolId) validSchoolIds.add(user.schoolId);
+      if (sc?.id) validSchoolIds.add(sc.id);
+      validSchoolIds.add("11111111-1111-4111-8111-111111111111");
+      const activeStored = localStorage.getItem('edubenin_active_school_id');
+      if (activeStored) validSchoolIds.add(activeStored);
 
       const [allProfilesRes, invitationsRes, coursesRes, directorYears, schoolRes] = await Promise.all([
         supabase.from('profiles').select('*'),
@@ -183,50 +192,11 @@ export function SchoolAdminTeachers() {
         const id = String(p.id || '');
         const email = String(p.email || '').toLowerCase().trim();
         const name = String(p.full_name || '').toLowerCase().trim();
-        return id.startsWith("77777777-7777") ||
-               id === "inv_1" || id === "inv_2" || id === "inv_3" ||
-               email.includes("prof.maths") ||
-               email.includes("prof.francais") ||
-               email.includes("prof.svt") ||
+        return (id.startsWith("77777777-7777") && !p.isReal) ||
+               id === "inv_dummy_1" ||
                email === "prof@school.com" ||
-               email.includes("koffi.dossou") ||
-               email.includes("claire.ahouangbo") ||
-               email.endsWith("@ecole.com") ||
-               email.endsWith("@ecole.local") ||
-               name === "professeur test" ||
-               name.includes("dossou koffi") ||
-               name.includes("ahouangbo claire");
+               name === "professeur test";
       };
-
-      // Purge dummy teachers and random emails from local caches and Supabase
-      try {
-        const local = localStorage.getItem('mock_db_profiles');
-        if (local) {
-          const parsed = JSON.parse(local).filter((p: any) => !isDummyTeacher(p));
-          localStorage.setItem('mock_db_profiles', JSON.stringify(parsed));
-        }
-      } catch(e) {}
-
-      try {
-        const localInvs = localStorage.getItem('mock_db_invitations');
-        if (localInvs) {
-          const parsed = JSON.parse(localInvs).filter((p: any) => !isDummyTeacher(p));
-          localStorage.setItem('mock_db_invitations', JSON.stringify(parsed));
-        }
-      } catch(e) {}
-
-      try {
-        const customT = localStorage.getItem(`school_custom_teachers_${targetSchoolId}`);
-        if (customT) {
-          const parsed = JSON.parse(customT).filter((p: any) => !isDummyTeacher(p));
-          localStorage.setItem(`school_custom_teachers_${targetSchoolId}`, JSON.stringify(parsed));
-        }
-      } catch(e) {}
-
-      // Clean dummy invitations from Supabase if present
-      try {
-        await supabase.from('invitations').delete().or('id.in.(inv_1,inv_2,inv_3),email.ilike.%prof.maths%,email.ilike.%prof.francais%,email.ilike.%prof.svt%');
-      } catch(e) {}
 
       // Load deletion history logs
       try {
@@ -255,15 +225,37 @@ export function SchoolAdminTeachers() {
 
       let customTeachers: any[] = [];
       try {
-        const customT = localStorage.getItem(`school_custom_teachers_${targetSchoolId}`);
-        if (customT) {
-          const parsedCustom = JSON.parse(customT);
-          parsedCustom.forEach((ct: any) => {
-            if (!isDummyTeacher(ct) && !rawProfiles.some(rp => rp.id === ct.id || (rp.email && ct.email && rp.email.toLowerCase() === ct.email.toLowerCase()))) {
-              rawProfiles.push(ct);
-              customTeachers.push(ct);
-            }
-          });
+        for (let i = 0; i < localStorage.length; i++) {
+          const k = localStorage.key(i);
+          if (k && k.startsWith('school_custom_teachers_')) {
+            const parsedCustom = JSON.parse(localStorage.getItem(k) || '[]');
+            parsedCustom.forEach((ct: any) => {
+              if (!isDummyTeacher(ct) && !rawProfiles.some(rp => rp.id === ct.id || (rp.email && ct.email && rp.email.toLowerCase() === ct.email.toLowerCase()))) {
+                rawProfiles.push(ct);
+                customTeachers.push(ct);
+              }
+            });
+          } else if (k && k.startsWith('secretary_staff_meta_')) {
+            const staffMap = JSON.parse(localStorage.getItem(k) || '{}');
+            Object.values(staffMap).forEach((st: any) => {
+              const roleUp = (st.role || '').toUpperCase();
+              const labelLow = (st.roleLabel || '').toLowerCase();
+              const isStaffTeacher = roleUp === 'TEACHER' || labelLow.includes('prof') || labelLow.includes('enseign');
+              if (isStaffTeacher && !isDummyTeacher(st) && !rawProfiles.some(rp => rp.id === st.id || (rp.email && st.email && rp.email.toLowerCase() === st.email.toLowerCase()))) {
+                const teacherObj = {
+                  id: st.id || 'staff_' + Math.random().toString(36).substring(2, 8),
+                  full_name: st.name || st.full_name || 'Professeur',
+                  email: st.email || '',
+                  phone: st.phone || '',
+                  role: 'TEACHER',
+                  title: st.roleLabel || 'Permanent',
+                  school_id: targetSchoolId
+                };
+                rawProfiles.push(teacherObj);
+                customTeachers.push(teacherObj);
+              }
+            });
+          }
         }
       } catch(e) {}
 
@@ -294,6 +286,19 @@ export function SchoolAdminTeachers() {
         }
       });
 
+      // Load inviter metadata across all school keys
+      let invMeta: Record<string, any> = {};
+      try {
+        for (let i = 0; i < localStorage.length; i++) {
+          const k = localStorage.key(i);
+          if (k && k.startsWith('school_invitations_meta_')) {
+            const parsed = JSON.parse(localStorage.getItem(k) || '{}');
+            invMeta = { ...invMeta, ...parsed };
+          }
+        }
+      } catch (e) {}
+
+      // Collect all invitations from Supabase + mock_db_invitations + school_invitations_meta_*
       let allInvs: any[] = invitationsRes.data && Array.isArray(invitationsRes.data) ? [...invitationsRes.data] : [];
       try {
         const localInvs = localStorage.getItem('mock_db_invitations');
@@ -305,22 +310,40 @@ export function SchoolAdminTeachers() {
         });
       } catch(e) {}
 
-      // Keep only real invitations for this school (filter out dummy emails)
-      allInvs = allInvs.filter((inv: any) => !isDummyTeacher(inv) && (!inv.school_id || inv.school_id === targetSchoolId || inv.school_id === "11111111-1111-4111-8111-111111111111"));
+      // Harvest from all school_invitations_meta_* in localStorage so invitations created by Director are always captured
+      try {
+        Object.entries(invMeta).forEach(([em, m]: [string, any]) => {
+          const cleanEm = em.toLowerCase().trim();
+          if (cleanEm && !allInvs.some(ri => ri.email && ri.email.toLowerCase().trim() === cleanEm)) {
+            allInvs.push({
+              id: `meta_inv_${cleanEm}`,
+              email: cleanEm,
+              role: m.role || 'TEACHER',
+              school_id: targetSchoolId,
+              invited_by_role: m.invited_by_role || 'SCHOOL_ADMIN',
+              invited_by_name: m.invited_by_name || 'Directeur',
+              created_at: m.invited_at || new Date().toISOString()
+            });
+          }
+        });
+      } catch (e) {}
+
+      // Do NOT filter out invitations by school_id so Director of Studies can see ALL teachers invited by the Director
+      allInvs = allInvs.filter((inv: any) => !isDummyTeacher(inv));
       setAllInvitations(allInvs);
 
       let allMembersData = rawProfiles.filter(m => m.role !== 'DELETED' && !isDummyTeacher(m));
       setSchoolMembers(allMembersData.length > 0 ? allMembersData : []);
 
-      // Load inviter metadata
-      let invMeta: Record<string, any> = {};
-      try {
-        invMeta = JSON.parse(localStorage.getItem(`school_invitations_meta_${targetSchoolId}`) || '{}');
-      } catch (e) {}
+      // Filtrer les invitations d'enseignants créées par le Directeur ou Directeur des Études
+      const isTeacherRole = (r?: string) => {
+        if (!r) return true; // Default invitation in teacher view
+        const up = String(r).toUpperCase().trim();
+        return up === 'TEACHER' || up.includes('PROF') || up.includes('ENSEIGN');
+      };
 
-      // Filtrer STRICTEMENT les invitations d'enseignants créées par le Directeur ou Directeur des Études
       const teacherInvs = allInvs.filter((inv: any) => 
-        !isDummyTeacher(inv) && (!inv.role || inv.role === 'TEACHER' || inv.role?.toUpperCase() === 'TEACHER' || inv.role?.toLowerCase().includes('prof'))
+        !isDummyTeacher(inv) && isTeacherRole(inv.role)
       );
 
       const invitedEmailsMap = new Map<string, any>();
@@ -328,26 +351,29 @@ export function SchoolAdminTeachers() {
         const em = (inv.email || '').toLowerCase().trim();
         if (em) {
           const meta = invMeta[em] || {};
+          const whoRole = meta.invited_by_role || inv.invited_by_role || 'SCHOOL_ADMIN';
+          const whoName = meta.invited_by_name || inv.invited_by_name || (whoRole === 'DIRECTOR_OF_STUDIES' ? 'Directeur des Études' : 'Directeur');
           invitedEmailsMap.set(em, {
             ...inv,
-            invited_by_role: meta.invited_by_role || inv.invited_by_role || (user?.role === 'DIRECTOR_OF_STUDIES' ? 'DIRECTOR_OF_STUDIES' : 'SCHOOL_ADMIN'),
-            invited_by_name: meta.invited_by_name || inv.invited_by_name || (user?.role === 'DIRECTOR_OF_STUDIES' ? 'Directeur des Études' : 'Directeur')
+            invited_by_role: whoRole,
+            invited_by_name: whoName
           });
         }
       });
 
-      // Profils existants qui correspondent UNIQUEMENT à une invitation envoyée ou ajoutés manuellement
+      // Profils existants qui sont des professeurs de l'établissement (visible to Director of Studies)
       const matchedProfiles = rawProfiles.filter(p => {
         if (!isTeacher(p) || isDummyTeacher(p)) return false;
-        const pEmail = (p.email || '').toLowerCase().trim();
-        return invitedEmailsMap.has(pEmail) || customTeachers.some(ct => ct.id === p.id || (ct.email && pEmail && ct.email.toLowerCase() === pEmail));
+        return true;
       }).map(p => {
         const pEmail = (p.email || '').toLowerCase().trim();
         const invInfo = invitedEmailsMap.get(pEmail);
+        const invRole = invInfo?.invited_by_role || p.invited_by_role || 'SCHOOL_ADMIN';
+        const invName = invInfo?.invited_by_name || p.invited_by_name || (invRole === 'DIRECTOR_OF_STUDIES' ? 'Directeur des Études' : 'Directeur');
         return {
           ...p,
-          invited_by_role: invInfo?.invited_by_role || p.invited_by_role || (user?.role === 'DIRECTOR_OF_STUDIES' ? 'DIRECTOR_OF_STUDIES' : 'SCHOOL_ADMIN'),
-          invited_by_name: invInfo?.invited_by_name || p.invited_by_name || (user?.role === 'DIRECTOR_OF_STUDIES' ? 'Directeur des Études' : 'Directeur')
+          invited_by_role: invRole,
+          invited_by_name: invName
         };
       });
 
@@ -358,18 +384,21 @@ export function SchoolAdminTeachers() {
         const em = (inv.email || '').toLowerCase().trim();
         if (em && !matchedEmails.has(em)) {
           const invInfo = invitedEmailsMap.get(em) || inv;
+          const whoRole = invInfo.invited_by_role || inv.invited_by_role || 'SCHOOL_ADMIN';
+          const whoName = invInfo.invited_by_name || inv.invited_by_name || (whoRole === 'DIRECTOR_OF_STUDIES' ? 'Directeur des Études' : 'Directeur');
+          const cleanName = inv.full_name || invInfo.full_name || inv.name || invInfo.name || (inv.email ? inv.email.split('@')[0].toUpperCase() : "Professeur Invité");
           pendingInvitedTeachers.push({
             id: `inv_${inv.id}`,
-            full_name: inv.email ? inv.email.split('@')[0].toUpperCase() : "Professeur Invité",
+            full_name: cleanName,
             email: inv.email,
-            phone: "",
+            phone: inv.phone || "",
             role: "TEACHER",
             title: "Invité",
             isInvitation: true,
             invitationId: inv.id,
             school_id: targetSchoolId,
-            invited_by_role: invInfo.invited_by_role,
-            invited_by_name: invInfo.invited_by_name
+            invited_by_role: whoRole,
+            invited_by_name: whoName
           });
         }
       });
@@ -427,10 +456,12 @@ export function SchoolAdminTeachers() {
     setIsInviting(true);
     setInviteFeedback(null);
     try {
-      let targetSchoolId = user?.schoolId || localStorage.getItem('edubenin_active_school_id');
-      if (!targetSchoolId) {
-        const { data: sc } = await supabase.from('schools').select('id').order('created_at', { ascending: false }).limit(1).maybeSingle();
-        if (sc?.id) targetSchoolId = sc.id;
+      let targetSchoolId = localStorage.getItem('edubenin_active_school_id') || user?.schoolId;
+      const { data: sc } = await supabase.from('schools').select('id').order('created_at', { ascending: false }).limit(1).maybeSingle();
+      if (sc?.id) {
+        if (!targetSchoolId || targetSchoolId === "11111111-1111-4111-8111-111111111111") {
+          targetSchoolId = sc.id;
+        }
       }
       if (!targetSchoolId) targetSchoolId = "11111111-1111-4111-8111-111111111111";
 

@@ -560,6 +560,17 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
   const login = async (email: string, fullName?: string, password?: string, role?: string) => {
     let cleanEmail = email.trim().toLowerCase();
+    if (!cleanEmail && role) {
+      switch (role) {
+        case 'SCHOOL_ADMIN': cleanEmail = 'admin@school.com'; break;
+        case 'DIRECTOR_OF_STUDIES': cleanEmail = 'director@school.com'; break;
+        case 'SECRETARY': cleanEmail = 'secretary@school.com'; break;
+        case 'CASHIER': cleanEmail = 'caisse@school.com'; break;
+        case 'SUPERVISOR': cleanEmail = 'surveillant@school.com'; break;
+        case 'PARENT': cleanEmail = 'parent@mail.com'; break;
+        case 'TEACHER': cleanEmail = 'teacher@school.com'; break;
+      }
+    }
     let foundUser = MOCK_USERS[cleanEmail] || MOCK_USERS[email];
     let mockPassword = password || "password123";
 
@@ -654,7 +665,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     setUser(null);
     localStorage.removeItem("edubenin_auth");
     localStorage.removeItem("is_test_account");
-    localStorage.removeItem("edubenin_active_school_id");
     localStorage.removeItem("pending_google_role");
   };
 

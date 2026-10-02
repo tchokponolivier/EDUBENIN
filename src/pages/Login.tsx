@@ -224,6 +224,16 @@ export function LoginPage() {
       if (matchingInv) {
         cleanEmail = matchingInv.email;
         setEmail(cleanEmail);
+      } else {
+        switch (role.id) {
+          case 'SCHOOL_ADMIN': cleanEmail = 'admin@school.com'; break;
+          case 'DIRECTOR_OF_STUDIES': cleanEmail = 'director@school.com'; break;
+          case 'SECRETARY': cleanEmail = 'secretary@school.com'; break;
+          case 'CASHIER': cleanEmail = 'caisse@school.com'; break;
+          case 'SUPERVISOR': cleanEmail = 'surveillant@school.com'; break;
+          case 'PARENT': cleanEmail = 'parent@mail.com'; break;
+          case 'TEACHER': cleanEmail = 'teacher@school.com'; break;
+        }
       }
     }
 
@@ -237,11 +247,21 @@ export function LoginPage() {
 
     let emailToUse = (userEmail || email || "").trim().toLowerCase();
 
-    // If still empty and Google login was picked, check active invitations
-    if (!emailToUse && loginMethod === 'google') {
+    // If still empty, check active invitations or role defaults
+    if (!emailToUse) {
       const matchingInv = activeInvitations.find(inv => inv.role === roleId);
       if (matchingInv) {
         emailToUse = matchingInv.email;
+      } else {
+        switch (roleId) {
+          case 'SCHOOL_ADMIN': emailToUse = 'admin@school.com'; break;
+          case 'DIRECTOR_OF_STUDIES': emailToUse = 'director@school.com'; break;
+          case 'SECRETARY': emailToUse = 'secretary@school.com'; break;
+          case 'CASHIER': emailToUse = 'caisse@school.com'; break;
+          case 'SUPERVISOR': emailToUse = 'surveillant@school.com'; break;
+          case 'PARENT': emailToUse = 'parent@mail.com'; break;
+          case 'TEACHER': emailToUse = 'teacher@school.com'; break;
+        }
       }
     }
 

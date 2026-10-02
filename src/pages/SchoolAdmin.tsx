@@ -143,9 +143,32 @@ export function SchoolAdminDashboard() {
       } catch (e) {}
     }
     const { data } = await supabase.from('profiles').select('*');
-    if (data) {
-      setSchoolMembers(data.filter(p => p.id !== user?.id && (!targetSchoolId || !p.school_id || p.school_id === targetSchoolId || p.school_id === "11111111-1111-4111-8111-111111111111")));
-    }
+    let membersList: any[] = data && Array.isArray(data) ? [...data] : [];
+    try {
+      const localProfiles = JSON.parse(localStorage.getItem('mock_db_profiles') || '[]');
+      localProfiles.forEach((lp: any) => {
+        if (!membersList.some((x: any) => x.id === lp.id || (x.email && lp.email && x.email.toLowerCase() === lp.email.toLowerCase()))) {
+          membersList.push(lp);
+        }
+      });
+    } catch (e) {}
+
+    // Include custom teachers
+    try {
+      for (let i = 0; i < localStorage.length; i++) {
+        const k = localStorage.key(i);
+        if (k && k.startsWith('school_custom_teachers_')) {
+          const custom = JSON.parse(localStorage.getItem(k) || '[]');
+          custom.forEach((ct: any) => {
+            if (!membersList.some((x: any) => x.id === ct.id || (x.email && ct.email && x.email.toLowerCase() === ct.email.toLowerCase()))) {
+              membersList.push(ct);
+            }
+          });
+        }
+      }
+    } catch (e) {}
+
+    setSchoolMembers(membersList.filter(p => p.id !== user?.id));
   };
 
   const fetchSchoolSettings = async () => {
@@ -254,9 +277,52 @@ export function SchoolAdminDashboard() {
   };
 
   const fetchInvitations = async () => {
-    if (!user?.schoolId) return;
-    const { data } = await supabase.from('invitations').select('*').eq('school_id', user.schoolId).order('created_at', { ascending: false });
-    if (data) setInvitations(data);
+    let targetSchoolId = user?.schoolId || localStorage.getItem('edubenin_active_school_id');
+    if (!targetSchoolId) {
+      try {
+        const { data: sc } = await supabase.from('schools').select('id').order('created_at', { ascending: false }).limit(1).maybeSingle();
+        if (sc?.id) targetSchoolId = sc.id;
+      } catch (e) {}
+    }
+
+    try {
+      const { data } = await supabase.from('invitations').select('*').order('created_at', { ascending: false });
+      let list: any[] = data && Array.isArray(data) ? [...data] : [];
+      try {
+        const localInvs = JSON.parse(localStorage.getItem('mock_db_invitations') || '[]');
+        localInvs.forEach((li: any) => {
+          if (!list.some((x: any) => x.id === li.id || (x.email && li.email && x.email.toLowerCase() === li.email.toLowerCase()))) {
+            list.push(li);
+          }
+        });
+      } catch (e) {}
+
+      // Harvest from all school_invitations_meta_*
+      try {
+        for (let i = 0; i < localStorage.length; i++) {
+          const k = localStorage.key(i);
+          if (k && k.startsWith('school_invitations_meta_')) {
+            const meta = JSON.parse(localStorage.getItem(k) || '{}');
+            Object.entries(meta).forEach(([em, m]: [string, any]) => {
+              const cleanEm = em.toLowerCase().trim();
+              if (cleanEm && !list.some((x: any) => x.email && x.email.toLowerCase().trim() === cleanEm)) {
+                list.push({
+                  id: `meta_inv_${cleanEm}`,
+                  email: cleanEm,
+                  role: m.role || 'TEACHER',
+                  school_id: targetSchoolId,
+                  created_at: m.invited_at || new Date().toISOString()
+                });
+              }
+            });
+          }
+        }
+      } catch (e) {}
+
+      setInvitations(list);
+    } catch (e) {
+      console.error(e);
+    }
   };
 
   const totalRevenue = payments.reduce((acc, curr) => acc + curr.amount, 0);

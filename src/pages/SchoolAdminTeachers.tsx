@@ -333,6 +333,27 @@ export function SchoolAdminTeachers() {
       setAllInvitations(allInvs);
 
       let allMembersData = rawProfiles.filter(m => m.role !== 'DELETED' && !isDummyTeacher(m));
+      // Also add pending invited members to schoolMembers so they show up under Membres & Invitations
+      allInvs.forEach((inv: any) => {
+        const em = (inv.email || '').toLowerCase().trim();
+        if (em && !allMembersData.some((m: any) => m.email && m.email.toLowerCase().trim() === em)) {
+          const meta = invMeta[em] || {};
+          const whoRole = meta.invited_by_role || inv.invited_by_role || 'SCHOOL_ADMIN';
+          const whoName = meta.invited_by_name || inv.invited_by_name || (whoRole === 'DIRECTOR_OF_STUDIES' ? 'Directeur des Études' : 'Directeur');
+          allMembersData.push({
+            id: inv.id || `inv_${em}`,
+            email: inv.email,
+            full_name: inv.full_name || (inv.email ? inv.email.split('@')[0].toUpperCase() : 'Membre Invité'),
+            role: inv.role || 'TEACHER',
+            isInvitation: true,
+            status: 'INVITED',
+            school_id: targetSchoolId,
+            invited_by_role: whoRole,
+            invited_by_name: whoName,
+            created_at: inv.created_at || meta.invited_at || new Date().toISOString()
+          });
+        }
+      });
       setSchoolMembers(allMembersData.length > 0 ? allMembersData : []);
 
       // Filtrer les invitations d'enseignants créées par le Directeur ou Directeur des Études
@@ -466,8 +487,7 @@ export function SchoolAdminTeachers() {
       if (!targetSchoolId) targetSchoolId = "11111111-1111-4111-8111-111111111111";
 
       const cleanEmail = inviteEmail.trim().toLowerCase();
-      // Restricted to TEACHER for DIRECTOR_OF_STUDIES
-      const effectiveRole = user?.role === 'DIRECTOR_OF_STUDIES' ? 'TEACHER' : inviteRole;
+      const effectiveRole = inviteRole || 'TEACHER';
 
       // Check if invitation already exists
       try {
@@ -486,6 +506,7 @@ export function SchoolAdminTeachers() {
         const metaKey = `school_invitations_meta_${targetSchoolId}`;
         const metaData = JSON.parse(localStorage.getItem(metaKey) || '{}');
         metaData[cleanEmail] = {
+          role: effectiveRole,
           invited_by_role: inviterRole,
           invited_by_name: inviterName,
           invited_at: new Date().toISOString()
@@ -529,18 +550,39 @@ export function SchoolAdminTeachers() {
 
   const handleDeleteInvitation = async (id: string) => {
     const invToDelete = allInvitations.find(i => i.id === id);
-    if (user?.role === 'DIRECTOR_OF_STUDIES' && invToDelete?.role && invToDelete.role !== 'TEACHER') {
-      alert("En tant que Directeur des Études, vous êtes uniquement habilité à annuler les invitations d'enseignants.");
+    if (user?.role === 'DIRECTOR_OF_STUDIES' && invToDelete?.role && (invToDelete.role === 'SCHOOL_ADMIN' || invToDelete.role === 'SUPER_ADMIN')) {
+      alert("En tant que Directeur des Études, vous ne pouvez pas annuler l'invitation du Directeur Général.");
       return;
     }
     if (!window.confirm("Êtes-vous sûr de vouloir supprimer / annuler cette invitation ?")) return;
     try {
-      await supabase.from('invitations').delete().eq('id', id);
-      setAllInvitations(prev => prev.filter(i => i.id !== id));
-      fetchData();
-    } catch (err: any) {
-      alert(`Erreur: ${err.message}`);
-    }
+      if (id && !id.startsWith('meta_inv_')) {
+        await supabase.from('invitations').delete().eq('id', id);
+      }
+    } catch (e) {}
+
+    try {
+      const localInvs = JSON.parse(localStorage.getItem('mock_db_invitations') || '[]');
+      const filtered = localInvs.filter((i: any) => i.id !== id && (!invToDelete?.email || !i.email || i.email.toLowerCase() !== invToDelete.email.toLowerCase()));
+      localStorage.setItem('mock_db_invitations', JSON.stringify(filtered));
+    } catch (e) {}
+
+    try {
+      for (let i = 0; i < localStorage.length; i++) {
+        const k = localStorage.key(i);
+        if (k && k.startsWith('school_invitations_meta_')) {
+          const meta = JSON.parse(localStorage.getItem(k) || '{}');
+          const cleanEm = (invToDelete?.email || '').toLowerCase().trim();
+          if (meta[cleanEm]) {
+            delete meta[cleanEm];
+            localStorage.setItem(k, JSON.stringify(meta));
+          }
+        }
+      }
+    } catch (e) {}
+
+    setAllInvitations(prev => prev.filter(i => i.id !== id));
+    fetchData();
   };
 
   // Robust matching helper to find all courses assigned to a teacher
@@ -1688,24 +1730,17 @@ export function SchoolAdminTeachers() {
 
               <div className="w-full sm:w-60">
                 <label className="block text-xs font-bold text-gray-700 uppercase mb-1">Rôle Attribué</label>
-                {user?.role === 'DIRECTOR_OF_STUDIES' ? (
-                  <div className="w-full px-3 py-2 border border-slate-300 rounded-lg text-xs font-bold text-emerald-800 bg-emerald-50/60 flex items-center justify-between">
-                    <span>Professeur (Teacher)</span>
-                    <span className="text-[10px] text-slate-500 font-normal">Restreint aux profs</span>
-                  </div>
-                ) : (
-                  <select 
-                    value={inviteRole}
-                    onChange={e => setInviteRole(e.target.value)}
-                    className="w-full px-3 py-2 border border-slate-300 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-emerald-500 bg-white font-semibold"
-                  >
-                    <option value="TEACHER">Professeur (Teacher)</option>
-                    <option value="DIRECTOR_OF_STUDIES">Directeur des Études</option>
-                    <option value="SECRETARY">Secrétaire</option>
-                    <option value="CASHIER">Caissier(e)</option>
-                    <option value="SUPERVISOR">Surveillant</option>
-                  </select>
-                )}
+                <select 
+                  value={inviteRole}
+                  onChange={e => setInviteRole(e.target.value)}
+                  className="w-full px-3 py-2 border border-slate-300 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-emerald-500 bg-white font-semibold"
+                >
+                  <option value="TEACHER">Professeur (Teacher)</option>
+                  <option value="DIRECTOR_OF_STUDIES">Directeur des Études</option>
+                  <option value="SECRETARY">Secrétaire</option>
+                  <option value="CASHIER">Caissier(e)</option>
+                  <option value="SUPERVISOR">Surveillant</option>
+                </select>
               </div>
 
               <button 
@@ -1744,7 +1779,8 @@ export function SchoolAdminTeachers() {
                         <tr>
                           <th className="px-6 py-3">Email Invité</th>
                           <th className="px-4 py-3">Rôle Assigné</th>
-                          <th className="px-4 py-3">Date de l'invitation</th>
+                          <th className="px-4 py-3">Invité par</th>
+                          <th className="px-4 py-3">Date</th>
                           <th className="px-4 py-3">Statut</th>
                           <th className="px-6 py-3 text-right">Action</th>
                         </tr>
@@ -1760,6 +1796,9 @@ export function SchoolAdminTeachers() {
                                 {inv.role === 'TEACHER' ? 'Professeur' : (inv.role || 'Professeur')}
                               </span>
                             </td>
+                            <td className="px-4 py-3.5 text-slate-600 font-medium">
+                              {inv.invited_by_name || (inv.invited_by_role === 'DIRECTOR_OF_STUDIES' ? 'Directeur des Études' : 'Directeur')}
+                            </td>
                             <td className="px-4 py-3.5 text-slate-500">
                               {inv.created_at ? new Date(inv.created_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' }) : "Récemment"}
                             </td>
@@ -1769,13 +1808,17 @@ export function SchoolAdminTeachers() {
                               </span>
                             </td>
                             <td className="px-6 py-3.5 text-right">
-                              <button
-                                onClick={() => handleDeleteInvitation(inv.id)}
-                                className="px-2.5 py-1 text-rose-600 hover:text-rose-800 hover:bg-rose-50 border border-rose-200 rounded text-xs font-bold transition flex items-center gap-1 ml-auto"
-                                title="Annuler cette invitation"
-                              >
-                                <Trash2 size={13} /> Annuler
-                              </button>
+                              {user?.role === 'DIRECTOR_OF_STUDIES' && (inv.role === 'SCHOOL_ADMIN' || inv.role === 'SUPER_ADMIN') ? (
+                                <span className="text-[11px] font-bold text-slate-400 px-2 py-1 bg-slate-100 rounded">Protégé</span>
+                              ) : (
+                                <button
+                                  onClick={() => handleDeleteInvitation(inv.id)}
+                                  className="px-2.5 py-1 text-rose-600 hover:text-rose-800 hover:bg-rose-50 border border-rose-200 rounded text-xs font-bold transition flex items-center gap-1 ml-auto"
+                                  title="Annuler cette invitation"
+                                >
+                                  <Trash2 size={13} /> Annuler
+                                </button>
+                              )}
                             </td>
                           </tr>
                         ))}
@@ -1795,26 +1838,48 @@ export function SchoolAdminTeachers() {
                 <div className="px-6 py-4 border-b border-slate-200 bg-slate-50 flex justify-between items-center">
                   <h3 className="font-bold text-gray-800 text-sm flex items-center gap-2">
                     <User size={16} className="text-emerald-600" />
-                    Membres & Professeurs Connectés ({displayedMembers.length})
+                    Membres & Professeurs (Actifs & Invités) ({displayedMembers.length})
                   </h3>
+                  <span className="text-xs text-slate-500">Visible par la direction et la direction des études</span>
                 </div>
                 {displayedMembers.length === 0 ? (
                   <div className="p-8 text-center text-slate-400 text-xs">
-                    Aucun professeur enregistré par l'administration pour le moment.
+                    Aucun membre enregistré ou invité pour le moment.
                   </div>
                 ) : (
                   <ul className="divide-y divide-slate-100 text-xs">
                     {displayedMembers.map(m => (
                       <li key={m.id} className="p-4 px-6 flex items-center justify-between hover:bg-slate-50 transition-colors">
                         <div>
-                          <p className="font-bold text-gray-800">{m.full_name || m.email}</p>
+                          <div className="flex items-center gap-2">
+                            <p className="font-bold text-gray-800">{m.full_name || m.email}</p>
+                            {m.isInvitation ? (
+                              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-800 border border-amber-200">
+                                Invité par {m.invited_by_name || (m.invited_by_role === 'DIRECTOR_OF_STUDIES' ? 'le Dir. des Études' : 'le Directeur')} (En attente)
+                              </span>
+                            ) : (
+                              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-200">
+                                Actif
+                              </span>
+                            )}
+                          </div>
                           <p className="text-[11px] text-slate-500 mt-0.5">
                             Email : {m.email || "-"} • Rôle : <span className="font-semibold text-emerald-600">{m.role === 'TEACHER' ? 'Professeur' : m.role}</span>
+                            {m.created_at && <span className="ml-2 text-slate-400">• Date : {new Date(m.created_at).toLocaleDateString()}</span>}
                           </p>
                         </div>
-                        <span className="px-2.5 py-1 bg-emerald-50 text-emerald-700 rounded-full text-[10px] font-bold border border-emerald-200">
-                          Actif
-                        </span>
+                        {m.isInvitation ? (
+                          user?.role === 'DIRECTOR_OF_STUDIES' && (m.role === 'SCHOOL_ADMIN' || m.role === 'SUPER_ADMIN') ? (
+                            <span className="text-[11px] font-bold text-slate-400 px-2 py-1 bg-slate-100 rounded">Protégé</span>
+                          ) : (
+                            <button
+                              onClick={() => handleDeleteInvitation(m.id)}
+                              className="px-2.5 py-1 text-rose-600 hover:text-rose-800 hover:bg-rose-50 border border-rose-200 rounded text-xs font-bold transition"
+                            >
+                              Annuler
+                            </button>
+                          )
+                        ) : null}
                       </li>
                     ))}
                   </ul>

@@ -72,7 +72,8 @@ export function AddTeacherModal({
         phone: formData.phone,
         role: 'TEACHER',
         school_id: targetSchoolId,
-        title: formData.teacherType // Storing teacher type (Permanent / Vacataire) in title or metadata
+        title: formData.teacherType, // Storing teacher type (Permanent / Vacataire) in title or metadata
+        isReal: true
       };
 
       try {

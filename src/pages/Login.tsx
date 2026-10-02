@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { useAuth } from "../lib/auth";
+import { useAuth, findInvitationForEmail } from "../lib/auth";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import { EduBeninLogo } from "../components/Logo";
@@ -143,7 +143,6 @@ export function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showRoleModal, setShowRoleModal] = useState(false);
-  const [selectedNoticeRole, setSelectedNoticeRole] = useState<any | null>(null);
   const { user, login, loginWithGoogle } = useAuth();
   const navigate = useNavigate();
   const [error, setError] = useState("");
@@ -188,98 +187,67 @@ export function LoginPage() {
     setShowRoleModal(true);
   };
 
-  // Check for login notice from Google OAuth callback (e.g. uninvited user)
+  const [activeInvitations, setActiveInvitations] = useState<{ email: string; role: string; schoolId?: string }[]>([]);
+
   useEffect(() => {
-    const notice = sessionStorage.getItem('edubenin_login_notice');
-    if (notice) {
-      sessionStorage.removeItem('edubenin_login_notice');
+    const loadInvites = async () => {
       try {
-        const parsed = JSON.parse(notice);
-        const roleObj = ROLES.find(r => r.id === parsed.role) || ROLES.find(r => r.id === 'TEACHER');
-        if (roleObj) {
-          setSelectedNoticeRole({ ...roleObj, uninvitedEmail: parsed.email });
+        const list: { email: string; role: string; schoolId?: string }[] = [];
+        const localInvs = JSON.parse(localStorage.getItem('mock_db_invitations') || '[]');
+        localInvs.forEach((i: any) => {
+          if (i.email && !list.some(x => x.email.toLowerCase() === i.email.toLowerCase())) {
+            list.push({ email: i.email.toLowerCase(), role: i.role || 'TEACHER', schoolId: i.school_id });
+          }
+        });
+        const { data: sbInvs } = await supabase.from('invitations').select('*').limit(15);
+        if (sbInvs) {
+          sbInvs.forEach((i: any) => {
+            if (i.email && !list.some(x => x.email.toLowerCase() === i.email.toLowerCase())) {
+              list.push({ email: i.email.toLowerCase(), role: i.role || 'TEACHER', schoolId: i.school_id });
+            }
+          });
         }
+        setActiveInvitations(list);
       } catch (e) {}
-    }
+    };
+    loadInvites();
   }, []);
 
   const handleRoleCardClick = async (role: typeof ROLES[0]) => {
-    // 1. If Google Login:
-    if (loginMethod === 'google') {
-      // Proceed directly to Google authentication!
-      // The invitation verification takes place upon Google callback with their real email.
-      await executeRoleSelection(role.id);
-      return;
-    }
-
-    // 2. If Director with Email/Password:
-    if (role.id === "SCHOOL_ADMIN") {
-      await executeRoleSelection("SCHOOL_ADMIN");
-      return;
-    }
-
-    // 3. For any other role with Email/Password:
-    // Verify whether this user was invited by their school director!
     setIsSubmitting(true);
     setError("");
-    const cleanEmail = email.trim().toLowerCase();
+    let cleanEmail = email.trim().toLowerCase();
 
-    try {
-      // Check in Supabase invitations table
-      const { data: inv } = await supabase
-        .from('invitations')
-        .select('*')
-        .ilike('email', cleanEmail)
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .maybeSingle();
-
-      // Check in mock_db_invitations (localStorage fallback)
-      let localInv = null;
-      try {
-        const localInvs = JSON.parse(localStorage.getItem('mock_db_invitations') || '[]');
-        localInv = localInvs.find((i: any) => i.email && i.email.toLowerCase().trim() === cleanEmail);
-      } catch (e) {}
-
-      // Check in profiles table (already registered member)
-      let existingProf = null;
-      try {
-        const { data: p } = await supabase
-          .from('profiles')
-          .select('id, role, school_id')
-          .ilike('email', cleanEmail)
-          .maybeSingle();
-        existingProf = p;
-      } catch (e) {}
-
-      const isInvitedOrRegistered = !!(inv || localInv || (existingProf && (existingProf.school_id || existingProf.role === role.id)));
-
-      if (isInvitedOrRegistered) {
-        // User was invited or already has a valid school profile: proceed to dashboard!
-        setShowRoleModal(false);
-        await executeRoleSelection(role.id);
-      } else {
-        // User has not received an invitation: show the invitation notice
-        setShowRoleModal(false);
-        setSelectedNoticeRole({ ...role, uninvitedEmail: cleanEmail });
+    // If no email was specified, check if there's an active invitation for this role
+    if (!cleanEmail) {
+      const matchingInv = activeInvitations.find(inv => inv.role === role.id);
+      if (matchingInv) {
+        cleanEmail = matchingInv.email;
+        setEmail(cleanEmail);
       }
-    } catch (err: any) {
-      console.warn("Invitation check error, proceeding to login:", err);
-      setShowRoleModal(false);
-      await executeRoleSelection(role.id);
-    } finally {
-      setIsSubmitting(false);
     }
+
+    setShowRoleModal(false);
+    await executeRoleSelection(role.id, cleanEmail);
   };
 
-  const executeRoleSelection = async (roleId: string) => {
+  const executeRoleSelection = async (roleId: string, userEmail?: string) => {
     setShowRoleModal(false);
-    setSelectedNoticeRole(null);
     setIsSubmitting(true);
+
+    let emailToUse = (userEmail || email || "").trim().toLowerCase();
+
+    // If still empty and Google login was picked, check active invitations
+    if (!emailToUse && loginMethod === 'google') {
+      const matchingInv = activeInvitations.find(inv => inv.role === roleId);
+      if (matchingInv) {
+        emailToUse = matchingInv.email;
+      }
+    }
 
     if (loginMethod === 'email') {
       try {
-        await login(email, undefined, password, roleId);
+        await login(emailToUse, undefined, password, roleId);
         navigate("/dashboard");
       } catch (err: any) {
         setError(formatErrorMessage(err));
@@ -288,9 +256,13 @@ export function LoginPage() {
       }
     } else if (loginMethod === 'google') {
       localStorage.setItem('pending_google_role', roleId);
+      if (emailToUse) {
+        localStorage.setItem('pending_google_email', emailToUse);
+      }
       try {
         setError("");
-        await loginWithGoogle();
+        await loginWithGoogle(roleId, emailToUse);
+        navigate("/dashboard");
       } catch (err: any) {
         setError(formatErrorMessage(err));
         setIsSubmitting(false);
@@ -530,7 +502,7 @@ export function LoginPage() {
       </div>
 
       {/* Role Selection Modal (Desktop Landscape 3 Columns, Mobile 1 Column) */}
-      {showRoleModal && !selectedNoticeRole && (
+      {showRoleModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
           <div className="bg-white rounded-3xl shadow-2xl w-full max-w-xl md:max-w-3xl lg:max-w-5xl overflow-hidden relative animate-in zoom-in-95 duration-200 border border-slate-200 flex flex-col max-h-[92vh]">
             {/* Header */}
@@ -553,8 +525,58 @@ export function LoginPage() {
               </div>
               <h3 className="text-xl sm:text-2xl font-black text-gray-800 tracking-tight">Choisissez votre profil</h3>
               <p className="text-xs sm:text-sm text-slate-500 mt-1">
-                Sélectionnez le rôle correspondant à vos fonctions pour continuer.
+                Sélectionnez le rôle correspondant à vos fonctions pour continuer vers votre tableau de bord.
               </p>
+
+              {activeInvitations.length > 0 && (
+                <div className="mt-3 p-3 bg-emerald-50/90 border border-emerald-200 rounded-xl">
+                  <p className="text-[11px] font-bold text-emerald-900 mb-1.5 flex items-center gap-1.5">
+                    <CheckCircle2 size={13} className="text-emerald-600" />
+                    Invitation(s) officielle(s) de votre établissement détectée(s) :
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    {activeInvitations.map((inv, idx) => {
+                      const matchedRole = ROLES.find(r => r.id === inv.role);
+                      return (
+                        <button
+                          key={idx}
+                          type="button"
+                          onClick={() => {
+                            setEmail(inv.email);
+                            if (matchedRole) {
+                              handleRoleCardClick(matchedRole);
+                            }
+                          }}
+                          className="px-2.5 py-1 bg-white hover:bg-emerald-100/60 border border-emerald-300 rounded-lg text-xs font-semibold text-emerald-950 flex items-center gap-1.5 transition shadow-xs cursor-pointer"
+                          title="Cliquer pour vous connecter directement avec ce compte invité"
+                        >
+                          <span className="underline">{inv.email}</span>
+                          <span className="px-1.5 py-0.2 bg-emerald-200 text-emerald-900 rounded text-[10px] uppercase font-bold">
+                            {matchedRole?.title || inv.role}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {loginMethod === 'google' && (
+                <div className="mt-3">
+                  <div className="flex items-center gap-2 max-w-md">
+                    <div className="relative flex-1">
+                      <Mail size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                      <input
+                        type="email"
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                        placeholder="Votre adresse email Google (ex: prof@gmail.com)"
+                        className="w-full pl-8 pr-3 py-2 text-xs bg-white border border-slate-300 rounded-lg text-gray-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 font-medium"
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Roles Grid: 3 columns on desktop landscape, 2 on tablet, 1 on mobile */}
@@ -595,57 +617,7 @@ export function LoginPage() {
 
             {/* Footer Notice */}
             <div className="px-6 py-3.5 bg-slate-50 border-t border-slate-100 text-center text-xs text-slate-500 shrink-0">
-              Vous pourrez changer de compte ou vous déconnecter à tout moment depuis votre tableau de bord.
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Staff Invitation Notice Modal (For non-director roles) */}
-      {selectedNoticeRole && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/65 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-lg overflow-hidden relative animate-in zoom-in-95 duration-200 border border-slate-200">
-            {/* Header */}
-            <div className="p-6 bg-gradient-to-r from-amber-500 via-amber-600 to-orange-600 text-white text-center relative">
-              <div className="w-14 h-14 bg-white/15 rounded-2xl mx-auto flex items-center justify-center border border-white/20 shadow-inner mb-3">
-                <Mail className="w-7 h-7 text-white" />
-              </div>
-              <h3 className="text-xl font-black tracking-tight">Invitation Requise</h3>
-              <p className="text-amber-100 text-xs mt-1">
-                Espace réservé : <span className="font-bold underline">{selectedNoticeRole.title}</span>
-              </p>
-            </div>
-
-            {/* Body */}
-            <div className="p-6 sm:p-8 space-y-4">
-              <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 text-xs text-amber-900 leading-relaxed space-y-2">
-                <p className="font-bold flex items-center gap-1.5 text-amber-950">
-                  <AlertCircle size={15} className="text-amber-600 shrink-0" />
-                  Vous devez être invité par le Directeur de votre école :
-                </p>
-                {selectedNoticeRole.uninvitedEmail && (
-                  <p className="bg-white/90 p-2.5 rounded-xl border border-amber-300 font-medium text-slate-800 text-[11px]">
-                    Adresse vérifiée : <span className="text-amber-800 underline font-bold">{selectedNoticeRole.uninvitedEmail}</span> (aucune invitation active trouvée pour cet établissement)
-                  </p>
-                )}
-                <p>
-                  Pour accéder à cet espace en tant que <strong>{selectedNoticeRole.title}</strong>, vous devez avoir reçu une invitation par email de la part de la direction de votre établissement.
-                </p>
-                <p>
-                  Si vous êtes nouveau dans l'école, <strong>veuillez contacter le Directeur de votre établissement</strong> afin qu'il vous envoie une invitation officielle depuis son tableau de bord.
-                </p>
-              </div>
-
-              <div className="pt-2">
-                <button
-                  type="button"
-                  onClick={() => setSelectedNoticeRole(null)}
-                  className="w-full flex items-center justify-center gap-2 py-3 px-4 rounded-xl border border-slate-300 bg-white text-xs font-bold text-slate-700 hover:text-slate-900 hover:bg-slate-50 transition shadow-sm cursor-pointer"
-                >
-                  <ChevronLeft size={15} />
-                  <span>Retour au choix des profils</span>
-                </button>
-              </div>
+              Vous accéderez directement à votre tableau de bord après la vérification de votre compte.
             </div>
           </div>
         </div>

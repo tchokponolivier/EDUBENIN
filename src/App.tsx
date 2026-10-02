@@ -105,7 +105,7 @@ export default function App() {
             <Route path="/super-admin/*" element={<ProtectedRoute allowedRoles={['SUPER_ADMIN']}><SuperAdminDashboard /></ProtectedRoute>} />
             <Route path="/school-admin/onboarding" element={<ProtectedRoute allowedRoles={['SCHOOL_ADMIN']} withLayout={false}><SchoolOnboarding /></ProtectedRoute>} />
             <Route path="/school-admin" element={<ProtectedRoute allowedRoles={['SCHOOL_ADMIN', 'DIRECTOR_OF_STUDIES']}><SchoolAdminDashboard /></ProtectedRoute>} />
-            <Route path="/school-admin/payments" element={<ProtectedRoute allowedRoles={['SCHOOL_ADMIN', 'CASHIER']}><SchoolAdminPayments /></ProtectedRoute>} />
+            <Route path="/school-admin/payments" element={<ProtectedRoute allowedRoles={['SCHOOL_ADMIN', 'CASHIER', 'DIRECTOR_OF_STUDIES']}><SchoolAdminPayments /></ProtectedRoute>} />
             <Route path="/school-admin/students" element={<ProtectedRoute allowedRoles={['SCHOOL_ADMIN', 'SECRETARY', 'CASHIER', 'DIRECTOR_OF_STUDIES']}><SchoolAdminStudents /></ProtectedRoute>} />
             <Route path="/school-admin/students-list" element={<ProtectedRoute allowedRoles={['SCHOOL_ADMIN', 'SECRETARY', 'CASHIER', 'DIRECTOR_OF_STUDIES']}><SchoolAdminStudentList /></ProtectedRoute>} />
             <Route path="/school-admin/teachers" element={<ProtectedRoute allowedRoles={['SCHOOL_ADMIN', 'SECRETARY', 'CASHIER', 'DIRECTOR_OF_STUDIES']}><SchoolAdminTeachers /></ProtectedRoute>} />

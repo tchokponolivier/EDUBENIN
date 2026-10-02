@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../lib/auth";
+import { getDirectorAcademicYears } from "../lib/academicYears";
 import { 
   User, 
   Calculator, 
@@ -158,11 +159,11 @@ export function SchoolAdminTeachers() {
       }
       if (!targetSchoolId) targetSchoolId = "11111111-1111-4111-8111-111111111111";
 
-      const [allProfilesRes, invitationsRes, coursesRes, yearsRes, schoolRes] = await Promise.all([
+      const [allProfilesRes, invitationsRes, coursesRes, directorYears, schoolRes] = await Promise.all([
         supabase.from('profiles').select('*'),
         supabase.from('invitations').select('*').order('created_at', { ascending: false }),
         supabase.from('courses').select('*, profiles(id, full_name, email, role)'),
-        supabase.from('academic_years').select('id, name'),
+        getDirectorAcademicYears(targetSchoolId),
         supabase.from('schools').select('*').eq('id', targetSchoolId).maybeSingle()
       ]);
       
@@ -408,7 +409,7 @@ export function SchoolAdminTeachers() {
 
       setTeachers(combinedTeachers);
       setCourses(enrichedCourses);
-      setAcademicYears(yearsRes.data || []);
+      setAcademicYears(directorYears || []);
     } catch (err) {
       console.error("Error fetching teachers data:", err);
     } finally {
@@ -708,6 +709,10 @@ export function SchoolAdminTeachers() {
   };
 
   const handleDeleteTeacher = async (t: any) => {
+    if (user?.role === 'DIRECTOR_OF_STUDIES' && (t.role === 'SCHOOL_ADMIN' || t.role === 'SUPER_ADMIN')) {
+      alert("En tant que Directeur des Études, vous ne pouvez pas supprimer le profil du Directeur.");
+      return;
+    }
     const teacherName = t.full_name || t.email?.split('@')[0] || "ce professeur";
     if (!window.confirm(`Êtes-vous sûr de vouloir supprimer ${teacherName} ? Cette action sera consignée dans l'historique.`)) return;
     try {
@@ -1483,13 +1488,15 @@ export function SchoolAdminTeachers() {
                           >
                             <Edit2 size={16} />
                           </button>
-                          <button 
-                            onClick={() => handleDeleteTeacher(t)} 
-                            className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors" 
-                            title="Supprimer"
-                          >
-                            <Trash2 size={16} />
-                          </button>
+                          {!(user?.role === 'DIRECTOR_OF_STUDIES' && (t.role === 'SCHOOL_ADMIN' || t.role === 'SUPER_ADMIN' || t.email?.toLowerCase().includes('director') || t.full_name?.toLowerCase().includes('directeur'))) && (
+                            <button 
+                              onClick={() => handleDeleteTeacher(t)} 
+                              className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors" 
+                              title="Supprimer"
+                            >
+                              <Trash2 size={16} />
+                            </button>
+                          )}
                         </div>
                       </div>
                       

@@ -4,6 +4,7 @@ import { FeeConfig, LEVELS } from "../types";
 import { useAuth } from "../lib/auth";
 import { DollarSign, Plus, Settings, Trash2, Edit2, ChevronDown, X, AlertCircle, CheckCircle, Info, Table } from "lucide-react";
 import { FeeTableModal } from "./FeeTableModal";
+import { getDirectorAcademicYears } from "../lib/academicYears";
 
 const OPTIONAL_FEE_TYPES: Record<string, string> = {
   CANTEEN: "Cantine",
@@ -24,8 +25,6 @@ const MANDATORY_FEE_TYPES: Record<string, string> = {
   SPORTS_WEAR: "Tenue de Sport",
   EVALUATION: "Frais d'évaluation"
 };
-
-const DEFAULT_ACADEMIC_YEARS = ["2024-2025", "2025-2026", "2026-2027"];
 
 export function SchoolAdminFees() {
   const { user } = useAuth();
@@ -57,22 +56,13 @@ export function SchoolAdminFees() {
 
   const fetchAcademicYears = async () => {
     try {
-      if (user?.schoolId) {
-        const { data, error } = await supabase.from('academic_years').select('id, name').eq('school_id', user.schoolId);
-        if (!error && data && data.length > 0) {
-          setAcademicYears(data);
-          if (!formYear) setFormYear(data[0].name);
-          return;
-        }
-      }
-      // Fallback years if none configured yet
-      const fallbackYears = DEFAULT_ACADEMIC_YEARS.map(y => ({ id: y, name: y }));
-      setAcademicYears(fallbackYears);
-      if (!formYear) setFormYear(fallbackYears[0].name);
+      const years = await getDirectorAcademicYears(user?.schoolId);
+      setAcademicYears(years);
+      if (!formYear && years.length > 0) setFormYear(years[0].name);
     } catch {
-      const fallbackYears = DEFAULT_ACADEMIC_YEARS.map(y => ({ id: y, name: y }));
-      setAcademicYears(fallbackYears);
-      if (!formYear) setFormYear(fallbackYears[0].name);
+      const years = await getDirectorAcademicYears(user?.schoolId);
+      setAcademicYears(years);
+      if (!formYear && years.length > 0) setFormYear(years[0].name);
     }
   };
 

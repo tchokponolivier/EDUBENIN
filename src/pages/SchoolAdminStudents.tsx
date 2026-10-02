@@ -11,6 +11,7 @@ import { SecretaryExams } from "../components/SecretaryExams";
 import { SecretaryPlanning } from "../components/SecretaryPlanning";
 import { SecretaryHR } from "../components/SecretaryHR";
 import { AddStudentModal } from "../components/AddStudentModal";
+import { getDirectorAcademicYears } from "../lib/academicYears";
 
 export function SchoolAdminStudents() {
   const { user } = useAuth();
@@ -137,11 +138,11 @@ export function SchoolAdminStudents() {
 
       try {
         const { supabase } = await import('../lib/supabase');
-        const [studentsRes, yearsRes] = await Promise.all([
+        const [studentsRes, directorYears] = await Promise.all([
            supabase.from('students').select('*'),
-           supabase.from('academic_years').select('id, name')
+           getDirectorAcademicYears(targetSchoolId)
         ]);
-        if (yearsRes.data) setAcademicYears(yearsRes.data);
+        setAcademicYears(directorYears);
         
         let list = studentsRes.data && Array.isArray(studentsRes.data) ? [...studentsRes.data] : [];
         try {

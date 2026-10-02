@@ -222,9 +222,10 @@ class MockQueryBuilder {
 const mockAuth = {
   signInWithPassword: async () => ({ data: {}, error: null }),
   signUp: async () => ({ data: {}, error: null }),
+  signInWithOAuth: async (_opts?: any) => ({ data: {}, error: null }),
   signOut: async () => ({ error: null }),
   getSession: async () => ({ data: { session: null }, error: null }),
-  onAuthStateChange: (cb) => ({ data: { subscription: { unsubscribe: () => {} } } })
+  onAuthStateChange: (cb: any) => ({ data: { subscription: { unsubscribe: () => {} } } })
 };
 
 const isPlaceholderConfig = !supabaseUrl || supabaseUrl.includes('placeholder-project') || supabaseUrl.includes('YOUR_SUPABASE_URL');

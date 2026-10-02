@@ -116,11 +116,7 @@ export function SchoolAdminDashboard() {
     const params = new URLSearchParams(location.search);
     const tabParam = params.get('tab');
     if (tabParam && ["DASHBOARD", "MEMBERS", "ANNOUNCEMENTS", "SETTINGS", "ACADEMIC", "FEES"].includes(tabParam)) {
-       if (user?.role === 'DIRECTOR_OF_STUDIES' && tabParam === 'FEES') {
-         setActiveTab("DASHBOARD");
-       } else {
-         setActiveTab(tabParam as any);
-       }
+      setActiveTab(tabParam as any);
     }
   }, [location, user?.role]);
 
@@ -270,20 +266,47 @@ export function SchoolAdminDashboard() {
     if (!user?.schoolId) return;
     setIsInviting(true);
     try {
+      const cleanEmail = inviteEmail.trim().toLowerCase();
       const { data: existing } = await supabase.from('invitations')
-         .select('id').eq('email', inviteEmail.trim().toLowerCase())
+         .select('id').eq('email', cleanEmail)
          .eq('school_id', user.schoolId).maybeSingle();
       if (existing) {
          await supabase.from('invitations').delete().eq('id', existing.id);
       }
+
+      // Save invitation metadata to local cache as well
+      try {
+        const metaKey = `school_invitations_meta_${user.schoolId}`;
+        const metaData = JSON.parse(localStorage.getItem(metaKey) || '{}');
+        metaData[cleanEmail] = {
+          role: inviteRole,
+          invited_by_role: user?.role || 'SCHOOL_ADMIN',
+          invited_by_name: user?.name || "Directeur",
+          invited_at: new Date().toISOString()
+        };
+        localStorage.setItem(metaKey, JSON.stringify(metaData));
+      } catch (e) {}
       
-      const { error } = await supabase.from('invitations').insert([{
-        school_id: user.schoolId,
-        email: inviteEmail.trim().toLowerCase(),
-        role: inviteRole
-      }]);
-      if (error) throw error;
-      alert("Invitation créée avec succès ! L'utilisateur sera automatiquement associé lors de sa connexion avec Google.");
+      try {
+        const { error } = await supabase.from('invitations').insert([{
+          school_id: user.schoolId,
+          email: cleanEmail,
+          role: inviteRole
+        }]);
+        if (error) throw error;
+      } catch (insertErr) {
+        const localInvs = JSON.parse(localStorage.getItem('mock_db_invitations') || '[]');
+        localInvs.unshift({
+          id: 'inv_' + Date.now(),
+          school_id: user.schoolId,
+          email: cleanEmail,
+          role: inviteRole,
+          created_at: new Date().toISOString()
+        });
+        localStorage.setItem('mock_db_invitations', JSON.stringify(localInvs));
+      }
+
+      alert("Invitation créée avec succès ! L'utilisateur sera automatiquement associé lors de sa connexion avec Google ou par email.");
       setInviteEmail("");
       fetchInvitations();
     } catch (err: any) {
@@ -404,14 +427,12 @@ export function SchoolAdminDashboard() {
         >
           Années & Classes
         </button>
-        {user?.role !== 'DIRECTOR_OF_STUDIES' && (
-          <button 
-            onClick={() => setActiveTab("FEES")} 
-            className={`px-4 py-2 rounded-lg text-xs whitespace-nowrap shrink-0 font-bold uppercase tracking-wider transition-all ${activeTab === "FEES" ? "bg-white shadow-xs text-gray-800 border border-slate-200" : "text-slate-500 hover:text-gray-800 hover:bg-white/60"}`}
-          >
-            Frais de scolarité
-          </button>
-        )}
+        <button 
+          onClick={() => setActiveTab("FEES")} 
+          className={`px-4 py-2 rounded-lg text-xs whitespace-nowrap shrink-0 font-bold uppercase tracking-wider transition-all ${activeTab === "FEES" ? "bg-white shadow-xs text-gray-800 border border-slate-200" : "text-slate-500 hover:text-gray-800 hover:bg-white/60"}`}
+        >
+          Frais de scolarité
+        </button>
         <button 
           onClick={() => setActiveTab("ANNOUNCEMENTS")} 
           className={`px-4 py-2 rounded-lg text-xs whitespace-nowrap shrink-0 font-bold uppercase tracking-wider transition-all ${activeTab === "ANNOUNCEMENTS" ? "bg-white shadow-xs text-gray-800 border border-slate-200" : "text-slate-500 hover:text-gray-800 hover:bg-white/60"}`}
@@ -429,19 +450,11 @@ export function SchoolAdminDashboard() {
               <div className="text-3xl font-bold text-gray-700">{students.length}</div>
               <div className="mt-2 text-emerald-600 text-xs font-semibold">Total inscrits</div>
             </div>
-            {user?.role !== 'DIRECTOR_OF_STUDIES' ? (
-              <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
-                <div className="text-slate-500 text-xs font-medium uppercase mb-2">Recettes (FCFA)</div>
-                <div className="text-3xl font-bold text-gray-700">{totalRevenue.toLocaleString()} FCFA</div>
-                <div className="mt-2 text-slate-400 text-xs">Total cumulé</div>
-              </div>
-            ) : (
-              <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
-                <div className="text-slate-500 text-xs font-medium uppercase mb-2">Membres du Personnel</div>
-                <div className="text-3xl font-bold text-gray-700">{schoolMembers.length}</div>
-                <div className="mt-2 text-blue-600 text-xs font-semibold">Équipe éducative</div>
-              </div>
-            )}
+            <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
+              <div className="text-slate-500 text-xs font-medium uppercase mb-2">Recettes (FCFA)</div>
+              <div className="text-3xl font-bold text-gray-700">{totalRevenue.toLocaleString()} FCFA</div>
+              <div className="mt-2 text-slate-400 text-xs">Total cumulé</div>
+            </div>
             <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
               <div className="text-slate-500 text-xs font-medium uppercase mb-2">Classes Actives</div>
               <div className="text-3xl font-bold text-gray-700">14</div>
@@ -582,13 +595,23 @@ export function SchoolAdminDashboard() {
                       <p className="font-medium text-gray-800">{m.full_name || m.email}</p>
                       <p className="text-xs text-slate-500 mt-1">Rôle: <span className="font-semibold text-emerald-600">{m.role}</span></p>
                     </div>
-                    <button onClick={async () => {
-                       if(window.confirm("Retirer ce membre de l'école ?")) {
-                          const { error } = await supabase.from('profiles').update({role: 'DELETED'}).eq('id', m.id);
-                          if (error) alert("Erreur lors de la suppression: " + error.message);
-                          fetchSchoolMembers();
-                       }
-                    }} className="text-red-500 hover:text-red-700 text-xs font-bold uppercase p-2">Retirer</button>
+                    {user?.role === 'DIRECTOR_OF_STUDIES' && (m.role === 'SCHOOL_ADMIN' || m.role === 'SUPER_ADMIN') ? (
+                      <span className="text-[11px] font-bold text-slate-400 px-3 py-1 bg-slate-100 rounded-md">
+                        Directeur Général (Protégé)
+                      </span>
+                    ) : (
+                      <button onClick={async () => {
+                         if (user?.role === 'DIRECTOR_OF_STUDIES' && (m.role === 'SCHOOL_ADMIN' || m.role === 'SUPER_ADMIN')) {
+                            alert("En tant que Directeur des Études, vous ne pouvez pas supprimer ou retirer le profil du Directeur.");
+                            return;
+                         }
+                         if(window.confirm("Retirer ce membre de l'école ?")) {
+                            const { error } = await supabase.from('profiles').update({role: 'DELETED'}).eq('id', m.id);
+                            if (error) alert("Erreur lors de la suppression: " + error.message);
+                            fetchSchoolMembers();
+                         }
+                      }} className="text-red-500 hover:text-red-700 text-xs font-bold uppercase p-2">Retirer</button>
+                    )}
                   </li>
                 ))}
               </ul>
@@ -630,12 +653,22 @@ export function SchoolAdminDashboard() {
                       <p className="font-medium text-gray-800">{inv.email}</p>
                       <p className="text-xs text-slate-500 mt-1">Rôle: <span className="font-semibold text-emerald-600">{inv.role}</span> | Créé le: {new Date(inv.created_at).toLocaleDateString()}</p>
                     </div>
-                    <button onClick={async () => {
-                       if(window.confirm("Supprimer cette invitation ?")) {
-                          await supabase.from('invitations').delete().eq('id', inv.id);
-                          fetchInvitations();
-                       }
-                    }} className="text-red-500 hover:text-red-700 text-xs font-bold uppercase p-2">Supprimer</button>
+                    {user?.role === 'DIRECTOR_OF_STUDIES' && (inv.role === 'SCHOOL_ADMIN' || inv.role === 'SUPER_ADMIN') ? (
+                      <span className="text-[11px] font-bold text-slate-400 px-3 py-1 bg-slate-100 rounded-md">
+                        Directeur Général (Protégé)
+                      </span>
+                    ) : (
+                      <button onClick={async () => {
+                         if (user?.role === 'DIRECTOR_OF_STUDIES' && (inv.role === 'SCHOOL_ADMIN' || inv.role === 'SUPER_ADMIN')) {
+                            alert("En tant que Directeur des Études, vous ne pouvez pas annuler l'invitation du Directeur.");
+                            return;
+                         }
+                         if(window.confirm("Supprimer cette invitation ?")) {
+                            await supabase.from('invitations').delete().eq('id', inv.id);
+                            fetchInvitations();
+                         }
+                      }} className="text-red-500 hover:text-red-700 text-xs font-bold uppercase p-2">Supprimer</button>
+                    )}
                   </li>
                 ))}
               </ul>

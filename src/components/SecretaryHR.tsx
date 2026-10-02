@@ -275,6 +275,11 @@ export function SecretaryHR() {
   };
 
   const handleDeleteStaff = async (st: StaffMember) => {
+    if (user?.role === 'DIRECTOR_OF_STUDIES' && (st.role === 'ADMIN' || st.roleLabel?.toLowerCase().includes('directeur général') || (st as any).isDirector)) {
+      alert("En tant que Directeur des Études, vous ne pouvez pas supprimer le profil du Directeur.");
+      return;
+    }
+
     if (!window.confirm(`Confirmez-vous la suppression de ${st.name} du personnel ?`)) return;
 
     try {
@@ -569,13 +574,15 @@ export function SecretaryHR() {
                           >
                             <Edit2 size={15} />
                           </button>
-                          <button
-                            onClick={() => handleDeleteStaff(st)}
-                            className="p-1.5 text-slate-500 hover:text-rose-600 hover:bg-rose-50 rounded transition"
-                            title="Supprimer du personnel"
-                          >
-                            <Trash2 size={15} />
-                          </button>
+                          {!(user?.role === 'DIRECTOR_OF_STUDIES' && (st.role === 'ADMIN' || st.roleLabel?.toLowerCase().includes('directeur général'))) && (
+                            <button
+                              onClick={() => handleDeleteStaff(st)}
+                              className="p-1.5 text-slate-500 hover:text-rose-600 hover:bg-rose-50 rounded transition"
+                              title="Supprimer du personnel"
+                            >
+                              <Trash2 size={15} />
+                            </button>
+                          )}
                         </div>
                       </td>
                     </tr>

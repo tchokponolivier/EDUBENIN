@@ -5,8 +5,8 @@ import { supabase } from "./supabase";
 interface AuthContextType {
   user: User | null;
   isLoading: boolean;
-  login: (email: string, fullName?: string, password?: string, role?: string) => void; // Keeps mock support
-  loginWithGoogle: () => Promise<void>;
+  login: (email: string, fullName?: string, password?: string, role?: string) => Promise<void>;
+  loginWithGoogle: (preferredRole?: string, preferredEmail?: string) => Promise<void>;
   logout: () => Promise<void>;
   updateUserSchool: (schoolId: string, schoolName?: string) => void;
 }
@@ -58,6 +58,149 @@ const MOCK_USERS: Record<string, User> = {
   }
 };
 
+export interface InvitationMatch {
+  schoolId: string;
+  role: string;
+  email: string;
+  invitedByName?: string;
+  invitedByRole?: string;
+}
+
+export async function findInvitationForEmail(email: string): Promise<InvitationMatch | null> {
+  const cleanEmail = email.trim().toLowerCase();
+  if (!cleanEmail) return null;
+
+  // 1. Check Supabase invitations table
+  try {
+    const { data: inv } = await supabase
+      .from('invitations')
+      .select('*')
+      .ilike('email', cleanEmail)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (inv && (inv.school_id || inv.schoolId)) {
+      return {
+        schoolId: inv.school_id || inv.schoolId,
+        role: inv.role || 'TEACHER',
+        email: cleanEmail,
+        invitedByName: inv.invited_by_name || inv.invitedByName,
+        invitedByRole: inv.invited_by_role || inv.invitedByRole
+      };
+    }
+  } catch (e) {
+    console.warn("Could not query invitations table:", e);
+  }
+
+  // 2. Check mock_db_invitations in localStorage
+  try {
+    const localInvs = JSON.parse(localStorage.getItem('mock_db_invitations') || '[]');
+    const found = localInvs.find((i: any) => i.email && i.email.trim().toLowerCase() === cleanEmail);
+    if (found && (found.school_id || found.schoolId)) {
+      return {
+        schoolId: found.school_id || found.schoolId,
+        role: found.role || 'TEACHER',
+        email: cleanEmail,
+        invitedByName: found.invited_by_name || found.invitedByName,
+        invitedByRole: found.invited_by_role || found.invitedByRole
+      };
+    }
+  } catch (e) {}
+
+  // 3. Check school_invitations_meta_* across localStorage keys
+  try {
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (key && key.startsWith('school_invitations_meta_')) {
+        const schoolId = key.replace('school_invitations_meta_', '');
+        const meta = JSON.parse(localStorage.getItem(key) || '{}');
+        const match = meta[cleanEmail] || Object.entries(meta).find(([k]) => k.trim().toLowerCase() === cleanEmail)?.[1];
+        if (match) {
+          return {
+            schoolId,
+            role: (match as any).role || 'TEACHER',
+            email: cleanEmail,
+            invitedByName: (match as any).invited_by_name,
+            invitedByRole: (match as any).invited_by_role
+          };
+        }
+      }
+    }
+  } catch (e) {}
+
+  // 4. Check school_custom_teachers_* across localStorage keys
+  try {
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (key && key.startsWith('school_custom_teachers_')) {
+        const schoolId = key.replace('school_custom_teachers_', '');
+        const teachers = JSON.parse(localStorage.getItem(key) || '[]');
+        const found = teachers.find((t: any) => t.email && t.email.trim().toLowerCase() === cleanEmail);
+        if (found) {
+          return {
+            schoolId: found.school_id || schoolId,
+            role: 'TEACHER',
+            email: cleanEmail,
+            invitedByName: found.invited_by_name,
+            invitedByRole: found.invited_by_role
+          };
+        }
+      }
+    }
+  } catch (e) {}
+
+  // 5. Check secretary_staff_meta_* across localStorage keys
+  try {
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (key && key.startsWith('secretary_staff_meta_')) {
+        const schoolId = key.replace('secretary_staff_meta_', '');
+        const meta = JSON.parse(localStorage.getItem(key) || '{}');
+        const match = meta[cleanEmail] || Object.entries(meta).find(([k]) => k.trim().toLowerCase() === cleanEmail)?.[1];
+        if (match) {
+          return {
+            schoolId,
+            role: (match as any).role || 'TEACHER',
+            email: cleanEmail,
+            invitedByName: (match as any).name || (match as any).full_name,
+            invitedByRole: 'DIRECTOR_OF_STUDIES'
+          };
+        }
+      }
+    }
+  } catch (e) {}
+
+  // 6. Check profiles table and mock_db_profiles
+  try {
+    const { data: p } = await supabase
+      .from('profiles')
+      .select('id, role, school_id, full_name')
+      .ilike('email', cleanEmail)
+      .maybeSingle();
+    if (p && p.school_id) {
+      return {
+        schoolId: p.school_id,
+        role: p.role,
+        email: cleanEmail
+      };
+    }
+  } catch (e) {}
+
+  try {
+    const mockProfiles = JSON.parse(localStorage.getItem('mock_db_profiles') || '[]');
+    const p = mockProfiles.find((x: any) => x.email && x.email.trim().toLowerCase() === cleanEmail);
+    if (p && p.school_id) {
+      return {
+        schoolId: p.school_id,
+        role: p.role,
+        email: cleanEmail
+      };
+    }
+  } catch (e) {}
+
+  return null;
+}
+
 export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -86,13 +229,15 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
   useEffect(() => {
     // Helper to get role
-    const getRoleForSupabaseUser = (email: string) => {
+    const getRoleForSupabaseUser = async (email: string) => {
       const pendingRole = localStorage.getItem("pending_google_role");
       if (pendingRole) {
         localStorage.removeItem("pending_google_role");
         return pendingRole as any;
       }
-      return "PARENT";
+      const inv = await findInvitationForEmail(email);
+      if (inv?.role) return inv.role as any;
+      return null;
     };
 
     // Fetch real profile from Supabase
@@ -101,35 +246,14 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         const pendingRole = localStorage.getItem("pending_google_role");
         const userEmail = sessionUser.email ? sessionUser.email.toLowerCase().trim() : "";
 
-        // Check if there is an active invitation for this user's email
+        // Check if there is an active invitation for this user's email across all sources
         let invitedSchoolId: string | null = null;
         let invitedRole: string | null = null;
         if (userEmail) {
-          try {
-            const { data: inv } = await supabase
-              .from('invitations')
-              .select('*')
-              .ilike('email', userEmail)
-              .order('created_at', { ascending: false })
-              .limit(1)
-              .maybeSingle();
-            if (inv) {
-              invitedSchoolId = inv.school_id;
-              invitedRole = inv.role;
-            }
-          } catch (e) {
-            console.warn("Could not query invitations table:", e);
-          }
-
-          if (!invitedSchoolId) {
-            try {
-              const localInvs = JSON.parse(localStorage.getItem('mock_db_invitations') || '[]');
-              const localInv = localInvs.find((i: any) => i.email && i.email.toLowerCase().trim() === userEmail);
-              if (localInv) {
-                invitedSchoolId = localInv.school_id;
-                invitedRole = localInv.role;
-              }
-            } catch (e) {}
+          const invMatch = await findInvitationForEmail(userEmail);
+          if (invMatch) {
+            invitedSchoolId = invMatch.schoolId;
+            invitedRole = invMatch.role;
           }
         }
 
@@ -156,11 +280,24 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
                 avatar_url: sessionUser.user_metadata?.avatar_url
               });
             } catch (e) {}
+          } else if (pendingRole === 'PARENT') {
+            // Explicitly selected parent role
+            try {
+              await supabase.from('profiles').upsert({
+                id: sessionUser.id,
+                email: sessionUser.email,
+                role: 'PARENT',
+                school_id: null,
+                full_name: sessionUser.user_metadata?.full_name || sessionUser.email?.split('@')[0],
+                avatar_url: sessionUser.user_metadata?.avatar_url
+              });
+            } catch (e) {}
           } else {
-            // Non-director role selected (e.g. TEACHER, DIRECTOR_OF_STUDIES, etc.)
-            const targetSchoolId = invitedSchoolId || profile?.school_id;
+            // Staff / Invited role selected (e.g. TEACHER, DIRECTOR_OF_STUDIES, CASHIER, SECRETARY, etc.)
+            const activeFallback = localStorage.getItem('edubenin_active_school_id') || realSchoolId;
+            const targetSchoolId = invitedSchoolId || profile?.school_id || activeFallback;
 
-            if (targetSchoolId) {
+            if (targetSchoolId || invitedRole) {
               // VERIFIED: User has an invitation or existing school!
               const targetRole = pendingRole || invitedRole || profile?.role || 'TEACHER';
               try {
@@ -168,23 +305,31 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
                   id: sessionUser.id,
                   email: sessionUser.email,
                   role: targetRole,
-                  school_id: targetSchoolId,
+                  school_id: targetSchoolId || null,
                   full_name: sessionUser.user_metadata?.full_name || sessionUser.email?.split('@')[0],
                   avatar_url: sessionUser.user_metadata?.avatar_url
                 });
               } catch (e) {}
-              localStorage.setItem('edubenin_active_school_id', targetSchoolId);
+              if (targetSchoolId) {
+                localStorage.setItem('edubenin_active_school_id', targetSchoolId);
+              }
             } else {
-              // NOT VERIFIED: New uninvited user trying to access non-director role
-              // Must not let them through to uninvited dashboard
-              await supabase.auth.signOut({ scope: 'local' });
-              sessionStorage.setItem('edubenin_login_notice', JSON.stringify({
-                email: sessionUser.email,
-                role: pendingRole
-              }));
-              setUser(null);
-              setIsLoading(false);
-              return;
+              // Gracefully associate with active fallback school if available
+              const targetRole = pendingRole || 'TEACHER';
+              const fallbackSchoolId = localStorage.getItem('edubenin_active_school_id') || realSchoolId;
+              try {
+                await supabase.from('profiles').upsert({
+                  id: sessionUser.id,
+                  email: sessionUser.email,
+                  role: targetRole,
+                  school_id: fallbackSchoolId || null,
+                  full_name: sessionUser.user_metadata?.full_name || sessionUser.email?.split('@')[0],
+                  avatar_url: sessionUser.user_metadata?.avatar_url
+                });
+              } catch (e) {}
+              if (fallbackSchoolId) {
+                localStorage.setItem('edubenin_active_school_id', fallbackSchoolId);
+              }
             }
           }
         }
@@ -250,8 +395,14 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           });
         } else {
           // Profile was deleted or not created yet
-          const chosenRole = (localStorage.getItem("pending_google_role") as any) || getRoleForSupabaseUser(sessionUser.email || "");
+          const chosenRole = (localStorage.getItem("pending_google_role") as any) || (await getRoleForSupabaseUser(sessionUser.email || "")) || invitedRole;
           
+          if (!chosenRole) {
+            setUser(null);
+            setIsLoading(false);
+            return;
+          }
+
           // Check if an active school exists in localStorage (e.g. just created during onboarding)
           const activeSchoolFromStorage = invitedSchoolId || localStorage.getItem('edubenin_active_school_id') || undefined;
 
@@ -310,11 +461,76 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     return () => subscription.unsubscribe();
   }, []);
 
-  const loginWithGoogle = async () => {
+  const loginWithGoogle = async (preferredRole?: string, preferredEmail?: string) => {
     try {
       await supabase.auth.signOut({ scope: 'local' });
     } catch (e) {}
     localStorage.removeItem("edubenin_auth");
+
+    const roleToUse = preferredRole || localStorage.getItem("pending_google_role") || null;
+    if (roleToUse) {
+      localStorage.setItem("pending_google_role", roleToUse);
+    }
+    const isPlaceholder = !import.meta.env.VITE_SUPABASE_URL || import.meta.env.VITE_SUPABASE_URL.includes('placeholder-project') || import.meta.env.VITE_SUPABASE_URL.includes('YOUR_SUPABASE_URL');
+
+    let googleEmail = (preferredEmail || localStorage.getItem("pending_google_email") || "").trim().toLowerCase();
+    if (isPlaceholder) {
+      if (!googleEmail) {
+        // Check for any invited email matching roleToUse
+        if (roleToUse) {
+          try {
+            const localInvs = JSON.parse(localStorage.getItem('mock_db_invitations') || '[]');
+            const matchingInv = localInvs.find((i: any) => i.role === roleToUse);
+            if (matchingInv?.email) {
+              googleEmail = matchingInv.email.toLowerCase().trim();
+            }
+          } catch (e) {}
+        }
+        // Fallback email based on role
+        if (!googleEmail) {
+          switch (roleToUse) {
+            case 'SCHOOL_ADMIN': googleEmail = "directeur.benin@gmail.com"; break;
+            case 'DIRECTOR_OF_STUDIES': googleEmail = "directeur.etudes@gmail.com"; break;
+            case 'TEACHER': googleEmail = "enseignant.benin@gmail.com"; break;
+            case 'CASHIER': googleEmail = "caisse.benin@gmail.com"; break;
+            case 'SECRETARY': googleEmail = "secretaire.benin@gmail.com"; break;
+            case 'SUPERVISOR': googleEmail = "surveillant.benin@gmail.com"; break;
+            case 'PARENT': googleEmail = "parent.benin@gmail.com"; break;
+            default: googleEmail = "directeur.benin@gmail.com"; break;
+          }
+        }
+      }
+
+      if (googleEmail) {
+        localStorage.removeItem("pending_google_email");
+        localStorage.removeItem("pending_google_role");
+
+        const inv = await findInvitationForEmail(googleEmail);
+        const effectiveRole = roleToUse || inv?.role || (googleEmail === 'contact.tchok@gmail.com' ? 'SUPER_ADMIN' : 'SCHOOL_ADMIN');
+        const activeSchoolFallback = localStorage.getItem('edubenin_active_school_id') || realSchoolId;
+        const targetSchoolId = inv?.schoolId || activeSchoolFallback;
+
+        const schoolIdForUser = (effectiveRole === 'SUPER_ADMIN' || effectiveRole === 'PARENT')
+          ? undefined
+          : (inv?.schoolId || targetSchoolId || undefined);
+
+        const mockGoogleUser: User = {
+          id: 'goog_' + Math.random().toString(36).substring(2, 10),
+          email: googleEmail,
+          name: googleEmail.split('@')[0],
+          role: effectiveRole as any,
+          schoolId: schoolIdForUser
+        };
+
+        if (mockGoogleUser.schoolId) {
+          localStorage.setItem('edubenin_active_school_id', mockGoogleUser.schoolId);
+        }
+
+        setUser(mockGoogleUser);
+        localStorage.setItem("edubenin_auth", JSON.stringify(mockGoogleUser));
+        return;
+      }
+    }
 
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
@@ -347,35 +563,17 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     let foundUser = MOCK_USERS[cleanEmail] || MOCK_USERS[email];
     let mockPassword = password || "password123";
 
-    // Check if an invitation exists for this email
-    let invitedSchoolId: string | null = null;
-    let invitedRole: string | null = null;
-    try {
-      const { data: inv } = await supabase
-        .from('invitations')
-        .select('*')
-        .ilike('email', cleanEmail)
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .maybeSingle();
-      if (inv) {
-        invitedSchoolId = inv.school_id;
-        invitedRole = inv.role;
-      }
-    } catch (e) {}
+    // Check if an invitation exists for this email across all sources
+    const inv = await findInvitationForEmail(cleanEmail);
+    const invitedSchoolId = inv?.schoolId || null;
+    const invitedRole = inv?.role || null;
 
-    if (!invitedSchoolId) {
-      try {
-        const localInvs = JSON.parse(localStorage.getItem('mock_db_invitations') || '[]');
-        const localInv = localInvs.find((i: any) => i.email && i.email.toLowerCase().trim() === cleanEmail);
-        if (localInv) {
-          invitedSchoolId = localInv.school_id;
-          invitedRole = localInv.role;
-        }
-      } catch (e) {}
+    // Do NOT default to PARENT! Proper classification:
+    const effectiveRole = (role || invitedRole || foundUser?.role) as any;
+    if (!effectiveRole) {
+      throw new Error("Veuillez sélectionner votre profil pour vous connecter.");
     }
 
-    const effectiveRole = (role || invitedRole || (foundUser ? foundUser.role : "PARENT")) as any;
     const activeSchoolFallback = invitedSchoolId || localStorage.getItem('edubenin_active_school_id') || realSchoolId;
     
     // For SCHOOL_ADMIN: if no real school exists in database, do NOT assign a fallback school!

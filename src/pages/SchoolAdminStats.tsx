@@ -3,6 +3,7 @@ import { supabase } from "../lib/supabase";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from 'recharts';
 import { BookOpen, Printer, Search } from "lucide-react";
 import { useAuth } from "../lib/auth";
+import { getDirectorAcademicYears } from "../lib/academicYears";
 
 export function SchoolAdminStats() {
   const { user } = useAuth();
@@ -42,23 +43,7 @@ export function SchoolAdminStats() {
       }
       setStudents(stData);
 
-      let { data: yrData } = await supabase.from('academic_years').select('id, name');
-      const realYears: { id: string; name: string }[] = [];
-      if (yrData && yrData.length > 0) {
-        yrData.forEach(y => {
-          if (!realYears.some(ry => ry.name === y.name)) realYears.push(y);
-        });
-      }
-      (allSt || []).forEach(s => {
-        const y = s.academic_year || s.academicYear;
-        if (y && !realYears.some(ry => ry.name === y)) {
-          realYears.push({ id: `st_${y}`, name: y });
-        }
-      });
-      const { data: scData } = await supabase.from('schools').select('academic_year').eq('id', targetSchoolId).maybeSingle();
-      if (scData?.academic_year && !realYears.some(y => y.name === scData.academic_year)) {
-        realYears.push({ id: 'sc_curr', name: scData.academic_year });
-      }
+      const realYears = await getDirectorAcademicYears(targetSchoolId);
       setAcademicYears(realYears);
     };
 

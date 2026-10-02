@@ -4,6 +4,7 @@ import { useAuth } from "../lib/auth";
 import { Users, Search, Filter, BookOpen, GraduationCap, Plus } from "lucide-react";
 import { AddStudentModal } from "../components/AddStudentModal";
 import { Student } from "../types";
+import { getDirectorAcademicYears } from "../lib/academicYears";
 
 export function SchoolAdminStudentList() {
   const { user } = useAuth();
@@ -37,10 +38,10 @@ export function SchoolAdminStudentList() {
       }
       if (!targetSchoolId) targetSchoolId = "11111111-1111-4111-8111-111111111111";
 
-      const [allStudentsRes, coursesRes, yearsRes, schoolRes, allProfilesRes] = await Promise.all([
+      const [allStudentsRes, coursesRes, directorYears, schoolRes, allProfilesRes] = await Promise.all([
         supabase.from('students').select('*'),
         supabase.from('courses').select('*, profiles(full_name)'),
-        supabase.from('academic_years').select('id, name'),
+        getDirectorAcademicYears(targetSchoolId),
         supabase.from('schools').select('*').eq('id', targetSchoolId).maybeSingle(),
         supabase.from('profiles').select('*')
       ]);
@@ -123,39 +124,7 @@ export function SchoolAdminStudentList() {
       setCourses(coursesList);
       setProfiles(profList);
 
-      const realYears: { id: string; name: string }[] = [];
-      if (yearsRes?.data && yearsRes.data.length > 0) {
-        yearsRes.data.forEach((y: any) => {
-          if (!realYears.some(ry => ry.name === y.name)) {
-            realYears.push(y);
-          }
-        });
-      }
-
-      // Harvest academic years directly from all students
-      stList.forEach((s: any) => {
-        const y = s.academic_year || s.academicYear;
-        if (y && !realYears.some(ry => ry.name === y)) {
-          realYears.push({ id: `st_${y}`, name: y });
-        }
-      });
-
-      let extraYear = "";
-      try {
-        const saved = localStorage.getItem('schoolSettings_extra_' + targetSchoolId);
-        if (saved) {
-          const parsed = JSON.parse(saved);
-          if (parsed.academicYear) extraYear = parsed.academicYear;
-        }
-      } catch (e) {}
-
-      if (extraYear && !realYears.some(y => y.name === extraYear)) {
-        realYears.push({ id: `extra_${extraYear}`, name: extraYear });
-      }
-      if (schoolRes?.data?.academic_year && !realYears.some(y => y.name === schoolRes.data.academic_year)) {
-        realYears.push({ id: `sc_${schoolRes.data.academic_year}`, name: schoolRes.data.academic_year });
-      }
-      setAcademicYears(realYears);
+      setAcademicYears(directorYears);
       setSelectedYear("ALL");
     } catch (err) {
       console.error(err);

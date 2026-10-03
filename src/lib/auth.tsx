@@ -64,6 +64,19 @@ export interface InvitationMatch {
   email: string;
   invitedByName?: string;
   invitedByRole?: string;
+  schoolName?: string;
+}
+
+export async function resolveSchoolName(schoolId?: string | null): Promise<string | undefined> {
+  if (!schoolId) return undefined;
+  try {
+    const { data: s } = await supabase.from('schools').select('name').eq('id', schoolId).maybeSingle();
+    if (s?.name) {
+      localStorage.setItem('edubenin_active_school_name', s.name);
+      return s.name;
+    }
+  } catch(e) {}
+  return localStorage.getItem('edubenin_active_school_name') || undefined;
 }
 
 export async function findInvitationForEmail(email: string): Promise<InvitationMatch | null> {
@@ -80,12 +93,15 @@ export async function findInvitationForEmail(email: string): Promise<InvitationM
       .limit(1)
       .maybeSingle();
     if (inv && (inv.school_id || inv.schoolId)) {
+      const sId = inv.school_id || inv.schoolId;
+      const sName = inv.school_name || inv.schoolName || await resolveSchoolName(sId);
       return {
-        schoolId: inv.school_id || inv.schoolId,
+        schoolId: sId,
         role: inv.role || 'TEACHER',
         email: cleanEmail,
         invitedByName: inv.invited_by_name || inv.invitedByName,
-        invitedByRole: inv.invited_by_role || inv.invitedByRole
+        invitedByRole: inv.invited_by_role || inv.invitedByRole,
+        schoolName: sName
       };
     }
   } catch (e) {
@@ -97,12 +113,15 @@ export async function findInvitationForEmail(email: string): Promise<InvitationM
     const localInvs = JSON.parse(localStorage.getItem('mock_db_invitations') || '[]');
     const found = localInvs.find((i: any) => i.email && i.email.trim().toLowerCase() === cleanEmail);
     if (found && (found.school_id || found.schoolId)) {
+      const sId = found.school_id || found.schoolId;
+      const sName = found.school_name || found.schoolName || await resolveSchoolName(sId);
       return {
-        schoolId: found.school_id || found.schoolId,
+        schoolId: sId,
         role: found.role || 'TEACHER',
         email: cleanEmail,
         invitedByName: found.invited_by_name || found.invitedByName,
-        invitedByRole: found.invited_by_role || found.invitedByRole
+        invitedByRole: found.invited_by_role || found.invitedByRole,
+        schoolName: sName
       };
     }
   } catch (e) {}
@@ -116,12 +135,14 @@ export async function findInvitationForEmail(email: string): Promise<InvitationM
         const meta = JSON.parse(localStorage.getItem(key) || '{}');
         const match = meta[cleanEmail] || Object.entries(meta).find(([k]) => k.trim().toLowerCase() === cleanEmail)?.[1];
         if (match) {
+          const sName = (match as any).school_name || await resolveSchoolName(schoolId);
           return {
             schoolId,
             role: (match as any).role || 'TEACHER',
             email: cleanEmail,
             invitedByName: (match as any).invited_by_name,
-            invitedByRole: (match as any).invited_by_role
+            invitedByRole: (match as any).invited_by_role,
+            schoolName: sName
           };
         }
       }
@@ -137,12 +158,15 @@ export async function findInvitationForEmail(email: string): Promise<InvitationM
         const teachers = JSON.parse(localStorage.getItem(key) || '[]');
         const found = teachers.find((t: any) => t.email && t.email.trim().toLowerCase() === cleanEmail);
         if (found) {
+          const sId = found.school_id || schoolId;
+          const sName = found.school_name || await resolveSchoolName(sId);
           return {
-            schoolId: found.school_id || schoolId,
+            schoolId: sId,
             role: 'TEACHER',
             email: cleanEmail,
             invitedByName: found.invited_by_name,
-            invitedByRole: found.invited_by_role
+            invitedByRole: found.invited_by_role,
+            schoolName: sName
           };
         }
       }
@@ -158,12 +182,14 @@ export async function findInvitationForEmail(email: string): Promise<InvitationM
         const meta = JSON.parse(localStorage.getItem(key) || '{}');
         const match = meta[cleanEmail] || Object.entries(meta).find(([k]) => k.trim().toLowerCase() === cleanEmail)?.[1];
         if (match) {
+          const sName = (match as any).school_name || await resolveSchoolName(schoolId);
           return {
             schoolId,
             role: (match as any).role || 'TEACHER',
             email: cleanEmail,
             invitedByName: (match as any).name || (match as any).full_name,
-            invitedByRole: 'DIRECTOR_OF_STUDIES'
+            invitedByRole: 'DIRECTOR_OF_STUDIES',
+            schoolName: sName
           };
         }
       }
@@ -178,10 +204,12 @@ export async function findInvitationForEmail(email: string): Promise<InvitationM
       .ilike('email', cleanEmail)
       .maybeSingle();
     if (p && p.school_id) {
+      const sName = await resolveSchoolName(p.school_id);
       return {
         schoolId: p.school_id,
         role: p.role,
-        email: cleanEmail
+        email: cleanEmail,
+        schoolName: sName
       };
     }
   } catch (e) {}
@@ -190,10 +218,12 @@ export async function findInvitationForEmail(email: string): Promise<InvitationM
     const mockProfiles = JSON.parse(localStorage.getItem('mock_db_profiles') || '[]');
     const p = mockProfiles.find((x: any) => x.email && x.email.trim().toLowerCase() === cleanEmail);
     if (p && p.school_id) {
+      const sName = p.school_name || await resolveSchoolName(p.school_id);
       return {
         schoolId: p.school_id,
         role: p.role,
-        email: cleanEmail
+        email: cleanEmail,
+        schoolName: sName
       };
     }
   } catch (e) {}
@@ -355,11 +385,12 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           // Verify if the assigned school actually exists in schools table
           if (resolvedSchoolId) {
             try {
-              const { data: existingSchool } = await supabase.from('schools').select('id').eq('id', resolvedSchoolId).maybeSingle();
+              const { data: existingSchool } = await supabase.from('schools').select('id, name').eq('id', resolvedSchoolId).maybeSingle();
               if (!existingSchool) {
                 // School was deleted by Super Admin!
                 resolvedSchoolId = null;
                 localStorage.removeItem('edubenin_active_school_id');
+                localStorage.removeItem('edubenin_active_school_name');
                 await supabase.from('profiles').update({ school_id: null }).eq('id', sessionUser.id);
               }
             } catch (e) {}
@@ -379,11 +410,43 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
             ? undefined 
             : (resolvedSchoolId || undefined);
 
+          let resolvedSchoolName: string | undefined = undefined;
           if (finalSchoolId) {
             localStorage.setItem('edubenin_active_school_id', finalSchoolId);
+            try {
+              const { data: sData } = await supabase.from('schools').select('name').eq('id', finalSchoolId).maybeSingle();
+              if (sData?.name) {
+                resolvedSchoolName = sData.name;
+                localStorage.setItem('edubenin_active_school_name', sData.name);
+              }
+            } catch (e) {}
           } else if (currentProfile.role === 'SCHOOL_ADMIN') {
             localStorage.removeItem('edubenin_active_school_id');
+            localStorage.removeItem('edubenin_active_school_name');
           }
+
+          // If schoolName is still not found, check fallback active name
+          if (!resolvedSchoolName) {
+            resolvedSchoolName = localStorage.getItem('edubenin_active_school_name') || undefined;
+          }
+
+          // Keep mock_db_profiles in sync with connected user
+          try {
+            const localProfiles = JSON.parse(localStorage.getItem('mock_db_profiles') || '[]');
+            const idx = localProfiles.findIndex((p: any) => p.id === sessionUser.id || (p.email && p.email.toLowerCase() === userEmail));
+            const profObj = {
+              id: sessionUser.id,
+              email: userEmail,
+              full_name: currentProfile.full_name || sessionUser.user_metadata?.full_name || userEmail.split('@')[0],
+              role: currentProfile.role,
+              school_id: finalSchoolId || null,
+              is_connected: true,
+              connected_at: new Date().toISOString()
+            };
+            if (idx >= 0) localProfiles[idx] = { ...localProfiles[idx], ...profObj };
+            else localProfiles.push(profObj);
+            localStorage.setItem('mock_db_profiles', JSON.stringify(localProfiles));
+          } catch (e) {}
 
           setUser({
             id: sessionUser.id,
@@ -391,6 +454,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
             name: currentProfile.full_name || sessionUser.user_metadata?.full_name || sessionUser.email?.split("@")[0] || "User",
             role: currentProfile.role as any,
             schoolId: finalSchoolId,
+            schoolName: resolvedSchoolName,
             avatar: currentProfile.avatar_url,
           });
         } else {
@@ -412,12 +476,24 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
             ? undefined 
             : activeSchoolFromStorage;
 
+          let resolvedSchoolName: string | undefined = undefined;
+          if (fallbackSchoolId) {
+            try {
+              const { data: sData } = await supabase.from('schools').select('name').eq('id', fallbackSchoolId).maybeSingle();
+              if (sData?.name) {
+                resolvedSchoolName = sData.name;
+                localStorage.setItem('edubenin_active_school_name', sData.name);
+              }
+            } catch (e) {}
+          }
+
           setUser({
             id: sessionUser.id,
             email: sessionUser.email || "",
             name: sessionUser.user_metadata?.full_name || sessionUser.email?.split("@")[0] || "User",
             role: chosenRole,
             schoolId: fallbackSchoolId,
+            schoolName: resolvedSchoolName || localStorage.getItem('edubenin_active_school_name') || undefined,
           });
         }
       } catch (err) {
@@ -514,17 +590,42 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           ? undefined
           : (inv?.schoolId || targetSchoolId || undefined);
 
+        const schoolNameForUser = await resolveSchoolName(schoolIdForUser) || inv?.schoolName || localStorage.getItem('edubenin_active_school_name') || undefined;
+
         const mockGoogleUser: User = {
           id: 'goog_' + Math.random().toString(36).substring(2, 10),
           email: googleEmail,
           name: googleEmail.split('@')[0],
           role: effectiveRole as any,
-          schoolId: schoolIdForUser
+          schoolId: schoolIdForUser,
+          schoolName: schoolNameForUser
         };
 
         if (mockGoogleUser.schoolId) {
           localStorage.setItem('edubenin_active_school_id', mockGoogleUser.schoolId);
         }
+        if (schoolNameForUser) {
+          localStorage.setItem('edubenin_active_school_name', schoolNameForUser);
+        }
+
+        // Sync into mock_db_profiles as active connected profile
+        try {
+          const localProfiles = JSON.parse(localStorage.getItem('mock_db_profiles') || '[]');
+          const idx = localProfiles.findIndex((p: any) => p.email && p.email.toLowerCase().trim() === googleEmail);
+          const profObj = {
+            id: mockGoogleUser.id,
+            email: googleEmail,
+            full_name: mockGoogleUser.name,
+            role: effectiveRole,
+            school_id: schoolIdForUser || null,
+            school_name: schoolNameForUser || null,
+            is_connected: true,
+            connected_at: new Date().toISOString()
+          };
+          if (idx >= 0) localProfiles[idx] = { ...localProfiles[idx], ...profObj };
+          else localProfiles.push(profObj);
+          localStorage.setItem('mock_db_profiles', JSON.stringify(localProfiles));
+        } catch(e) {}
 
         setUser(mockGoogleUser);
         localStorage.setItem("edubenin_auth", JSON.stringify(mockGoogleUser));
@@ -597,21 +698,53 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       }
     }
 
-    let userToSet = foundUser ? 
-      { ...foundUser, email: cleanEmail, role: effectiveRole, schoolId: schoolIdForUser }
+    let schoolNameForUser: string | undefined = undefined;
+    if (schoolIdForUser) {
+      schoolNameForUser = await resolveSchoolName(schoolIdForUser);
+    }
+    if (!schoolNameForUser) {
+      schoolNameForUser = inv?.schoolName || localStorage.getItem('edubenin_active_school_name') || undefined;
+    }
+
+    let userToSet: User = foundUser ? 
+      { ...foundUser, email: cleanEmail, role: effectiveRole, schoolId: schoolIdForUser, schoolName: schoolNameForUser }
       : {
         id: "00000000-0000-4000-8000-000000000000",
         email: cleanEmail,
         name: fullName || cleanEmail.split("@")[0],
         role: effectiveRole,
-        schoolId: schoolIdForUser
+        schoolId: schoolIdForUser,
+        schoolName: schoolNameForUser
       };
 
     if (userToSet.schoolId) {
       localStorage.setItem('edubenin_active_school_id', userToSet.schoolId);
     } else if (effectiveRole === 'SCHOOL_ADMIN') {
       localStorage.removeItem('edubenin_active_school_id');
+      localStorage.removeItem('edubenin_active_school_name');
     }
+    if (schoolNameForUser) {
+      localStorage.setItem('edubenin_active_school_name', schoolNameForUser);
+    }
+
+    // Sync into mock_db_profiles as active connected profile
+    try {
+      const localProfiles = JSON.parse(localStorage.getItem('mock_db_profiles') || '[]');
+      const idx = localProfiles.findIndex((p: any) => (p.id && p.id === userToSet.id) || (p.email && p.email.toLowerCase().trim() === cleanEmail));
+      const profObj = {
+        id: userToSet.id,
+        email: cleanEmail,
+        full_name: userToSet.name,
+        role: effectiveRole,
+        school_id: schoolIdForUser || null,
+        school_name: schoolNameForUser || null,
+        is_connected: true,
+        connected_at: new Date().toISOString()
+      };
+      if (idx >= 0) localProfiles[idx] = { ...localProfiles[idx], ...profObj };
+      else localProfiles.push(profObj);
+      localStorage.setItem('mock_db_profiles', JSON.stringify(localProfiles));
+    } catch(e) {}
 
     if (foundUser || email.includes("test")) {
        localStorage.setItem("is_test_account", "true");

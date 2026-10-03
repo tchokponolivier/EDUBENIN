@@ -14,18 +14,30 @@ export function DashboardLayout({ children }: { children: ReactNode }) {
   const location = useLocation();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
-  const [schoolName, setSchoolName] = useState<string | null>(null);
+  const [schoolName, setSchoolName] = useState<string | null>(
+    user?.schoolName || localStorage.getItem('edubenin_active_school_name') || null
+  );
   const [academicYear, setAcademicYear] = useState<string | null>(null);
 
   useEffect(() => {
-    if (user?.schoolId) {
-      supabase.from('schools').select('name, academic_year').eq('id', user.schoolId).single()
+    if (user?.schoolName) {
+      setSchoolName(user.schoolName);
+    }
+    const targetSchoolId = user?.schoolId || localStorage.getItem('edubenin_active_school_id');
+    if (targetSchoolId) {
+      supabase.from('schools').select('name, academic_year').eq('id', targetSchoolId).maybeSingle()
         .then(({ data }) => {
           if (data) {
-          setSchoolName(data.name);
-          if (data.academic_year) setAcademicYear(data.academic_year);
-        }
+            if (data.name) {
+              setSchoolName(data.name);
+              localStorage.setItem('edubenin_active_school_name', data.name);
+            }
+            if (data.academic_year) setAcademicYear(data.academic_year);
+          }
         });
+    } else {
+      const stored = localStorage.getItem('edubenin_active_school_name');
+      if (stored) setSchoolName(stored);
     }
   }, [user]);
 
@@ -216,7 +228,7 @@ export function DashboardLayout({ children }: { children: ReactNode }) {
       <main className="flex-1 flex flex-col min-w-0">
         <header className="h-16 bg-white border-b border-slate-200 px-4 md:px-8 flex items-center justify-between shrink-0 gap-2">
           <div className="flex items-center gap-2 md:gap-4 overflow-hidden">
-            <h2 className="text-xl font-bold text-gray-700 truncate">{schoolName || "Vue d'ensemble du Système"}</h2>
+            <h2 className="text-xl font-bold text-gray-700 truncate">{schoolName || user?.schoolName || localStorage.getItem('edubenin_active_school_name') || "Établissement Scolaire"}</h2>
             <span className="shrink-0 px-2 md:px-3 py-1 bg-emerald-100 text-emerald-800 rounded-full text-[10px] md:text-xs font-bold uppercase tracking-wider shadow-sm">Année {academicYear}</span>
           </div>
           <div className="flex items-center gap-2 md:gap-4">

@@ -718,7 +718,14 @@ function TeacherDashboardInner() {
       {/* En-tête de la page */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-xl font-bold text-gray-800">Espace Professeur</h1>
+          <div className="flex flex-wrap items-center gap-3">
+            <h1 className="text-xl font-bold text-gray-800">Espace Professeur</h1>
+            {(schoolSettings?.name || user?.schoolName || localStorage.getItem('edubenin_active_school_name')) && (
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-emerald-50 text-emerald-800 border border-emerald-200 shadow-xs">
+                🏫 {schoolSettings?.name || user?.schoolName || localStorage.getItem('edubenin_active_school_name')}
+              </span>
+            )}
+          </div>
           <p className="text-xs text-slate-500 mt-1">Saisie rigoureuse des évaluations, interrogations, devoirs et suivi des présences.</p>
         </div>
 

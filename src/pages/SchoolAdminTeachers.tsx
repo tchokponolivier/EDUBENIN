@@ -62,6 +62,7 @@ export function SchoolAdminTeachers() {
   const [filterClass, setFilterClass] = useState("ALL");
   const [filterYear, setFilterYear] = useState("ALL");
   const [filterSubject, setFilterSubject] = useState("ALL");
+  const [filterTeacherStatus, setFilterTeacherStatus] = useState<string>("ALL");
   const [teacherSearchTerm, setTeacherSearchTerm] = useState("");
   const [academicYears, setAcademicYears] = useState<any[]>([]);
   const [currentConfiguredYear, setCurrentConfiguredYear] = useState<string>("");
@@ -176,17 +177,6 @@ export function SchoolAdminTeachers() {
         supabase.from('schools').select('*').eq('id', targetSchoolId).maybeSingle()
       ]);
       
-      const isTeacher = (p: any) => {
-        if (!p || p.role === 'DELETED') return false;
-        const r = (p.role || '').toUpperCase();
-        const title = (p.title || '').toLowerCase();
-        const email = (p.email || '').toLowerCase();
-        const name = (p.full_name || '').toLowerCase();
-        return r === 'TEACHER' || r.includes('PROF') || r.includes('ENSEIGNANT') || 
-               title.includes('prof') || title === 'permanent' || title === 'vacataire' || title === 'invité' ||
-               email.includes('prof') || name.startsWith('prof') || name.startsWith('m.') || name.startsWith('mme.');
-      };
-
       const isDummyTeacher = (p: any) => {
         if (!p) return false;
         const id = String(p.id || '');
@@ -217,11 +207,35 @@ export function SchoolAdminTeachers() {
         const local = localStorage.getItem('mock_db_profiles');
         const parsed = local ? JSON.parse(local) : [];
         parsed.forEach((lp: any) => {
-          if (!isDummyTeacher(lp) && !rawProfiles.some(rp => rp.id === lp.id || (rp.email && lp.email && rp.email.toLowerCase() === lp.email.toLowerCase()))) {
-            rawProfiles.push(lp);
+          if (!isDummyTeacher(lp)) {
+            const idx = rawProfiles.findIndex(rp => rp.id === lp.id || (rp.email && lp.email && rp.email.toLowerCase().trim() === lp.email.toLowerCase().trim()));
+            if (idx >= 0) {
+              rawProfiles[idx] = { ...rawProfiles[idx], ...lp };
+            } else {
+              rawProfiles.push(lp);
+            }
           }
         });
       } catch(e) {}
+
+      // Ensure current user profile presence if logged in
+      if (user?.email) {
+        const uEmail = user.email.toLowerCase().trim();
+        const uIdx = rawProfiles.findIndex(rp => rp.id === user.id || (rp.email && rp.email.toLowerCase().trim() === uEmail));
+        if (uIdx >= 0) {
+          rawProfiles[uIdx] = { ...rawProfiles[uIdx], is_connected: true };
+        } else if (user.role === 'TEACHER') {
+          rawProfiles.push({
+            id: user.id,
+            email: user.email,
+            full_name: user.name,
+            role: 'TEACHER',
+            school_id: targetSchoolId,
+            is_connected: true,
+            title: 'Permanent'
+          });
+        }
+      }
 
       let customTeachers: any[] = [];
       try {
@@ -382,19 +396,51 @@ export function SchoolAdminTeachers() {
         }
       });
 
+      // Also harvest from invMeta directly
+      Object.entries(invMeta).forEach(([em, meta]: [string, any]) => {
+        const cleanEm = em.toLowerCase().trim();
+        if (cleanEm && isTeacherRole(meta.role) && !invitedEmailsMap.has(cleanEm)) {
+          const whoRole = meta.invited_by_role || 'SCHOOL_ADMIN';
+          const whoName = meta.invited_by_name || (whoRole === 'DIRECTOR_OF_STUDIES' ? 'Directeur des Études' : 'Directeur');
+          invitedEmailsMap.set(cleanEm, {
+            email: cleanEm,
+            role: meta.role || 'TEACHER',
+            invited_by_role: whoRole,
+            invited_by_name: whoName
+          });
+        }
+      });
+
       // Profils existants qui sont des professeurs de l'établissement (visible to Director of Studies)
+      const isTeacher = (p: any) => {
+        if (!p || p.role === 'DELETED') return false;
+        const pEmail = (p.email || '').toLowerCase().trim();
+        if (pEmail && (invitedEmailsMap.has(pEmail) || teacherInvs.some((i: any) => (i.email || '').toLowerCase().trim() === pEmail))) {
+          return true;
+        }
+        const r = (p.role || '').toUpperCase();
+        const title = (p.title || '').toLowerCase();
+        const email = (p.email || '').toLowerCase();
+        const name = (p.full_name || '').toLowerCase();
+        return r === 'TEACHER' || r.includes('PROF') || r.includes('ENSEIGNANT') || 
+               title.includes('prof') || title === 'permanent' || title === 'vacataire' || title === 'invité' ||
+               email.includes('prof') || name.startsWith('prof') || name.startsWith('m.') || name.startsWith('mme.');
+      };
+
       const matchedProfiles = rawProfiles.filter(p => {
         if (!isTeacher(p) || isDummyTeacher(p)) return false;
         return true;
       }).map(p => {
         const pEmail = (p.email || '').toLowerCase().trim();
         const invInfo = invitedEmailsMap.get(pEmail);
-        const invRole = invInfo?.invited_by_role || p.invited_by_role || 'SCHOOL_ADMIN';
+        const invRole = invInfo?.invited_by_role || p.invited_by_role || (invInfo ? 'DIRECTOR_OF_STUDIES' : 'SCHOOL_ADMIN');
         const invName = invInfo?.invited_by_name || p.invited_by_name || (invRole === 'DIRECTOR_OF_STUDIES' ? 'Directeur des Études' : 'Directeur');
         return {
           ...p,
           invited_by_role: invRole,
-          invited_by_name: invName
+          invited_by_name: invName,
+          isConnected: true, // Connected teacher profile!
+          isInvitation: false
         };
       });
 
@@ -500,6 +546,7 @@ export function SchoolAdminTeachers() {
 
       const inviterRole = user?.role === 'DIRECTOR_OF_STUDIES' ? 'DIRECTOR_OF_STUDIES' : 'SCHOOL_ADMIN';
       const inviterName = user?.name || (user?.role === 'DIRECTOR_OF_STUDIES' ? "Directeur des Études" : "Directeur");
+      const activeSchoolName = user?.schoolName || localStorage.getItem('edubenin_active_school_name') || "";
 
       // Save invitation metadata
       try {
@@ -507,6 +554,8 @@ export function SchoolAdminTeachers() {
         const metaData = JSON.parse(localStorage.getItem(metaKey) || '{}');
         metaData[cleanEmail] = {
           role: effectiveRole,
+          school_id: targetSchoolId,
+          school_name: activeSchoolName,
           invited_by_role: inviterRole,
           invited_by_name: inviterName,
           invited_at: new Date().toISOString()
@@ -527,6 +576,7 @@ export function SchoolAdminTeachers() {
         localInvs.unshift({
           id: 'inv_' + Date.now(),
           school_id: targetSchoolId,
+          school_name: activeSchoolName,
           email: cleanEmail,
           role: effectiveRole,
           invited_by_role: inviterRole,
@@ -820,6 +870,28 @@ export function SchoolAdminTeachers() {
         }
       } catch (e) {}
 
+      try {
+        const localProf = localStorage.getItem('mock_db_profiles');
+        if (localProf) {
+          const parsedProf = JSON.parse(localProf).filter((p: any) => p.id !== t.id && (!t.email || p.email?.toLowerCase().trim() !== t.email?.toLowerCase().trim()));
+          localStorage.setItem('mock_db_profiles', JSON.stringify(parsedProf));
+        }
+      } catch (e) {}
+
+      // Clean metadata
+      try {
+        for (let i = 0; i < localStorage.length; i++) {
+          const k = localStorage.key(i);
+          if (k && k.startsWith('school_invitations_meta_')) {
+            const meta = JSON.parse(localStorage.getItem(k) || '{}');
+            if (t.email && meta[t.email.toLowerCase().trim()]) {
+              delete meta[t.email.toLowerCase().trim()];
+              localStorage.setItem(k, JSON.stringify(meta));
+            }
+          }
+        }
+      } catch(e) {}
+
       // Enregistrer dans l'historique de suppression (Directeur des Études / Directeur)
       const currentTeacherCourses = getTeacherCourses(t);
       const logEntry = {
@@ -984,6 +1056,24 @@ export function SchoolAdminTeachers() {
         if (existingIdx >= 0) customList[existingIdx] = teacherObj;
         else customList.push(teacherObj);
         localStorage.setItem(customKey, JSON.stringify(customList));
+      } catch(e) {}
+
+      // Also sync mock_db_profiles
+      try {
+        const local = localStorage.getItem('mock_db_profiles');
+        if (local) {
+          const parsed = JSON.parse(local);
+          const idx = parsed.findIndex((p: any) => p.id === teacherUuid || (p.email && editingTeacher.email && p.email.toLowerCase() === editingTeacher.email.toLowerCase()));
+          if (idx >= 0) {
+            parsed[idx] = {
+              ...parsed[idx],
+              full_name: editingTeacher.full_name,
+              phone: editingTeacher.phone,
+              title: editingTeacher.title || 'Permanent'
+            };
+            localStorage.setItem('mock_db_profiles', JSON.stringify(parsed));
+          }
+        }
       } catch(e) {}
 
       // 2. Update subjects & classes attributions for this teacher
@@ -1466,6 +1556,21 @@ export function SchoolAdminTeachers() {
                   {existingSchoolSubjects.map(s => <option key={s} value={s}>{s}</option>)}
                 </select>
               </div>
+
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-semibold text-slate-500">Statut :</span>
+                <select 
+                  value={filterTeacherStatus} 
+                  onChange={e => setFilterTeacherStatus(e.target.value)} 
+                  className="px-3 py-1.5 border border-slate-200 rounded-lg text-xs font-medium text-gray-700 bg-white"
+                >
+                  <option value="ALL">Tous les professeurs</option>
+                  <option value="CONNECTED">🟢 Connectés (Profils actifs)</option>
+                  <option value="INVITED">🟡 En attente de connexion</option>
+                  <option value="DOS">🎓 Invités par Dir. des Études</option>
+                  <option value="ADMIN">🏫 Invités par le Directeur</option>
+                </select>
+              </div>
             </div>
           </div>
 
@@ -1511,6 +1616,10 @@ export function SchoolAdminTeachers() {
                   if (filterSubject !== "ALL") {
                     if (!tc.some(c => c.name.toLowerCase() === filterSubject.toLowerCase())) return false;
                   }
+                  if (filterTeacherStatus === "CONNECTED" && t.isInvitation) return false;
+                  if (filterTeacherStatus === "INVITED" && !t.isInvitation) return false;
+                  if (filterTeacherStatus === "DOS" && t.invited_by_role !== "DIRECTOR_OF_STUDIES") return false;
+                  if (filterTeacherStatus === "ADMIN" && t.invited_by_role === "DIRECTOR_OF_STUDIES") return false;
                   return true;
                 })
                 .map(t => {
@@ -1535,6 +1644,17 @@ export function SchoolAdminTeachers() {
                         <div className="flex-1 min-w-0">
                           <h3 className="font-bold text-gray-900 truncate text-base">{t.full_name || "Enseignant"}</h3>
                           <div className="flex flex-wrap items-center gap-1.5 mt-0.5">
+                            {!t.isInvitation ? (
+                              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-300 flex items-center gap-1 shadow-2xs">
+                                <span className="w-1.5 h-1.5 rounded-full bg-emerald-600 animate-pulse"></span>
+                                Connecté
+                              </span>
+                            ) : (
+                              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-300 flex items-center gap-1 shadow-2xs">
+                                <span className="w-1.5 h-1.5 rounded-full bg-amber-500"></span>
+                                En attente
+                              </span>
+                            )}
                             <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${
                               teacherType === "Vacataire" ? "bg-amber-100 text-amber-800 border border-amber-200" :
                               teacherType === "Invité" ? "bg-blue-100 text-blue-800 border border-blue-200" : 
@@ -1544,7 +1664,7 @@ export function SchoolAdminTeachers() {
                             </span>
                             {t.invited_by_name && (
                               <span className="px-2 py-0.5 bg-slate-100 text-slate-700 border border-slate-200 rounded text-[10px] font-semibold">
-                                Invité par {t.invited_by_name}
+                                {t.invited_by_role === 'DIRECTOR_OF_STUDIES' ? 'Par Dir. des Études' : `Invité par ${t.invited_by_name}`}
                               </span>
                             )}
                             {t.phone && <span className="text-xs text-slate-500 font-medium">{t.phone}</span>}
@@ -1556,16 +1676,16 @@ export function SchoolAdminTeachers() {
                         <div className="flex items-center gap-1">
                           <button 
                             onClick={() => openEditTeacherModal(t)} 
-                            className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors" 
-                            title="Modifier le professeur & matières enseignées"
+                            className="p-1.5 text-slate-500 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors" 
+                            title="Modifier ce professeur, ses matières et ses classes"
                           >
                             <Edit2 size={16} />
                           </button>
                           {!(user?.role === 'DIRECTOR_OF_STUDIES' && (t.role === 'SCHOOL_ADMIN' || t.role === 'SUPER_ADMIN' || t.email?.toLowerCase().includes('director') || t.full_name?.toLowerCase().includes('directeur'))) && (
                             <button 
                               onClick={() => handleDeleteTeacher(t)} 
-                              className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors" 
-                              title="Supprimer"
+                              className="p-1.5 text-slate-500 hover:text-red-600 hover:bg-red-50 rounded transition-colors" 
+                              title="Supprimer ce professeur"
                             >
                               <Trash2 size={16} />
                             </button>

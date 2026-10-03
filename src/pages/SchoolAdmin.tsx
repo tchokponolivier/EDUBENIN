@@ -456,6 +456,7 @@ export function SchoolAdminDashboard() {
 
       const inviterRole = user?.role === 'DIRECTOR_OF_STUDIES' ? 'DIRECTOR_OF_STUDIES' : (user?.role || 'SCHOOL_ADMIN');
       const inviterName = user?.name || (user?.role === 'DIRECTOR_OF_STUDIES' ? "Directeur des Études" : "Directeur");
+      const activeSchoolName = settings?.name || user?.schoolName || localStorage.getItem('edubenin_active_school_name') || "";
 
       // Save invitation metadata to local cache as well
       try {
@@ -463,6 +464,8 @@ export function SchoolAdminDashboard() {
         const metaData = JSON.parse(localStorage.getItem(metaKey) || '{}');
         metaData[cleanEmail] = {
           role: inviteRole,
+          school_id: targetSchoolId,
+          school_name: activeSchoolName,
           invited_by_role: inviterRole,
           invited_by_name: inviterName,
           invited_at: new Date().toISOString()
@@ -482,8 +485,11 @@ export function SchoolAdminDashboard() {
         localInvs.unshift({
           id: 'inv_' + Date.now(),
           school_id: targetSchoolId,
+          school_name: activeSchoolName,
           email: cleanEmail,
           role: inviteRole,
+          invited_by_role: inviterRole,
+          invited_by_name: inviterName,
           created_at: new Date().toISOString()
         });
         localStorage.setItem('mock_db_invitations', JSON.stringify(localInvs));
@@ -587,7 +593,16 @@ export function SchoolAdminDashboard() {
     <div className="flex flex-col gap-6">
       
       <div>
-        <h1 className="text-2xl font-bold text-gray-800">Administration École</h1>
+        <div className="flex flex-wrap items-center gap-3">
+          <h1 className="text-2xl font-bold text-gray-800">
+            {user?.role === 'DIRECTOR_OF_STUDIES' ? "Direction des Études" : "Administration École"}
+          </h1>
+          {(settings?.name || user?.schoolName || localStorage.getItem('edubenin_active_school_name')) && (
+            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-emerald-50 text-emerald-800 border border-emerald-200 shadow-xs">
+              🏫 {settings?.name || user?.schoolName || localStorage.getItem('edubenin_active_school_name')}
+            </span>
+          )}
+        </div>
         <p className="text-xs text-slate-500 mt-1">Supervisez l'évolution des inscriptions et paramètres</p>
       </div>
 

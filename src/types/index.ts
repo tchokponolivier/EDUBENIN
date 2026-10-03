@@ -6,6 +6,7 @@ export interface User {
   name: string;
   role: UserRole;
   schoolId?: string; // Optional for Super Admin
+  schoolName?: string;
   phone?: string;
   photoURL?: string;
   avatar?: string;

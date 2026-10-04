@@ -68,39 +68,61 @@ class MockQueryBuilder {
         localStorage.setItem(storageKey, JSON.stringify(data));
       }
     } else if (this.table === 'profiles') {
-      const defaultProfiles = [
-        { id: "22222222-2222-4222-8222-222222222222", full_name: "Directeur Test", role: "SCHOOL_ADMIN", school_id: "11111111-1111-4111-8111-111111111111", email: "admin@school.com" },
-        { id: "33333333-3333-4333-8333-333333333333", full_name: "Caissier Test", role: "CASHIER", school_id: "11111111-1111-4111-8111-111111111111", email: "caisse@school.com" },
-        { id: "44444444-4444-4444-8444-444444444444", full_name: "Secrétaire Test", role: "SECRETARY", school_id: "11111111-1111-4111-8111-111111111111", email: "secretary@school.com" },
-        { id: "55555555-5555-4555-8555-555555555555", full_name: "Parent Test", role: "PARENT", email: "parent@mail.com" },
-        { id: "66666666-6666-4666-8666-666666666666", full_name: "Dir. Études Test", role: "DIRECTOR_OF_STUDIES", school_id: "11111111-1111-4111-8111-111111111111", email: "director@school.com" }
+      const dummyEmails = [
+        "admin@school.com",
+        "caisse@school.com",
+        "secretary@school.com",
+        "parent@mail.com",
+        "director@school.com",
+        "prof@school.com",
+        "surveillant@school.com",
+        "teacher@school.com"
       ];
-      // Filter out any previously auto-injected dummy teachers
-      data = data.filter((p: any) => 
-        !p.id?.startsWith("77777777-7777") && 
-        p.email !== "prof@school.com" && 
-        p.email !== "koffi.dossou@ecole.com" && 
-        p.email !== "claire.ahouangbo@ecole.com" &&
-        !p.email?.includes("prof.maths") &&
-        !p.email?.includes("prof.francais") &&
-        !p.email?.includes("prof.svt") &&
-        !p.email?.endsWith("@ecole.com")
-      );
-      let updated = false;
-      defaultProfiles.forEach(dp => {
-        if (!data.some((p: any) => p.id === dp.id || (p.email && dp.email && p.email.toLowerCase() === dp.email.toLowerCase()))) {
-          data.push(dp);
-          updated = true;
-        }
+      // Filter out any dummy placeholder profiles so only real members are kept
+      data = data.filter((p: any) => {
+        const em = (p.email || '').toLowerCase().trim();
+        const id = String(p.id || '');
+        return !dummyEmails.includes(em) &&
+               !em.endsWith("@school.com") &&
+               !em.endsWith("@mail.com") &&
+               !em.endsWith("@example.com") &&
+               !id.startsWith("77777777-7777") && 
+               !id.startsWith("22222222") && 
+               !id.startsWith("33333333") && 
+               !id.startsWith("44444444") && 
+               !id.startsWith("55555555") && 
+               !id.startsWith("66666666") && 
+               !id.startsWith("88888888") && 
+               em !== "koffi.dossou@ecole.com" && 
+               em !== "claire.ahouangbo@ecole.com" &&
+               !em.includes("prof.maths") &&
+               !em.includes("prof.francais") &&
+               !em.includes("prof.svt") &&
+               !em.endsWith("@ecole.com");
       });
       localStorage.setItem(storageKey, JSON.stringify(data));
     } else if (this.table === 'invitations') {
+      const dummyEmails = [
+        "admin@school.com",
+        "caisse@school.com",
+        "secretary@school.com",
+        "parent@mail.com",
+        "director@school.com",
+        "prof@school.com",
+        "surveillant@school.com",
+        "teacher@school.com"
+      ];
       // Filter out previously auto-injected dummy invitations
-      data = data.filter((inv: any) => 
-        inv.id !== "inv_1" && inv.id !== "inv_2" && inv.id !== "inv_3" &&
-        !inv.email?.includes("prof.maths") && !inv.email?.includes("prof.francais") && !inv.email?.includes("prof.svt") &&
-        !inv.email?.includes("prof@school.com") && !inv.email?.endsWith("@ecole.com")
-      );
+      data = data.filter((inv: any) => {
+        const em = (inv.email || '').toLowerCase().trim();
+        return !dummyEmails.includes(em) &&
+               !em.endsWith("@school.com") &&
+               !em.endsWith("@mail.com") &&
+               !em.endsWith("@example.com") &&
+               inv.id !== "inv_1" && inv.id !== "inv_2" && inv.id !== "inv_3" &&
+               !em.includes("prof.maths") && !em.includes("prof.francais") && !em.includes("prof.svt") &&
+               !em.endsWith("@ecole.com");
+      });
       localStorage.setItem(storageKey, JSON.stringify(data));
     } else if (this.table === 'students') {
       // Filter out dummy auto-injected students

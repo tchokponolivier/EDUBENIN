@@ -178,14 +178,34 @@ export function SchoolAdminTeachers() {
       ]);
       
       const isDummyTeacher = (p: any) => {
-        if (!p) return false;
+        if (!p) return true;
         const id = String(p.id || '');
         const email = String(p.email || '').toLowerCase().trim();
-        const name = String(p.full_name || '').toLowerCase().trim();
+        const name = String(p.full_name || p.name || '').toLowerCase().trim();
+        const dummyEmails = [
+          'admin@school.com',
+          'caisse@school.com',
+          'secretary@school.com',
+          'parent@mail.com',
+          'director@school.com',
+          'prof@school.com',
+          'surveillant@school.com',
+          'teacher@school.com',
+          'student@school.com',
+          'eleve@school.com'
+        ];
+        if (dummyEmails.includes(email)) return true;
+        if (email.endsWith('@school.com') || email.endsWith('@ecole.com') || email.endsWith('@mail.com') || email.endsWith('@example.com')) return true;
+        if (email.includes('dummy') || email.includes('fake') || email.includes('mock')) return true;
+        if (name.includes('test') || name.includes('professeur test') || name.includes('directeur ecole a') || name.includes('caisse ecole') || name.includes('secrétaire ecole')) return true;
         return (id.startsWith("77777777-7777") && !p.isReal) ||
-               id === "inv_dummy_1" ||
-               email === "prof@school.com" ||
-               name === "professeur test";
+               id.startsWith("22222222") ||
+               id.startsWith("33333333") ||
+               id.startsWith("44444444") ||
+               id.startsWith("55555555") ||
+               id.startsWith("66666666") ||
+               id.startsWith("88888888") ||
+               id.includes("dummy");
       };
 
       // Load deletion history logs

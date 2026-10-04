@@ -190,19 +190,24 @@ export function LoginPage() {
   const [activeInvitations, setActiveInvitations] = useState<{ email: string; role: string; schoolId?: string }[]>([]);
 
   useEffect(() => {
+    const isDummy = (em: string) => {
+      const l = (em || '').toLowerCase().trim();
+      return l.endsWith('@school.com') || l.endsWith('@mail.com') || l.endsWith('@ecole.com') || l.includes('dummy') || l === 'admin@school.com';
+    };
+
     const loadInvites = async () => {
       try {
         const list: { email: string; role: string; schoolId?: string }[] = [];
         const localInvs = JSON.parse(localStorage.getItem('mock_db_invitations') || '[]');
         localInvs.forEach((i: any) => {
-          if (i.email && !list.some(x => x.email.toLowerCase() === i.email.toLowerCase())) {
+          if (i.email && !isDummy(i.email) && !list.some(x => x.email.toLowerCase() === i.email.toLowerCase())) {
             list.push({ email: i.email.toLowerCase(), role: i.role || 'TEACHER', schoolId: i.school_id });
           }
         });
         const { data: sbInvs } = await supabase.from('invitations').select('*').limit(15);
         if (sbInvs) {
           sbInvs.forEach((i: any) => {
-            if (i.email && !list.some(x => x.email.toLowerCase() === i.email.toLowerCase())) {
+            if (i.email && !isDummy(i.email) && !list.some(x => x.email.toLowerCase() === i.email.toLowerCase())) {
               list.push({ email: i.email.toLowerCase(), role: i.role || 'TEACHER', schoolId: i.school_id });
             }
           });

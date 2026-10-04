@@ -134,6 +134,43 @@ export function SchoolAdminDashboard() {
     }
   }, [user]);
 
+  const isDummyProfileOrEmail = (item: any) => {
+    if (!item) return true;
+    const em = (item.email || '').toLowerCase().trim();
+    const id = String(item.id || '');
+    const name = (item.full_name || item.name || '').toLowerCase().trim();
+    const dummyEmails = [
+      'admin@school.com',
+      'caisse@school.com',
+      'secretary@school.com',
+      'parent@mail.com',
+      'director@school.com',
+      'prof@school.com',
+      'surveillant@school.com',
+      'teacher@school.com',
+      'student@school.com',
+      'eleve@school.com'
+    ];
+    if (dummyEmails.includes(em)) return true;
+    if (em.endsWith('@school.com') || em.endsWith('@ecole.com') || em.endsWith('@mail.com') || em.endsWith('@example.com')) return true;
+    if (em.includes('prof.maths') || em.includes('prof.francais') || em.includes('prof.svt') || em.includes('dummy') || em.includes('fake') || em.includes('mock')) return true;
+    if (name.includes('test') || name.includes('professeur test') || name.includes('directeur ecole a') || name.includes('caisse ecole') || name.includes('secrétaire ecole')) return true;
+    if (id.startsWith("22222222") ||
+        id.startsWith("33333333") ||
+        id.startsWith("44444444") ||
+        id.startsWith("55555555") ||
+        id.startsWith("66666666") ||
+        id.startsWith("77777777") ||
+        id.startsWith("88888888") ||
+        id.startsWith("meta_inv_admin@school.com") ||
+        id.startsWith("meta_inv_caisse@school.com") ||
+        id.startsWith("meta_inv_secretary@school.com") ||
+        id.startsWith("meta_inv_parent@mail.com") ||
+        id.startsWith("meta_inv_director@school.com") ||
+        id.includes("dummy")) return true;
+    return false;
+  };
+
   const fetchSchoolMembers = async () => {
     let targetSchoolId = user?.schoolId || localStorage.getItem('edubenin_active_school_id');
     if (!targetSchoolId) {
@@ -142,13 +179,61 @@ export function SchoolAdminDashboard() {
         if (sc?.id) targetSchoolId = sc.id;
       } catch (e) {}
     }
-    const { data } = await supabase.from('profiles').select('*');
-    let membersList: any[] = data && Array.isArray(data) ? [...data] : [];
+
+    // Proactively clean up any dummy rows from database tables & local storage
+    try {
+      const dummyEmails = [
+        'admin@school.com',
+        'caisse@school.com',
+        'secretary@school.com',
+        'parent@mail.com',
+        'director@school.com',
+        'prof@school.com',
+        'surveillant@school.com',
+        'teacher@school.com'
+      ];
+      await supabase.from('profiles').delete().in('email', dummyEmails);
+      await supabase.from('invitations').delete().in('email', dummyEmails);
+    } catch (e) {}
+
+    // Clean mock_db_profiles
+    try {
+      const localProfiles = JSON.parse(localStorage.getItem('mock_db_profiles') || '[]');
+      const cleanedProfiles = localProfiles.filter((lp: any) => !isDummyProfileOrEmail(lp));
+      localStorage.setItem('mock_db_profiles', JSON.stringify(cleanedProfiles));
+    } catch (e) {}
+
+    // Clean mock_db_invitations
+    try {
+      const localInvs = JSON.parse(localStorage.getItem('mock_db_invitations') || '[]');
+      const cleanedInvs = localInvs.filter((li: any) => !isDummyProfileOrEmail(li));
+      localStorage.setItem('mock_db_invitations', JSON.stringify(cleanedInvs));
+    } catch (e) {}
+
+    let membersList: any[] = [];
+    try {
+      const { data } = await supabase.from('profiles').select('*');
+      if (data && Array.isArray(data)) {
+        membersList = data.filter((p: any) => {
+          if (isDummyProfileOrEmail(p)) return false;
+          if (targetSchoolId && p.school_id && p.school_id !== targetSchoolId) return false;
+          return true;
+        });
+      }
+    } catch (e) {}
+
     try {
       const localProfiles = JSON.parse(localStorage.getItem('mock_db_profiles') || '[]');
       localProfiles.forEach((lp: any) => {
-        if (!membersList.some((x: any) => x.id === lp.id || (x.email && lp.email && x.email.toLowerCase() === lp.email.toLowerCase()))) {
-          membersList.push(lp);
+        if (!isDummyProfileOrEmail(lp)) {
+          if (!targetSchoolId || !lp.school_id || lp.school_id === targetSchoolId) {
+            const idx = membersList.findIndex((m: any) => m.id === lp.id || (m.email && lp.email && m.email.toLowerCase().trim() === lp.email.toLowerCase().trim()));
+            if (idx >= 0) {
+              membersList[idx] = { ...membersList[idx], ...lp };
+            } else {
+              membersList.push(lp);
+            }
+          }
         }
       });
     } catch (e) {}
@@ -160,8 +245,12 @@ export function SchoolAdminDashboard() {
         if (k && k.startsWith('school_custom_teachers_')) {
           const custom = JSON.parse(localStorage.getItem(k) || '[]');
           custom.forEach((ct: any) => {
-            if (!membersList.some((x: any) => x.id === ct.id || (x.email && ct.email && x.email.toLowerCase() === ct.email.toLowerCase()))) {
-              membersList.push(ct);
+            if (!isDummyProfileOrEmail(ct)) {
+              if (!targetSchoolId || !ct.school_id || ct.school_id === targetSchoolId) {
+                if (!membersList.some((x: any) => x.id === ct.id || (x.email && ct.email && x.email.toLowerCase().trim() === ct.email.toLowerCase().trim()))) {
+                  membersList.push(ct);
+                }
+              }
             }
           });
         }
@@ -175,39 +264,56 @@ export function SchoolAdminDashboard() {
         const k = localStorage.key(i);
         if (k && k.startsWith('school_invitations_meta_')) {
           const meta = JSON.parse(localStorage.getItem(k) || '{}');
+          let changed = false;
+          Object.keys(meta).forEach(keyEmail => {
+            if (isDummyProfileOrEmail({ email: keyEmail })) {
+              delete meta[keyEmail];
+              changed = true;
+            }
+          });
+          if (changed) {
+            localStorage.setItem(k, JSON.stringify(meta));
+          }
           invMeta = { ...invMeta, ...meta };
         }
       }
     } catch (e) {}
 
-    // Include all invited members (pending invitations) so Director of Studies can see them directly in the members list
+    // Include real pending invitations for this school in members list
     try {
       const { data: invData } = await supabase.from('invitations').select('*');
-      let allInvsList: any[] = invData && Array.isArray(invData) ? [...invData] : [];
-      const localInvs = JSON.parse(localStorage.getItem('mock_db_invitations') || '[]');
+      let allInvsList: any[] = invData && Array.isArray(invData) ? invData.filter((i: any) => !isDummyProfileOrEmail(i)) : [];
+      const localInvs = JSON.parse(localStorage.getItem('mock_db_invitations') || '[]').filter((li: any) => !isDummyProfileOrEmail(li));
       localInvs.forEach((li: any) => {
-        if (!allInvsList.some((x: any) => x.id === li.id || (x.email && li.email && x.email.toLowerCase() === li.email.toLowerCase()))) {
+        if (!allInvsList.some((x: any) => x.id === li.id || (x.email && li.email && x.email.toLowerCase().trim() === li.email.toLowerCase().trim()))) {
           allInvsList.push(li);
         }
       });
+
+      if (targetSchoolId) {
+        allInvsList = allInvsList.filter((inv: any) => !inv.school_id || inv.school_id === targetSchoolId);
+      }
+
       Object.entries(invMeta).forEach(([em, m]: [string, any]) => {
         const cleanEm = em.toLowerCase().trim();
-        if (cleanEm && !allInvsList.some((x: any) => x.email && x.email.toLowerCase().trim() === cleanEm)) {
-          allInvsList.push({
-            id: `meta_inv_${cleanEm}`,
-            email: cleanEm,
-            role: m.role || 'TEACHER',
-            school_id: targetSchoolId,
-            invited_by_role: m.invited_by_role || 'SCHOOL_ADMIN',
-            invited_by_name: m.invited_by_name || 'Directeur',
-            created_at: m.invited_at || new Date().toISOString()
-          });
+        if (cleanEm && !isDummyProfileOrEmail({ email: cleanEm }) && !allInvsList.some((x: any) => x.email && x.email.toLowerCase().trim() === cleanEm)) {
+          if (!targetSchoolId || !m.school_id || m.school_id === targetSchoolId) {
+            allInvsList.push({
+              id: `meta_inv_${cleanEm}`,
+              email: cleanEm,
+              role: m.role || 'TEACHER',
+              school_id: targetSchoolId,
+              invited_by_role: m.invited_by_role || 'SCHOOL_ADMIN',
+              invited_by_name: m.invited_by_name || 'Directeur',
+              created_at: m.invited_at || new Date().toISOString()
+            });
+          }
         }
       });
 
       allInvsList.forEach((inv: any) => {
         const invEmail = (inv.email || '').toLowerCase().trim();
-        if (invEmail && !membersList.some((m: any) => m.email && m.email.toLowerCase().trim() === invEmail)) {
+        if (invEmail && !isDummyProfileOrEmail(inv) && !membersList.some((m: any) => m.email && m.email.toLowerCase().trim() === invEmail)) {
           const meta = invMeta[invEmail] || {};
           const whoRole = meta.invited_by_role || inv.invited_by_role || 'SCHOOL_ADMIN';
           const whoName = meta.invited_by_name || inv.invited_by_name || (whoRole === 'DIRECTOR_OF_STUDIES' ? 'Directeur des Études' : 'Directeur');
@@ -227,7 +333,13 @@ export function SchoolAdminDashboard() {
       });
     } catch (e) {}
 
-    setSchoolMembers(membersList.filter(p => p.id !== user?.id));
+    // Exclude dummy test accounts, unassigned accounts, and current logged-in user
+    const cleanedFinalMembers = membersList.filter(p => 
+      !isDummyProfileOrEmail(p) && 
+      p.id !== user?.id && 
+      (!user?.email || p.email?.toLowerCase().trim() !== user.email.toLowerCase().trim())
+    );
+    setSchoolMembers(cleanedFinalMembers);
   };
 
   const fetchSchoolSettings = async () => {
@@ -396,7 +508,14 @@ export function SchoolAdminDashboard() {
         };
       });
 
-      setInvitations(list);
+      // Strictly filter out dummy/filler invitations and match current school
+      const realInvs = list.filter(inv => {
+        if (isDummyProfileOrEmail(inv)) return false;
+        if (targetSchoolId && inv.school_id && inv.school_id !== targetSchoolId) return false;
+        return true;
+      });
+
+      setInvitations(realInvs);
     } catch (e) {
       console.error(e);
     }
@@ -788,11 +907,11 @@ export function SchoolAdminDashboard() {
                  <option value="SUPERVISOR">Surveillants</option>
               </select>
             </div>
-            {schoolMembers.filter(m => m.role !== 'DELETED' && (memberFilter === "ALL" || m.role === memberFilter || (memberFilter === "INVITED" && m.isInvitation))).length === 0 ? (
+            {schoolMembers.filter(m => !isDummyProfileOrEmail(m) && m.role !== 'DELETED' && (memberFilter === "ALL" || m.role === memberFilter || (memberFilter === "INVITED" && m.isInvitation))).length === 0 ? (
               <div className="p-8 text-center text-slate-500 text-xs">Aucun membre dans cette catégorie.</div>
             ) : (
               <ul className="divide-y divide-gray-100">
-                {schoolMembers.filter(m => m.role !== 'DELETED' && (memberFilter === "ALL" || m.role === memberFilter || (memberFilter === "INVITED" && m.isInvitation))).map(m => (
+                {schoolMembers.filter(m => !isDummyProfileOrEmail(m) && m.role !== 'DELETED' && (memberFilter === "ALL" || m.role === memberFilter || (memberFilter === "INVITED" && m.isInvitation))).map(m => (
                   <li key={m.id} className="p-4 px-6 flex items-center justify-between hover:bg-slate-50 transition-colors">
                     <div>
                       <div className="flex items-center gap-2 flex-wrap">
@@ -846,11 +965,11 @@ export function SchoolAdminDashboard() {
           </div>
           <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden mb-6">
             <h3 className="px-6 py-4 border-b border-gray-100 font-bold text-gray-700 bg-slate-50">Membres supprimés</h3>
-            {schoolMembers.filter(m => m.role === 'DELETED').length === 0 ? (
+            {schoolMembers.filter(m => !isDummyProfileOrEmail(m) && m.role === 'DELETED').length === 0 ? (
               <div className="p-8 text-center text-slate-500 text-xs">Aucun membre supprimé.</div>
             ) : (
               <ul className="divide-y divide-gray-100">
-                {schoolMembers.filter(m => m.role === 'DELETED').map(m => (
+                {schoolMembers.filter(m => !isDummyProfileOrEmail(m) && m.role === 'DELETED').map(m => (
                   <li key={m.id} className="p-4 px-6 flex items-center justify-between hover:bg-slate-50 transition-colors">
                     <div>
                       <p className="font-medium text-gray-400 line-through">{m.full_name || m.email}</p>
@@ -871,15 +990,15 @@ export function SchoolAdminDashboard() {
           <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
             <div className="px-6 py-4 border-b border-gray-100 bg-slate-50 flex justify-between items-center">
               <div>
-                <h3 className="font-bold text-gray-700">Invitations en attente ({invitations.length})</h3>
+                <h3 className="font-bold text-gray-700">Invitations en attente ({invitations.filter(i => !isDummyProfileOrEmail(i)).length})</h3>
                 <p className="text-xs text-slate-500">Membres et enseignants invités par le Directeur ou le Directeur des Études</p>
               </div>
             </div>
-            {invitations.length === 0 ? (
+            {invitations.filter(i => !isDummyProfileOrEmail(i)).length === 0 ? (
               <div className="p-8 text-center text-slate-500 text-xs">Aucune invitation en attente.</div>
             ) : (
               <ul className="divide-y divide-gray-100">
-                {invitations.map(inv => (
+                {invitations.filter(i => !isDummyProfileOrEmail(i)).map(inv => (
                   <li key={inv.id} className="p-4 px-6 flex items-center justify-between hover:bg-slate-50 transition-colors">
                     <div>
                       <p className="font-medium text-gray-800">{inv.email}</p>

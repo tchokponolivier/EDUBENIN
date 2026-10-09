@@ -27,9 +27,13 @@ import {
   History
 } from "lucide-react";
 import { LEVELS, SUBJECTS } from "../types";
+import { useToast } from "../lib/toast";
+import { useConfirm } from "../lib/confirm";
 
 export function SchoolAdminTeachers() {
   const { user } = useAuth();
+  const toast = useToast();
+  const confirm = useConfirm();
   const [activeTab, setActiveTab] = useState<"TEACHERS" | "MEMBERS" | "SUBJECTS" | "HOURS">("TEACHERS");
   const [teachers, setTeachers] = useState<any[]>([]);
   const [courses, setCourses] = useState<any[]>([]);
@@ -621,10 +625,17 @@ export function SchoolAdminTeachers() {
   const handleDeleteInvitation = async (id: string) => {
     const invToDelete = allInvitations.find(i => i.id === id);
     if (user?.role === 'DIRECTOR_OF_STUDIES' && invToDelete?.role && (invToDelete.role === 'SCHOOL_ADMIN' || invToDelete.role === 'SUPER_ADMIN')) {
-      alert("En tant que Directeur des Études, vous ne pouvez pas annuler l'invitation du Directeur Général.");
+      toast.warning("En tant que Directeur des Études, vous ne pouvez pas annuler l'invitation du Directeur Général.");
       return;
     }
-    if (!window.confirm("Êtes-vous sûr de vouloir supprimer / annuler cette invitation ?")) return;
+    const ok = await confirm({
+      title: "Annuler l'invitation",
+      message: "Êtes-vous sûr de vouloir supprimer / annuler cette invitation ?",
+      confirmText: "Annuler l'invitation",
+      cancelText: "Retour",
+      variant: "danger"
+    });
+    if (!ok) return;
     try {
       if (id && !id.startsWith('meta_inv_')) {
         await supabase.from('invitations').delete().eq('id', id);
@@ -853,11 +864,18 @@ export function SchoolAdminTeachers() {
 
   const handleDeleteTeacher = async (t: any) => {
     if (user?.role === 'DIRECTOR_OF_STUDIES' && (t.role === 'SCHOOL_ADMIN' || t.role === 'SUPER_ADMIN')) {
-      alert("En tant que Directeur des Études, vous ne pouvez pas supprimer le profil du Directeur.");
+      toast.warning("En tant que Directeur des Études, vous ne pouvez pas supprimer le profil du Directeur.");
       return;
     }
     const teacherName = t.full_name || t.email?.split('@')[0] || "ce professeur";
-    if (!window.confirm(`Êtes-vous sûr de vouloir supprimer ${teacherName} ? Cette action sera consignée dans l'historique.`)) return;
+    const ok = await confirm({
+      title: "Supprimer le profil enseignant",
+      message: `Êtes-vous sûr de vouloir supprimer ${teacherName} ? Cette action sera consignée dans l'historique administratif.`,
+      confirmText: "Supprimer",
+      cancelText: "Annuler",
+      variant: "danger"
+    });
+    if (!ok) return;
     try {
       if (t.isInvitation && t.invitationId) {
         await supabase.from('invitations').delete().eq('id', t.invitationId);
@@ -1344,15 +1362,22 @@ export function SchoolAdminTeachers() {
       }
       fetchData();
     } catch (err: any) {
-      alert("Erreur lors de l'enregistrement de la matière: " + err.message);
+      toast.error(err.message || "Erreur lors de l'enregistrement de la matière");
     }
   };
 
   const handleDeleteCourse = async (courseId: string) => {
-    if (window.confirm("Voulez-vous vraiment supprimer cette matière ?")) {
-      await supabase.from('courses').delete().eq('id', courseId);
-      fetchData();
-    }
+    const ok = await confirm({
+      title: "Supprimer la matière",
+      message: "Voulez-vous vraiment supprimer cette matière du programme ?",
+      confirmText: "Supprimer",
+      variant: "danger"
+    });
+    if (!ok) return;
+
+    await supabase.from('courses').delete().eq('id', courseId);
+    toast.success("Matière supprimée avec succès.");
+    fetchData();
   };
 
   const dosDeletions = deletionLogs.filter(l => l.deleted_by_role === 'DIRECTOR_OF_STUDIES');

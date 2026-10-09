@@ -1,6 +1,6 @@
 import { ReactNode, useState } from "react";
 import { useAuth } from "../../lib/auth";
-import { LogOut, LayoutDashboard, Users, CreditCard, BookOpen, Building, HelpCircle, User, UserCheck, Menu, X, Settings, Clock, FileText, Calendar, ArrowDownToLine, Banknote, Shield, AlertCircle, ShieldAlert, Award, Megaphone } from "lucide-react";
+import { LogOut, LayoutDashboard, Users, CreditCard, BookOpen, Building, HelpCircle, User, UserCheck, Menu, X, Settings, Clock, FileText, Calendar, ArrowDownToLine, Banknote, Shield, AlertCircle, ShieldAlert, Award, Megaphone, FileSpreadsheet } from "lucide-react";
 import { Link, useLocation } from "react-router-dom";
 import { clsx } from "clsx";
 import { EduBeninLogo } from "../Logo";
@@ -56,7 +56,8 @@ export function DashboardLayout({ children }: { children: ReactNode }) {
           { name: "Tableau de bord", href: "/school-admin", icon: LayoutDashboard },
           { name: "Membres & Invitations", href: "/school-admin?tab=MEMBERS", icon: UserCheck },
           { name: "Caisse du Jour", href: "/school-admin/payments?tab=DAILY_SUMMARY", icon: Clock },
-          { name: "Finances & Caisse", href: "/school-admin/payments?tab=DASHBOARD", icon: Banknote },
+          { name: "Finances & Caisse", href: "/school-admin/payments?tab=FINANCIAL_LIST", icon: Banknote },
+          { name: "Liste Financière", href: "/school-admin/payments?tab=FINANCIAL_LIST", icon: FileSpreadsheet },
           { name: "Inscriptions & Élèves", href: "/school-admin/students?tab=STUDENTS", icon: Users },
           { name: "Liste des Élèves", href: "/school-admin/students-list", icon: Users },
           { name: "Professeurs", href: "/school-admin/teachers", icon: Users },
@@ -91,6 +92,7 @@ export function DashboardLayout({ children }: { children: ReactNode }) {
       case "CASHIER":
         return [
           { name: "Tableau de Bord Caisse", href: "/school-admin/payments?tab=DASHBOARD", icon: LayoutDashboard },
+          { name: "Liste Financière", href: "/school-admin/payments?tab=FINANCIAL_LIST", icon: FileSpreadsheet },
           { name: "Caisse du Jour", href: "/school-admin/payments?tab=DAILY_SUMMARY", icon: Clock },
           { name: "Vérifications", href: "/school-admin/payments?tab=VERIFICATION", icon: CreditCard },
           { name: "Encaissements", href: "/school-admin/payments?tab=PAYMENTS", icon: CreditCard },
@@ -116,7 +118,8 @@ export function DashboardLayout({ children }: { children: ReactNode }) {
           { name: "Tableau de bord", href: "/school-admin", icon: LayoutDashboard },
           { name: "Membres & Invitations", href: "/school-admin?tab=MEMBERS", icon: UserCheck },
           { name: "Caisse du Jour", href: "/school-admin/payments?tab=DAILY_SUMMARY", icon: Clock },
-          { name: "Finances & Caisse", href: "/school-admin/payments?tab=DASHBOARD", icon: Banknote },
+          { name: "Finances & Caisse", href: "/school-admin/payments?tab=FINANCIAL_LIST", icon: Banknote },
+          { name: "Liste Financière", href: "/school-admin/payments?tab=FINANCIAL_LIST", icon: FileSpreadsheet },
           { name: "Planification Académique", href: "/director", icon: Calendar },
           { name: "Inscriptions & Élèves", href: "/school-admin/students?tab=STUDENTS", icon: Users },
           { name: "Liste des Élèves", href: "/school-admin/students-list", icon: Users },

@@ -67,6 +67,50 @@ export interface InvitationMatch {
   schoolName?: string;
 }
 
+const isPlaceholderSupabase = !import.meta.env.VITE_SUPABASE_URL || import.meta.env.VITE_SUPABASE_URL.includes('placeholder-project') || import.meta.env.VITE_SUPABASE_URL.includes('YOUR_SUPABASE_URL');
+
+export function validateStoredUser(rawJson: string | null): User | null {
+  if (!rawJson) return null;
+  try {
+    const parsed = JSON.parse(rawJson);
+    if (!parsed || typeof parsed !== 'object') return null;
+    if (!parsed.id || !parsed.email || typeof parsed.email !== 'string') return null;
+    
+    const validRoles = [
+      'SUPER_ADMIN', 
+      'SCHOOL_ADMIN', 
+      'DIRECTOR_OF_STUDIES', 
+      'TEACHER', 
+      'SECRETARY', 
+      'CASHIER', 
+      'SUPERVISOR', 
+      'PARENT'
+    ];
+    if (!validRoles.includes(parsed.role)) return null;
+
+    // Security check: in production (when real Supabase is configured),
+    // local storage mock accounts cannot grant administrative rights without authenticated session
+    if (!isPlaceholderSupabase) {
+      if (parsed.role === 'SUPER_ADMIN' || parsed.role === 'SCHOOL_ADMIN' || parsed.role === 'DIRECTOR_OF_STUDIES') {
+        return null;
+      }
+    }
+
+    return {
+      id: String(parsed.id),
+      email: String(parsed.email).trim().toLowerCase(),
+      name: String(parsed.name || parsed.email.split('@')[0]),
+      role: parsed.role,
+      schoolId: parsed.schoolId ? String(parsed.schoolId) : undefined,
+      schoolName: parsed.schoolName ? String(parsed.schoolName) : undefined,
+      phone: parsed.phone ? String(parsed.phone) : undefined,
+      avatar: parsed.avatar ? String(parsed.avatar) : undefined
+    };
+  } catch (e) {
+    return null;
+  }
+}
+
 export async function resolveSchoolName(schoolId?: string | null): Promise<string | undefined> {
   if (!schoolId) return undefined;
   try {
@@ -508,10 +552,13 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       if (session?.user) {
         fetchSupabaseProfile(session.user);
       } else {
-        // 2. Fallback to local storage (mock user)
-        const savedUser = localStorage.getItem("edubenin_auth");
-        if (savedUser) {
-          setUser(JSON.parse(savedUser));
+        // 2. Fallback to local storage (sanitized and validated)
+        const validated = validateStoredUser(localStorage.getItem("edubenin_auth"));
+        if (validated) {
+          setUser(validated);
+        } else {
+          localStorage.removeItem("edubenin_auth");
+          setUser(null);
         }
         setIsLoading(false);
       }
@@ -523,11 +570,12 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         fetchSupabaseProfile(session.user);
         localStorage.removeItem("edubenin_auth"); // Clear mock user if logged in with Supabase
       } else {
-        // If logged out from Supabase, check if there's a local mock user, otherwise null
-        const savedUser = localStorage.getItem("edubenin_auth");
-        if (savedUser) {
-          setUser(JSON.parse(savedUser));
+        // If logged out from Supabase, validate local mock user or reset
+        const validated = validateStoredUser(localStorage.getItem("edubenin_auth"));
+        if (validated) {
+          setUser(validated);
         } else {
+          localStorage.removeItem("edubenin_auth");
           setUser(null);
         }
         setIsLoading(false);

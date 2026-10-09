@@ -5,6 +5,8 @@ import { Student, Payment, SchoolSettings, Announcement } from "../types";
 import { Users, GraduationCap, ArrowUpRight, Search, Settings, Megaphone, Trash2, Edit, Mail, Plus, ChevronDown } from "lucide-react";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../lib/auth";
+import { useToast } from "../lib/toast";
+import { useConfirm } from "../lib/confirm";
 import { useLocation } from "react-router-dom";
 import { SchoolAdminAcademic } from "../components/SchoolAdminAcademic";
 import { SchoolAdminFees } from "../components/SchoolAdminFees";
@@ -12,6 +14,8 @@ import { InitialSchoolSetupModal } from "../components/InitialSchoolSetupModal";
 
 export function SchoolAdminDashboard() {
   const { user } = useAuth();
+  const toast = useToast();
+  const confirm = useConfirm();
   const location = useLocation();
   const [students, setStudents] = useState<Student[]>([]);
   const [payments, setPayments] = useState<Payment[]>([]);
@@ -523,10 +527,17 @@ export function SchoolAdminDashboard() {
 
   const handleDeleteInvitation = async (inv: any) => {
     if (user?.role === 'DIRECTOR_OF_STUDIES' && (inv.role === 'SCHOOL_ADMIN' || inv.role === 'SUPER_ADMIN')) {
-      alert("En tant que Directeur des Études, vous ne pouvez pas annuler l'invitation du Directeur Général.");
+      toast.warning("En tant que Directeur des Études, vous ne pouvez pas annuler l'invitation du Directeur Général.");
       return;
     }
-    if (!window.confirm(`Annuler l'invitation de ${inv.email} ?`)) return;
+    const ok = await confirm({
+      title: "Annuler l'invitation",
+      message: `Annuler l'invitation envoyée à ${inv.email} ?`,
+      confirmText: "Annuler l'invitation",
+      cancelText: "Retour",
+      variant: "danger"
+    });
+    if (!ok) return;
 
     try {
       if (inv.id && !String(inv.id).startsWith('meta_inv_')) {
@@ -554,6 +565,7 @@ export function SchoolAdminDashboard() {
       }
     } catch (e) {}
 
+    toast.success("Invitation annulée avec succès.");
     fetchInvitations();
     fetchSchoolMembers();
   };
@@ -700,11 +712,20 @@ export function SchoolAdminDashboard() {
   };
 
   const handleDeleteAnnouncement = async (id: string) => {
-    if (window.confirm("Êtes-vous sûr de vouloir supprimer cette annonce ?")) {
-      const { error } = await supabase.from('announcements').delete().eq('id', id);
-      if (!error) {
-         setAnnouncements(prev => prev.filter(a => a.id !== id));
-      }
+    const ok = await confirm({
+      title: "Supprimer l'annonce",
+      message: "Êtes-vous sûr de vouloir supprimer cette annonce ?",
+      confirmText: "Supprimer",
+      variant: "danger"
+    });
+    if (!ok) return;
+
+    const { error } = await supabase.from('announcements').delete().eq('id', id);
+    if (!error) {
+       setAnnouncements(prev => prev.filter(a => a.id !== id));
+       toast.success("Annonce supprimée.");
+    } else {
+       toast.error(error.message || "Impossible de supprimer l'annonce.");
     }
   };
 
@@ -947,14 +968,24 @@ export function SchoolAdminDashboard() {
                       ) : (
                         <button onClick={async () => {
                            if (user?.role === 'DIRECTOR_OF_STUDIES' && (m.role === 'SCHOOL_ADMIN' || m.role === 'SUPER_ADMIN')) {
-                              alert("En tant que Directeur des Études, vous ne pouvez pas supprimer ou retirer le profil du Directeur.");
+                              toast.warning("En tant que Directeur des Études, vous ne pouvez pas supprimer ou retirer le profil du Directeur.");
                               return;
                            }
-                           if(window.confirm("Retirer ce membre de l'école ?")) {
-                              const { error } = await supabase.from('profiles').update({role: 'DELETED'}).eq('id', m.id);
-                              if (error) alert("Erreur lors de la suppression: " + error.message);
-                              fetchSchoolMembers();
+                           const ok = await confirm({
+                             title: "Retirer ce membre",
+                             message: `Retirer ${m.full_name || m.email} de l'établissement ?`,
+                             confirmText: "Retirer",
+                             variant: "danger"
+                           });
+                           if (!ok) return;
+
+                           const { error } = await supabase.from('profiles').update({role: 'DELETED'}).eq('id', m.id);
+                           if (error) {
+                             toast.error("Erreur lors du retrait: " + error.message);
+                           } else {
+                             toast.success("Membre retiré de l'école.");
                            }
+                           fetchSchoolMembers();
                         }} className="text-red-500 hover:text-red-700 text-xs font-bold uppercase p-2">Retirer</button>
                       )
                     )}
@@ -976,10 +1007,17 @@ export function SchoolAdminDashboard() {
                       <p className="text-xs text-red-500 mt-1 font-semibold">SUPPRIMÉ</p>
                     </div>
                     <button onClick={async () => {
-                       if(window.confirm("Restaurer ce membre en tant que parent (il n'aura plus d'accès administratif) ?")) {
-                          await supabase.from('profiles').update({role: 'PARENT'}).eq('id', m.id);
-                          fetchSchoolMembers();
-                       }
+                       const ok = await confirm({
+                         title: "Restaurer le membre",
+                         message: `Restaurer ${m.full_name || m.email} en tant que parent (sans droits administratifs) ?`,
+                         confirmText: "Restaurer",
+                         variant: "warning"
+                       });
+                       if (!ok) return;
+
+                       await supabase.from('profiles').update({role: 'PARENT'}).eq('id', m.id);
+                       toast.success("Membre restauré.");
+                       fetchSchoolMembers();
                     }} className="text-emerald-500 hover:text-emerald-700 text-xs font-bold uppercase p-2">Restaurer</button>
                   </li>
                 ))}

@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from "react";
 import { Payment, Student, LEVELS } from "../types";
 import { useAuth } from "../lib/auth";
 import { useLocation } from "react-router-dom";
-import { CreditCard, History, Search, MessageCircle, Printer, Plus, Trash2, CheckSquare, Square, X, Wallet, TrendingUp, CheckCircle, Table, Clock, AlertTriangle, Coins } from "lucide-react";
+import { CreditCard, History, Search, MessageCircle, Printer, Plus, Trash2, CheckSquare, Square, X, Wallet, TrendingUp, CheckCircle, Table, Clock, AlertTriangle, Coins, FileSpreadsheet } from "lucide-react";
 import { supabase } from "../lib/supabase";
 import { FeeTableModal } from "../components/FeeTableModal";
 import { CashierExpenses } from "../components/CashierExpenses";
@@ -12,6 +12,7 @@ import { CashierSalaries } from "../components/CashierSalaries";
 import { CashierVerification } from "../components/CashierVerification";
 import { CashierDailySummary } from "../components/CashierDailySummary";
 import { CashierDebts, parseDeadlineDate } from "../components/CashierDebts";
+import { CashierFinancialList } from "../components/CashierFinancialList";
 import { PaymentActorBadge, resolvePaymentActor } from "../components/PaymentActorBadge";
 import { getDirectorAcademicYears } from "../lib/academicYears";
 
@@ -100,10 +101,10 @@ export function SchoolAdminPayments() {
   const { user } = useAuth();
   const location = useLocation();
   const isDirectorOfStudies = user?.role === "DIRECTOR_OF_STUDIES";
-  const [activeTab, setActiveTab] = useState<"INSCRIPTIONS" | "DAILY_SUMMARY" | "PAYMENTS" | "EXPENSES" | "SALARIES" | "DASHBOARD" | "VERIFICATION" | "CREANCES">(() => {
+  const [activeTab, setActiveTab] = useState<"INSCRIPTIONS" | "DAILY_SUMMARY" | "PAYMENTS" | "EXPENSES" | "SALARIES" | "DASHBOARD" | "VERIFICATION" | "CREANCES" | "FINANCIAL_LIST">(() => {
     const params = new URLSearchParams(location.search);
     const tab = params.get('tab');
-    const validTabs = ["INSCRIPTIONS", "DAILY_SUMMARY", "PAYMENTS", "EXPENSES", "SALARIES", "DASHBOARD", "VERIFICATION", "CREANCES"];
+    const validTabs = ["INSCRIPTIONS", "DAILY_SUMMARY", "PAYMENTS", "EXPENSES", "SALARIES", "DASHBOARD", "VERIFICATION", "CREANCES", "FINANCIAL_LIST"];
     if (tab && validTabs.includes(tab)) return tab as any;
     return "PAYMENTS";
   });
@@ -115,7 +116,7 @@ export function SchoolAdminPayments() {
   React.useEffect(() => {
     const params = new URLSearchParams(location.search);
     const tab = params.get('tab');
-    const validTabs = ["INSCRIPTIONS", "DAILY_SUMMARY", "PAYMENTS", "EXPENSES", "SALARIES", "DASHBOARD", "VERIFICATION", "CREANCES"];
+    const validTabs = ["INSCRIPTIONS", "DAILY_SUMMARY", "PAYMENTS", "EXPENSES", "SALARIES", "DASHBOARD", "VERIFICATION", "CREANCES", "FINANCIAL_LIST"];
     if (tab && validTabs.includes(tab)) setActiveTab(tab as any);
   }, [location.search]);
   const [payments, setPayments] = useState<Payment[]>([]);
@@ -863,6 +864,13 @@ export function SchoolAdminPayments() {
           )}
         </button>
         <button 
+          onClick={() => setActiveTab("FINANCIAL_LIST")} 
+          className={`px-4 py-2 rounded-lg text-xs whitespace-nowrap shrink-0 font-bold uppercase tracking-wider transition-all flex items-center gap-1.5 ${activeTab === "FINANCIAL_LIST" ? "bg-emerald-700 text-white shadow-xs" : "text-emerald-800 hover:text-emerald-950 bg-emerald-50/90 hover:bg-emerald-100 border border-emerald-200/80"}`}
+        >
+          <FileSpreadsheet size={13} />
+          <span>Liste Financière</span>
+        </button>
+        <button 
           onClick={() => setActiveTab("PAYMENTS")} 
           className={`px-4 py-2 rounded-lg text-xs whitespace-nowrap shrink-0 font-bold uppercase tracking-wider transition-all ${activeTab === "PAYMENTS" ? "bg-white shadow-xs text-gray-800 border border-slate-200" : "text-slate-500 hover:text-gray-800 hover:bg-white/60"}`}
         >
@@ -1130,6 +1138,14 @@ export function SchoolAdminPayments() {
               setShowPayModal(true);
             }
           }}
+        />
+      )}
+
+      {activeTab === "FINANCIAL_LIST" && (
+        <CashierFinancialList
+          schoolId={user?.schoolId || settings?.id}
+          schoolSettings={settings}
+          academicYears={academicYears}
         />
       )}
       {activeTab === "EXPENSES" && <CashierExpenses />}

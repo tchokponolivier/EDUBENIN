@@ -1,5 +1,7 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { useAuth } from "../lib/auth";
+import { useToast } from "../lib/toast";
+import { useConfirm } from "../lib/confirm";
 import { supabase } from "../lib/supabase";
 import { 
   Calendar as CalendarIcon, 
@@ -114,6 +116,8 @@ const DEFAULT_SCHEDULES: ExamSchedule[] = [
 
 export function DirectorDashboard() {
   const { user } = useAuth();
+  const toast = useToast();
+  const confirm = useConfirm();
 
   const [schedules, setSchedules] = useState<ExamSchedule[]>([]);
   const [loading, setLoading] = useState(true);
@@ -274,26 +278,30 @@ export function DirectorDashboard() {
   };
 
   // Delete an exam schedule
-  const handleDelete = (id: string) => {
+  const handleDelete = async (id: string) => {
     const toDelete = schedules.find(s => s.id === id);
-    if (!window.confirm(`Êtes-vous sûr de vouloir supprimer la programmation "${toDelete?.title || 'cet examen'}" ?`)) {
-      return;
-    }
+    const ok = await confirm({
+      title: "Supprimer la programmation d'examen",
+      message: `Êtes-vous sûr de vouloir supprimer la programmation "${toDelete?.title || 'cet examen'}" ?`,
+      confirmText: "Supprimer",
+      variant: "danger"
+    });
+    if (!ok) return;
+
     const updated = schedules.filter(s => s.id !== id);
     saveSchedulesToStorage(updated);
-    setFeedback("Date d'examen supprimée avec succès.");
-    setTimeout(() => setFeedback(null), 3000);
+    toast.success("Date d'examen supprimée avec succès.");
   };
 
   // Save (Create or Update)
   const handleSaveForm = (e: React.FormEvent) => {
     e.preventDefault();
     if (!formTitle.trim()) {
-      alert("Veuillez saisir le titre de l'évaluation ou de l'examen.");
+      toast.warning("Veuillez saisir le titre de l'évaluation ou de l'examen.");
       return;
     }
     if (!formStartDate || !formEndDate) {
-      alert("Veuillez renseigner les dates de début et de fin prévues.");
+      toast.warning("Veuillez renseigner les dates de début et de fin prévues.");
       return;
     }
 

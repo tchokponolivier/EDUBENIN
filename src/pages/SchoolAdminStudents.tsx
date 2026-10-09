@@ -12,9 +12,13 @@ import { SecretaryPlanning } from "../components/SecretaryPlanning";
 import { SecretaryHR } from "../components/SecretaryHR";
 import { AddStudentModal } from "../components/AddStudentModal";
 import { getDirectorAcademicYears } from "../lib/academicYears";
+import { useToast } from "../lib/toast";
+import { useConfirm } from "../lib/confirm";
 
 export function SchoolAdminStudents() {
   const { user } = useAuth();
+  const toast = useToast();
+  const confirm = useConfirm();
   const location = useLocation();
   const [showAddStudentModal, setShowAddStudentModal] = useState(false);
   const [activeTab, setActiveTab] = useState<"STUDENTS" | "ABSENCES" | "DOCUMENTS" | "MAILS" | "EXAMS" | "PLANNING" | "TIMETABLES" | "HR">(() => {
@@ -207,25 +211,32 @@ export function SchoolAdminStudents() {
       if (error) throw error;
       setStudents(students.map(s => s.id === showEditModal.id ? showEditModal : s));
       setShowEditModal(null);
-      alert("Informations de l'élève mises à jour avec succès.");
-    } catch (err) {
+      toast.success("Informations de l'élève mises à jour avec succès.");
+    } catch (err: any) {
       console.error(err);
-      alert("Erreur lors de la mise à jour");
+      toast.error(err.message || "Erreur lors de la mise à jour");
     }
   };
 
   const handleDeleteStudent = async (id: string) => {
-    if (confirm("Êtes-vous sûr de vouloir supprimer cet élève ? Cette action est irréversible.")) {
-      try {
-        const { supabase } = await import('../lib/supabase');
-        const { error } = await supabase.from('students').delete().eq('id', id);
-        if (error) throw error;
-        setStudents(students.filter(s => s.id !== id));
-        alert("Élève supprimé avec succès.");
-      } catch (err) {
-        console.error(err);
-        alert("Erreur lors de la suppression");
-      }
+    const ok = await confirm({
+      title: "Supprimer l'élève",
+      message: "Êtes-vous sûr de vouloir supprimer cet élève ? Cette action est irréversible et supprimera ses données associées.",
+      confirmText: "Supprimer définitivement",
+      cancelText: "Annuler",
+      variant: "danger"
+    });
+    if (!ok) return;
+
+    try {
+      const { supabase } = await import('../lib/supabase');
+      const { error } = await supabase.from('students').delete().eq('id', id);
+      if (error) throw error;
+      setStudents(students.filter(s => s.id !== id));
+      toast.success("Élève supprimé avec succès.");
+    } catch (err: any) {
+      console.error(err);
+      toast.error(err.message || "Erreur lors de la suppression");
     }
   };
 

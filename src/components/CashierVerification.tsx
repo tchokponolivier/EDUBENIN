@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from "react";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../lib/auth";
+import { useToast } from "../lib/toast";
+import { useConfirm } from "../lib/confirm";
 import { 
   CheckCircle2, 
   XCircle, 
@@ -19,6 +21,8 @@ import { PaymentActorBadge, resolvePaymentActor } from "./PaymentActorBadge";
 
 export function CashierVerification() {
   const { user } = useAuth();
+  const toast = useToast();
+  const confirm = useConfirm();
   const [payments, setPayments] = useState<any[]>([]);
   const [processedPayments, setProcessedPayments] = useState<any[]>([]);
   const [profiles, setProfiles] = useState<any[]>([]);
@@ -158,7 +162,14 @@ export function CashierVerification() {
 
   const handleValidate = async (payment: any) => {
     const studentName = payment.students ? `${payment.students.first_name} ${payment.students.last_name}` : "l'élève";
-    if (!window.confirm(`Confirmer et valider la réception du paiement de ${Number(payment.amount).toLocaleString()} FCFA pour ${studentName} ?\n\nUne fois validée, la transaction sera intégrée à l'historique global et le parent en sera notifié.`)) return;
+    const ok = await confirm({
+      title: "Valider la réception du paiement",
+      message: `Confirmer la réception de ${Number(payment.amount).toLocaleString()} FCFA pour ${studentName} ?\n\nUne fois validée, la transaction sera intégrée à l'historique officiel et le parent en sera notifié.`,
+      confirmText: "Valider le paiement",
+      cancelText: "Annuler",
+      variant: "warning"
+    });
+    if (!ok) return;
     
     const updatePayload: any = { 
       status: 'COMPLETED',
@@ -179,7 +190,7 @@ export function CashierVerification() {
     }
        
     if (error) {
-       alert("Erreur lors de la validation: " + error.message);
+       toast.error(error.message || "Erreur lors de la validation", "Échec de validation");
        return;
     }
 
@@ -199,14 +210,21 @@ export function CashierVerification() {
       }
     }
     
-    alert("Transaction validée avec succès ! L'historique global a été mis à jour et le parent notifié.");
+    toast.success("Transaction validée avec succès ! L'historique et le reçu ont été mis à jour.", "Succès");
     window.dispatchEvent(new CustomEvent('refresh_notifications'));
     setRefreshKey(k => k + 1);
   };
 
   const handleReject = async (payment: any) => {
     const studentName = payment.students ? `${payment.students.first_name} ${payment.students.last_name}` : "l'élève";
-    if (!window.confirm(`Rejeter définitivement ce paiement pour ${studentName} ? (Transaction introuvable ou invalide)`)) return;
+    const ok = await confirm({
+      title: "Rejeter le paiement",
+      message: `Rejeter définitivement ce paiement pour ${studentName} ? (Transaction introuvable ou motif invalide)`,
+      confirmText: "Rejeter",
+      cancelText: "Annuler",
+      variant: "danger"
+    });
+    if (!ok) return;
     
     const updatePayload: any = { 
       status: 'FAILED',
@@ -226,11 +244,11 @@ export function CashierVerification() {
     }
        
     if (error) {
-       alert("Erreur lors du rejet: " + error.message);
+       toast.error(error.message || "Erreur lors du rejet", "Échec du rejet");
        return;
     }
     
-    alert("Transaction rejetée.");
+    toast.info("Transaction marquée comme rejetée.", "Paiement rejeté");
     window.dispatchEvent(new CustomEvent('refresh_notifications'));
     setRefreshKey(k => k + 1);
   };

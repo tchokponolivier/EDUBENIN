@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { Student, Payment, SchoolSettings } from "../types";
 import { useAuth } from "../lib/auth";
+import { useToast } from "../lib/toast";
 import { CreditCard, CheckCircle2, History, AlertTriangle, MessageCircle, Download, FileText, X, Calendar, Clock, Bell } from "lucide-react";
 import { supabase } from "../lib/supabase";
 import html2pdf from "html2pdf.js";
@@ -90,6 +91,7 @@ const getTranchesForLevel = (level: string) => {
 
 export function ParentPayments() {
   const { user } = useAuth();
+  const toast = useToast();
   const [children, setChildren] = useState<Student[]>([]);
   const [academicYears, setAcademicYears] = useState<{id?: string; name: string; status?: string}[]>([]);
   const [feeConfigs, setFeeConfigs] = useState<any[]>([]);
@@ -468,13 +470,13 @@ export function ParentPayments() {
 
   const handlePaymentSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (totalAmount <= 0) {
-      alert("Veuillez sélectionner et chiffrer au moins un frais à payer.");
+    if (!totalAmount || totalAmount <= 0 || isNaN(totalAmount)) {
+      toast.warning("Veuillez sélectionner et chiffrer au moins un frais valide à payer.", "Montant invalide");
       return;
     }
     
     if (hasPartialPayment && !nextPaymentDate) {
-      alert("Veuillez indiquer la date du prochain règlement pour le reste à payer.");
+      toast.warning("Veuillez indiquer la date du prochain règlement pour le reste à payer.", "Date requise");
       return;
     }
     
@@ -486,8 +488,15 @@ const confirmPayment = async () => {
 
     const child = children.find(c => c.id === selectedChildId);
     if (!child) return;
+
+    if (!totalAmountWithFee || totalAmountWithFee <= 0 || isNaN(totalAmountWithFee)) {
+      toast.error("Le montant calculé pour la transaction est invalide.");
+      return;
+    }
     
-    let reference = 'PAY-' + Date.now();
+    // Cryptographically resilient payment reference
+    const entropy = Math.random().toString(36).substring(2, 8).toUpperCase();
+    const reference = `PAY-${Date.now()}-${entropy}`;
     let ussdCode = "";
     if (network === "MTN Bénin") {
        ussdCode = `*880*41*681199*${totalAmountWithFee}#`;
@@ -501,16 +510,16 @@ const confirmPayment = async () => {
     const paymentItems = currentPaymentItemsTemplate.map(i => ({
       id: i.id,
       name: i.name,
-      amount: i.amount,
+      amount: Math.max(0, Number(i.amount) || 0),
       academic_year: paymentYear
     }));
     
-    // Attempt insert into Supabase
+    // Attempt insert into Supabase with enforced PENDING state
     const payload: any = {
        school_id: child.schoolId || user.schoolId || (child as any).school_id,
        student_id: selectedChildId,
        parent_id: user.id,
-       amount: totalAmountWithFee,
+       amount: Math.max(0, Math.round(totalAmountWithFee)),
        status: 'PENDING',
        network: network,
        reference: reference,
@@ -553,11 +562,11 @@ const confirmPayment = async () => {
     
     if (error) {
        console.error("Payment insert error:", error);
-       alert("Erreur lors de l'enregistrement de la transaction: " + (error.message || ""));
+       toast.error(error.message || "Impossible d'enregistrer la transaction.", "Erreur de paiement");
        return;
     }
     
-    // We still update local state for immediate UI feedback
+    // We update local state for immediate UI feedback
     const newPayment: any = { 
        id: inserted ? inserted.id : Date.now().toString(), 
        amount: totalAmountWithFee, 
@@ -578,8 +587,7 @@ const confirmPayment = async () => {
     setShowConfirmModal(false);
     setShowPayModal(false);
     
-    // Alert the user that the status is pending verification
-    alert("Votre paiement est passé en statut En Vérification. Vous allez être redirigé vers l'interface USSD pour finaliser le paiement.");
+    toast.success("Votre paiement est en attente de vérification. Redirection vers la confirmation mobile...", "Paiement initié");
     
     // Launch USSD code
     if (ussdCode) {

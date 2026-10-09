@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useAuth } from "../lib/auth";
+import { useToast } from "../lib/toast";
+import { useConfirm } from "../lib/confirm";
 import { supabase } from "../lib/supabase";
 import { Megaphone, Plus, Trash2, Users, Calendar, Search, Filter, CheckCircle2, AlertCircle } from "lucide-react";
 
@@ -15,6 +17,8 @@ interface Announcement {
 
 export function DirectorAnnouncements() {
   const { user } = useAuth();
+  const toast = useToast();
+  const confirm = useConfirm();
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
   const [loading, setLoading] = useState(true);
   const [filterAudience, setFilterAudience] = useState<string>("ALL");
@@ -133,14 +137,21 @@ export function DirectorAnnouncements() {
       setFeedback("Annonce diffusée et notification transmise aux destinataires avec succès !");
       setTimeout(() => setFeedback(null), 4000);
     } catch (err: any) {
-      alert("Erreur lors de la publication : " + err.message);
+      toast.error(err.message || "Erreur lors de la publication");
     } finally {
       setIsPublishing(false);
     }
   };
 
   const handleDeleteAnnouncement = async (id: string) => {
-    if (!window.confirm("Êtes-vous sûr de vouloir supprimer cette annonce ?")) return;
+    const ok = await confirm({
+      title: "Supprimer l'annonce",
+      message: "Êtes-vous sûr de vouloir supprimer cette annonce ?",
+      confirmText: "Supprimer",
+      variant: "danger"
+    });
+    if (!ok) return;
+
     try {
       await supabase.from('announcements').delete().eq('id', id);
       setAnnouncements(prev => prev.filter(a => a.id !== id));
@@ -152,8 +163,9 @@ export function DirectorAnnouncements() {
           localStorage.setItem(`school_announcements_${targetSchoolId}`, JSON.stringify(list));
         }
       } catch (e) {}
+      toast.success("Annonce supprimée avec succès.");
     } catch (err: any) {
-      alert("Erreur lors de la suppression : " + err.message);
+      toast.error(err.message || "Erreur lors de la suppression");
     }
   };
 

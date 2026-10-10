@@ -84,6 +84,19 @@ export function CashierExpenses() {
   const [savingBatch, setSavingBatch] = useState(false);
   const [saveSuccessNotice, setSaveSuccessNotice] = useState<string | null>(null);
 
+  // Draft new row directly in table
+  const [newTableRows, setNewTableRows] = useState<
+    Array<{
+      tempId: string;
+      expenseDate: string;
+      description: string;
+      category: string;
+      amount: string;
+      proofUrl?: string;
+    }>
+  >([]);
+  const [savingNewRowId, setSavingNewRowId] = useState<string | null>(null);
+
   // Proof Viewer Modal State with Fullscreen / Lightbox
   const [viewingProof, setViewingProof] = useState<{
     url: string;
@@ -337,6 +350,78 @@ export function CashierExpenses() {
     }
   };
 
+  // Direct In-Table Row Addition handlers
+  const addNewTableRow = () => {
+    const newRow = {
+      tempId: `draft_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+      expenseDate: new Date().toISOString().split("T")[0],
+      description: "",
+      category: "MATERIEL_FOURNITURE",
+      amount: "",
+      proofUrl: "",
+    };
+    setNewTableRows((prev) => [newRow, ...prev]);
+  };
+
+  const updateNewTableRowField = (tempId: string, field: string, value: any) => {
+    setNewTableRows((prev) =>
+      prev.map((row) => (row.tempId === tempId ? { ...row, [field]: value } : row))
+    );
+  };
+
+  const removeNewTableRow = (tempId: string) => {
+    setNewTableRows((prev) => prev.filter((row) => row.tempId !== tempId));
+  };
+
+  const saveNewTableRow = async (tempId: string) => {
+    const row = newTableRows.find((r) => r.tempId === tempId);
+    if (!row) return;
+
+    if (!row.description.trim() || !row.amount || Number(row.amount) <= 0) {
+      alert("Veuillez renseigner le motif et un montant valide supérieur à 0.");
+      return;
+    }
+
+    if (!user?.schoolId) return;
+
+    setSavingNewRowId(tempId);
+    try {
+      const newExp = {
+        school_id: user.schoolId,
+        description: row.description.trim(),
+        amount: Number(row.amount),
+        expense_date: row.expenseDate,
+        category: row.category,
+        proof_url: row.proofUrl || null,
+      };
+
+      const res = await supabase.from("expenses").insert(newExp);
+
+      // Local storage fallback sync
+      try {
+        const loc = localStorage.getItem("mock_db_expenses");
+        const list = loc ? JSON.parse(loc) : [];
+        list.unshift({
+          id: `exp_${Date.now()}`,
+          ...newExp,
+          created_at: new Date().toISOString(),
+        });
+        localStorage.setItem("mock_db_expenses", JSON.stringify(list));
+      } catch (e) {}
+
+      // Remove from drafts
+      setNewTableRows((prev) => prev.filter((r) => r.tempId !== tempId));
+      setSaveSuccessNotice("Nouvelle dépense ajoutée avec succès au tableau !");
+      setTimeout(() => setSaveSuccessNotice(null), 3500);
+      fetchExpenses();
+    } catch (err) {
+      console.error("Error creating expense row:", err);
+      alert("Erreur lors de l'enregistrement de la ligne.");
+    } finally {
+      setSavingNewRowId(null);
+    }
+  };
+
   const handleDelete = async (id: string) => {
     if (!window.confirm("Êtes-vous sûr de vouloir supprimer cette dépense ?")) return;
     await supabase.from("expenses").delete().eq("id", id);
@@ -388,6 +473,16 @@ export function CashierExpenses() {
             <RefreshCw size={15} className={loading ? "animate-spin" : ""} />
           </button>
 
+          {/* Bouton Ajouter une ligne directement dans le tableau */}
+          <button
+            onClick={addNewTableRow}
+            className="px-3.5 py-2 bg-emerald-700 hover:bg-emerald-800 text-white rounded-lg text-xs font-bold flex items-center gap-1.5 shadow-sm transition"
+            title="Ajouter une nouvelle ligne directement dans le tableau"
+          >
+            <Plus size={15} />
+            <span>Ajouter une ligne</span>
+          </button>
+
           {/* Toggle Full Table Edit Button */}
           {!isFullTableEdit ? (
             <button
@@ -424,7 +519,7 @@ export function CashierExpenses() {
             onClick={() => setShowForm(!showForm)}
             className="px-4 py-2 bg-emerald-600 text-white rounded-lg text-xs font-bold uppercase tracking-wider hover:bg-emerald-700 transition flex items-center gap-1.5 shadow-sm"
           >
-            <Plus size={16} /> Enregistrer une dépense
+            <Plus size={16} /> Enregistrer via formulaire
           </button>
         </div>
       </div>
@@ -458,7 +553,7 @@ export function CashierExpenses() {
         </div>
       )}
 
-      {/* Formulaire d'ajout rapide */}
+      {/* Formulaire d'ajout rapide (optionnel) */}
       {showForm && (
         <form
           onSubmit={handleCreate}
@@ -558,7 +653,7 @@ export function CashierExpenses() {
         </form>
       )}
 
-      {/* TABLE DES DÉPENSES AVEC MODIFICATION DIRECTE */}
+      {/* TABLE DES DÉPENSES AVEC MODIFICATION DIRECTE & AJOUT DE LIGNES */}
       <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse text-xs">
@@ -573,6 +668,129 @@ export function CashierExpenses() {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 font-medium">
+              {/* LIGNES AJOUTÉES DIRECTEMENT DANS LE TABLEAU (NOUVELLES LIGNES) */}
+              {newTableRows.map((draftRow, index) => (
+                <tr
+                  key={draftRow.tempId}
+                  className="bg-emerald-50/70 border-l-4 border-l-emerald-500 animate-in fade-in transition-colors"
+                >
+                  {/* Date Input */}
+                  <td className="px-4 py-3 whitespace-nowrap">
+                    <input
+                      type="date"
+                      value={draftRow.expenseDate}
+                      onChange={(e) => updateNewTableRowField(draftRow.tempId, "expenseDate", e.target.value)}
+                      className="px-2.5 py-1.5 bg-white border border-emerald-400 rounded-lg text-xs font-bold outline-none focus:ring-2 focus:ring-emerald-500 shadow-2xs"
+                    />
+                  </td>
+
+                  {/* Description Input */}
+                  <td className="px-4 py-3">
+                    <input
+                      type="text"
+                      autoFocus={index === 0}
+                      value={draftRow.description}
+                      onChange={(e) => updateNewTableRowField(draftRow.tempId, "description", e.target.value)}
+                      placeholder="Saisissez le motif de la nouvelle dépense..."
+                      className="w-full px-2.5 py-1.5 bg-white border border-emerald-400 rounded-lg text-xs font-medium outline-none focus:ring-2 focus:ring-emerald-500 shadow-2xs"
+                    />
+                  </td>
+
+                  {/* Catégorie Select */}
+                  <td className="px-4 py-3 whitespace-nowrap">
+                    <select
+                      value={draftRow.category}
+                      onChange={(e) => updateNewTableRowField(draftRow.tempId, "category", e.target.value)}
+                      className="px-2.5 py-1.5 bg-white border border-emerald-400 rounded-lg text-xs outline-none focus:ring-2 focus:ring-emerald-500 font-medium shadow-2xs"
+                    >
+                      {EXPENSE_CATEGORIES.map((c) => (
+                        <option key={c.value} value={c.value}>
+                          {c.label}
+                        </option>
+                      ))}
+                    </select>
+                  </td>
+
+                  {/* Justificatif Upload */}
+                  <td className="px-4 py-3 text-center whitespace-nowrap">
+                    <div className="flex items-center justify-center gap-1.5">
+                      <label className="cursor-pointer px-2.5 py-1 bg-white border border-emerald-400 text-emerald-700 hover:bg-emerald-100 rounded-md text-[11px] font-bold flex items-center gap-1 shadow-2xs">
+                        <Upload size={12} />
+                        <span>{draftRow.proofUrl ? "Remplacer" : "Ajouter justificatif"}</span>
+                        <input
+                          type="file"
+                          accept="image/*,application/pdf"
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (file) {
+                              const reader = new FileReader();
+                              reader.onloadend = () => {
+                                updateNewTableRowField(draftRow.tempId, "proofUrl", reader.result as string);
+                              };
+                              reader.readAsDataURL(file);
+                            }
+                          }}
+                          className="hidden"
+                        />
+                      </label>
+                      {draftRow.proofUrl && (
+                        <button
+                          type="button"
+                          onClick={() =>
+                            openProofViewer({
+                              url: draftRow.proofUrl!,
+                              description: draftRow.description || "Nouvelle dépense",
+                              amount: Number(draftRow.amount) || 0,
+                              date: draftRow.expenseDate,
+                              category: draftRow.category,
+                            }, true)
+                          }
+                          className="p-1 text-emerald-700 hover:text-emerald-900 bg-white rounded border border-emerald-300 shadow-2xs"
+                          title="Agrandir en plein écran"
+                        >
+                          <Maximize2 size={13} />
+                        </button>
+                      )}
+                    </div>
+                  </td>
+
+                  {/* Montant Input */}
+                  <td className="px-4 py-3 text-right whitespace-nowrap">
+                    <input
+                      type="number"
+                      min="0"
+                      value={draftRow.amount}
+                      onChange={(e) => updateNewTableRowField(draftRow.tempId, "amount", e.target.value)}
+                      placeholder="Montant FCFA"
+                      className="w-28 px-2.5 py-1.5 bg-white border border-emerald-400 rounded-lg text-xs font-bold text-rose-600 text-right outline-none focus:ring-2 focus:ring-emerald-500 shadow-2xs"
+                    />
+                  </td>
+
+                  {/* Actions for draft row */}
+                  <td className="px-4 py-3 text-center whitespace-nowrap">
+                    <div className="flex items-center justify-center gap-1.5">
+                      <button
+                        onClick={() => saveNewTableRow(draftRow.tempId)}
+                        disabled={savingNewRowId === draftRow.tempId}
+                        className="px-2.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold flex items-center gap-1 shadow-sm transition"
+                        title="Enregistrer cette nouvelle ligne"
+                      >
+                        <Check size={14} className={savingNewRowId === draftRow.tempId ? "animate-spin" : ""} />
+                        <span>{savingNewRowId === draftRow.tempId ? "Enregistrement..." : "Enregistrer"}</span>
+                      </button>
+                      <button
+                        onClick={() => removeNewTableRow(draftRow.tempId)}
+                        disabled={savingNewRowId === draftRow.tempId}
+                        className="px-2.5 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200 rounded-lg text-xs font-bold flex items-center gap-1 transition"
+                        title="Annuler l'ajout de cette ligne"
+                      >
+                        <Trash2 size={14} />
+                        <span>Supprimer</span>
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
               {expenses.map((exp) => {
                 // If in full table batch mode, render inputs for all rows
                 if (isFullTableEdit) {
@@ -896,7 +1114,7 @@ export function CashierExpenses() {
                 );
               })}
 
-              {expenses.length === 0 && (
+              {expenses.length === 0 && newTableRows.length === 0 && (
                 <tr>
                   <td colSpan={6} className="px-6 py-12 text-center text-slate-400 text-sm">
                     Aucune dépense enregistrée pour le moment.
@@ -905,6 +1123,32 @@ export function CashierExpenses() {
               )}
             </tbody>
           </table>
+        </div>
+
+        {/* Table Bottom Action Footer */}
+        <div className="p-3 bg-slate-50 border-t border-slate-200 flex flex-col sm:flex-row items-center justify-between gap-2 text-xs">
+          <div className="flex items-center gap-2">
+            <button
+              onClick={addNewTableRow}
+              className="px-3.5 py-1.5 bg-emerald-700 hover:bg-emerald-800 text-white rounded-lg font-bold flex items-center gap-1.5 shadow-2xs transition"
+            >
+              <Plus size={14} />
+              <span>+ Ajouter une autre ligne au tableau</span>
+            </button>
+            {isFullTableEdit && (
+              <span className="text-indigo-700 font-semibold text-[11px]">
+                Mode édition active : toutes les cellules sont modifiables.
+              </span>
+            )}
+          </div>
+          <div className="text-slate-500 font-medium">
+            Total : <strong className="text-slate-800">{expenses.length} dépense{expenses.length > 1 ? "s" : ""}</strong>
+            {newTableRows.length > 0 && (
+              <span className="ml-2 px-2 py-0.5 bg-emerald-100 text-emerald-800 rounded font-bold">
+                +{newTableRows.length} en cours d'ajout
+              </span>
+            )}
+          </div>
         </div>
       </div>
 

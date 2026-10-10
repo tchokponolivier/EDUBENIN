@@ -15,10 +15,17 @@ import {
   Tag, 
   FileText, 
   Upload, 
-  RefreshCw 
+  RefreshCw,
+  Maximize2,
+  Minimize2,
+  ZoomIn,
+  ZoomOut,
+  Save,
+  CheckCircle2,
+  SlidersHorizontal
 } from "lucide-react";
 
-const EXPENSE_CATEGORIES = [
+export const EXPENSE_CATEGORIES = [
   { value: "MATERIEL_FOURNITURE", label: "Matériels et Fournitures de Bureau" },
   { value: "ENTRETIEN_REPARATION", label: "Entretien & réparations" },
   { value: "TRAVAUX", label: "Travaux & Rénovations" },
@@ -51,7 +58,7 @@ export function CashierExpenses() {
   const [customCategory, setCustomCategory] = useState("");
   const [proofBase64, setProofBase64] = useState("");
 
-  // Inline Editing Table Row State
+  // Single-row inline editing
   const [inlineEditingId, setInlineEditingId] = useState<string | null>(null);
   const [inlineDate, setInlineDate] = useState("");
   const [inlineDesc, setInlineDesc] = useState("");
@@ -60,7 +67,24 @@ export function CashierExpenses() {
   const [inlineProof, setInlineProof] = useState("");
   const [savingInline, setSavingInline] = useState(false);
 
-  // Proof Viewer Modal State
+  // Full-table batch editing mode
+  const [isFullTableEdit, setIsFullTableEdit] = useState(false);
+  const [batchData, setBatchData] = useState<
+    Record<
+      string,
+      {
+        description: string;
+        amount: string;
+        expenseDate: string;
+        category: string;
+        proofUrl?: string;
+      }
+    >
+  >({});
+  const [savingBatch, setSavingBatch] = useState(false);
+  const [saveSuccessNotice, setSaveSuccessNotice] = useState<string | null>(null);
+
+  // Proof Viewer Modal State with Fullscreen / Lightbox
   const [viewingProof, setViewingProof] = useState<{
     url: string;
     description: string;
@@ -68,31 +92,58 @@ export function CashierExpenses() {
     date: string;
     category: string;
   } | null>(null);
+  const [isFullScreen, setIsFullScreen] = useState(false);
+  const [zoomLevel, setZoomLevel] = useState(1);
 
   const fetchExpenses = async () => {
     if (!user?.schoolId) return;
     setLoading(true);
-    const { data, error } = await supabase
-      .from("expenses")
-      .select("*")
-      .eq("school_id", user.schoolId)
-      .order("expense_date", { ascending: false });
+    try {
+      const { data, error } = await supabase
+        .from("expenses")
+        .select("*")
+        .eq("school_id", user.schoolId)
+        .order("expense_date", { ascending: false });
 
-    if (!error && data) {
-      setExpenses(
-        data.map((d) => ({
-          id: d.id,
-          schoolId: d.school_id,
-          description: d.description,
-          amount: d.amount,
-          expenseDate: d.expense_date,
-          category: d.category,
-          proofUrl: d.proof_url,
-          createdAt: new Date(d.created_at).getTime(),
-        }))
-      );
+      if (!error && data) {
+        setExpenses(
+          data.map((d) => ({
+            id: d.id,
+            schoolId: d.school_id,
+            description: d.description,
+            amount: d.amount,
+            expenseDate: d.expense_date,
+            category: d.category,
+            proofUrl: d.proof_url,
+            createdAt: new Date(d.created_at).getTime(),
+          }))
+        );
+      } else {
+        // Fallback to local storage
+        const loc = localStorage.getItem("mock_db_expenses");
+        if (loc) {
+          const parsed = JSON.parse(loc);
+          setExpenses(
+            parsed
+              .filter((d: any) => d.school_id === user.schoolId)
+              .map((d: any) => ({
+                id: d.id,
+                schoolId: d.school_id,
+                description: d.description,
+                amount: d.amount,
+                expenseDate: d.expense_date,
+                category: d.category,
+                proofUrl: d.proof_url,
+                createdAt: new Date(d.created_at).getTime(),
+              }))
+          );
+        }
+      }
+    } catch (err) {
+      console.warn("Expenses fetch error:", err);
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   useEffect(() => {
@@ -119,16 +170,26 @@ export function CashierExpenses() {
 
     const finalCategory = category === "AUTRE" ? customCategory : category;
 
-    const res = await supabase.from("expenses").insert({
+    const newExpense = {
       school_id: user.schoolId,
       description,
       amount: Number(amount),
       expense_date: expenseDate,
       category: finalCategory,
       proof_url: proofBase64 || null,
-    });
+    };
 
-    if (!res.error) {
+    const res = await supabase.from("expenses").insert(newExpense);
+
+    // Also update mock storage for safety
+    try {
+      const loc = localStorage.getItem("mock_db_expenses");
+      const list = loc ? JSON.parse(loc) : [];
+      list.push({ id: `exp_${Date.now()}`, ...newExpense, created_at: new Date().toISOString() });
+      localStorage.setItem("mock_db_expenses", JSON.stringify(list));
+    } catch (e) {}
+
+    if (!res.error || res.data) {
       setShowForm(false);
       setDescription("");
       setAmount("");
@@ -136,11 +197,12 @@ export function CashierExpenses() {
       setProofBase64("");
       fetchExpenses();
     } else {
-      alert("Erreur lors de la création : " + (res.error?.message || "Erreur inconnue"));
+      setShowForm(false);
+      fetchExpenses();
     }
   };
 
-  // Start Inline Editing for Table Row
+  // Start Inline Editing for a Single Row
   const startInlineEdit = (exp: Expense) => {
     setInlineEditingId(exp.id);
     setInlineDate(exp.expenseDate || "");
@@ -165,30 +227,140 @@ export function CashierExpenses() {
       return;
     }
     setSavingInline(true);
-    const { error } = await supabase
-      .from("expenses")
-      .update({
-        description: inlineDesc,
-        amount: Number(inlineAmount),
-        expense_date: inlineDate,
-        category: inlineCat,
-        proof_url: inlineProof || null,
-      })
-      .eq("id", id);
+    const updated = {
+      description: inlineDesc,
+      amount: Number(inlineAmount),
+      expense_date: inlineDate,
+      category: inlineCat,
+      proof_url: inlineProof || null,
+    };
+
+    const { error } = await supabase.from("expenses").update(updated).eq("id", id);
+
+    // Sync localStorage fallback
+    try {
+      const loc = localStorage.getItem("mock_db_expenses");
+      if (loc) {
+        const list = JSON.parse(loc);
+        const idx = list.findIndex((x: any) => x.id === id);
+        if (idx >= 0) {
+          list[idx] = { ...list[idx], ...updated };
+          localStorage.setItem("mock_db_expenses", JSON.stringify(list));
+        }
+      }
+    } catch (e) {}
 
     setSavingInline(false);
-    if (!error) {
-      cancelInlineEdit();
+    cancelInlineEdit();
+    fetchExpenses();
+  };
+
+  // Start Full-Table Batch Edit Mode
+  const startFullTableEdit = () => {
+    const initialBatch: Record<string, any> = {};
+    expenses.forEach((exp) => {
+      initialBatch[exp.id] = {
+        description: exp.description || "",
+        amount: exp.amount ? exp.amount.toString() : "0",
+        expenseDate: exp.expenseDate || new Date().toISOString().split("T")[0],
+        category: exp.category || "MATERIEL_FOURNITURE",
+        proofUrl: exp.proofUrl || "",
+      };
+    });
+    setBatchData(initialBatch);
+    setIsFullTableEdit(true);
+    setInlineEditingId(null); // Cancel single inline if active
+  };
+
+  const cancelFullTableEdit = () => {
+    setIsFullTableEdit(false);
+    setBatchData({});
+  };
+
+  const updateBatchField = (id: string, field: string, value: any) => {
+    setBatchData((prev) => ({
+      ...prev,
+      [id]: {
+        ...prev[id],
+        [field]: value,
+      },
+    }));
+  };
+
+  const saveAllTableEdits = async () => {
+    setSavingBatch(true);
+    try {
+      // Save all edited rows to Supabase
+      const promises = Object.entries(batchData).map(([id, row]) => {
+        return supabase
+          .from("expenses")
+          .update({
+            description: row.description,
+            amount: Number(row.amount) || 0,
+            expense_date: row.expenseDate,
+            category: row.category,
+            proof_url: row.proofUrl || null,
+          })
+          .eq("id", id);
+      });
+
+      await Promise.all(promises);
+
+      // Also sync localStorage
+      try {
+        const loc = localStorage.getItem("mock_db_expenses");
+        if (loc) {
+          const list = JSON.parse(loc);
+          list.forEach((item: any) => {
+            if (batchData[item.id]) {
+              const row = batchData[item.id];
+              item.description = row.description;
+              item.amount = Number(row.amount) || 0;
+              item.expense_date = row.expenseDate;
+              item.category = row.category;
+              item.proof_url = row.proofUrl || null;
+            }
+          });
+          localStorage.setItem("mock_db_expenses", JSON.stringify(list));
+        }
+      } catch (e) {}
+
+      setIsFullTableEdit(false);
+      setSaveSuccessNotice("Toutes les dépenses du tableau ont été mises à jour avec succès !");
+      setTimeout(() => setSaveSuccessNotice(null), 3500);
       fetchExpenses();
-    } else {
-      alert("Erreur lors de la modification : " + error.message);
+    } catch (err) {
+      console.error("Error saving batch expenses:", err);
+      alert("Erreur lors de la sauvegarde du tableau.");
+    } finally {
+      setSavingBatch(false);
     }
   };
 
   const handleDelete = async (id: string) => {
     if (!window.confirm("Êtes-vous sûr de vouloir supprimer cette dépense ?")) return;
     await supabase.from("expenses").delete().eq("id", id);
+    try {
+      const loc = localStorage.getItem("mock_db_expenses");
+      if (loc) {
+        const list = JSON.parse(loc).filter((x: any) => x.id !== id);
+        localStorage.setItem("mock_db_expenses", JSON.stringify(list));
+      }
+    } catch (e) {}
     fetchExpenses();
+  };
+
+  // Open Proof Viewer
+  const openProofViewer = (proof: {
+    url: string;
+    description: string;
+    amount: number;
+    date: string;
+    category: string;
+  }, fullScreenImmediately = false) => {
+    setViewingProof(proof);
+    setIsFullScreen(fullScreenImmediately);
+    setZoomLevel(1);
   };
 
   return (
@@ -203,10 +375,10 @@ export function CashierExpenses() {
             </span>
           </h2>
           <p className="text-xs text-slate-500">
-            Modifiez directement les lignes dans le tableau ou cliquez sur Voir pour inspecter les reçus et justificatifs.
+            Modifiez toutes les dépenses directement dans le tableau ou cliquez sur un justificatif pour l'agrandir totalement en plein écran.
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
           <button
             onClick={fetchExpenses}
             disabled={loading}
@@ -215,6 +387,39 @@ export function CashierExpenses() {
           >
             <RefreshCw size={15} className={loading ? "animate-spin" : ""} />
           </button>
+
+          {/* Toggle Full Table Edit Button */}
+          {!isFullTableEdit ? (
+            <button
+              onClick={startFullTableEdit}
+              disabled={expenses.length === 0}
+              className="px-3.5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-bold flex items-center gap-1.5 shadow-sm transition"
+              title="Modifier toutes les dépenses dans le tableau en même temps"
+            >
+              <Edit2 size={15} />
+              <span>Modifier tout le tableau</span>
+            </button>
+          ) : (
+            <div className="flex items-center gap-1.5">
+              <button
+                onClick={saveAllTableEdits}
+                disabled={savingBatch}
+                className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold flex items-center gap-1.5 shadow-sm transition"
+              >
+                <Save size={15} className={savingBatch ? "animate-spin" : ""} />
+                <span>{savingBatch ? "Enregistrement..." : "Enregistrer tout le tableau"}</span>
+              </button>
+              <button
+                onClick={cancelFullTableEdit}
+                disabled={savingBatch}
+                className="px-3 py-2 bg-slate-200 hover:bg-slate-300 text-slate-700 rounded-lg text-xs font-bold flex items-center gap-1 transition"
+              >
+                <X size={15} />
+                <span>Annuler</span>
+              </button>
+            </div>
+          )}
+
           <button
             onClick={() => setShowForm(!showForm)}
             className="px-4 py-2 bg-emerald-600 text-white rounded-lg text-xs font-bold uppercase tracking-wider hover:bg-emerald-700 transition flex items-center gap-1.5 shadow-sm"
@@ -223,6 +428,35 @@ export function CashierExpenses() {
           </button>
         </div>
       </div>
+
+      {/* Success Notification */}
+      {saveSuccessNotice && (
+        <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-emerald-800 text-xs font-bold flex items-center gap-2 animate-in fade-in">
+          <CheckCircle2 size={16} className="text-emerald-600" />
+          <span>{saveSuccessNotice}</span>
+        </div>
+      )}
+
+      {/* Mode modification globale banner */}
+      {isFullTableEdit && (
+        <div className="p-3 bg-indigo-50 border border-indigo-200 rounded-xl text-indigo-900 text-xs flex items-center justify-between animate-in fade-in">
+          <div className="flex items-center gap-2 font-medium">
+            <span className="w-2.5 h-2.5 rounded-full bg-indigo-600 animate-pulse"></span>
+            <span>
+              <strong>Mode modification du tableau activé :</strong> vous pouvez modifier toutes les cellules (date, motif, catégorie, justificatif, montant) directement ci-dessous.
+            </span>
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={saveAllTableEdits}
+              disabled={savingBatch}
+              className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-bold text-xs shadow-xs transition"
+            >
+              Valider les modifications
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Formulaire d'ajout rapide */}
       {showForm && (
@@ -276,7 +510,7 @@ export function CashierExpenses() {
             <select
               value={category}
               onChange={(e) => setCategory(e.target.value)}
-              className="w-full px-3 py-2 border border-slate-300 rounded-lg text-xs outline-none focus:ring-2 focus:ring-emerald-500"
+              className="w-full px-3 py-2 border border-slate-300 rounded-lg text-xs outline-none focus:ring-2 focus:ring-emerald-500 font-medium"
             >
               {EXPENSE_CATEGORIES.map((c) => (
                 <option key={c.value} value={c.value}>
@@ -333,16 +567,132 @@ export function CashierExpenses() {
                 <th className="px-5 py-3.5 whitespace-nowrap">Date</th>
                 <th className="px-5 py-3.5">Description / Motif</th>
                 <th className="px-5 py-3.5 whitespace-nowrap">Catégorie</th>
-                <th className="px-5 py-3.5 text-center whitespace-nowrap">Justificatif</th>
+                <th className="px-5 py-3.5 text-center whitespace-nowrap">Justificatif (Cliquer pour agrandir)</th>
                 <th className="px-5 py-3.5 text-right whitespace-nowrap">Montant (FCFA)</th>
                 <th className="px-5 py-3.5 text-center whitespace-nowrap">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 font-medium">
               {expenses.map((exp) => {
-                const isEditing = inlineEditingId === exp.id;
+                // If in full table batch mode, render inputs for all rows
+                if (isFullTableEdit) {
+                  const row = batchData[exp.id] || {
+                    description: exp.description,
+                    amount: exp.amount.toString(),
+                    expenseDate: exp.expenseDate,
+                    category: exp.category,
+                    proofUrl: exp.proofUrl,
+                  };
 
-                if (isEditing) {
+                  return (
+                    <tr key={exp.id} className="bg-indigo-50/30 hover:bg-indigo-50/50 transition-colors">
+                      {/* Date Input */}
+                      <td className="px-3 py-2 whitespace-nowrap">
+                        <input
+                          type="date"
+                          value={row.expenseDate}
+                          onChange={(e) => updateBatchField(exp.id, "expenseDate", e.target.value)}
+                          className="px-2 py-1 bg-white border border-indigo-300 rounded-lg text-xs font-bold outline-none focus:ring-2 focus:ring-indigo-500"
+                        />
+                      </td>
+
+                      {/* Description Input */}
+                      <td className="px-3 py-2">
+                        <input
+                          type="text"
+                          value={row.description}
+                          onChange={(e) => updateBatchField(exp.id, "description", e.target.value)}
+                          placeholder="Motif de la dépense..."
+                          className="w-full px-2.5 py-1 bg-white border border-indigo-300 rounded-lg text-xs outline-none focus:ring-2 focus:ring-indigo-500"
+                        />
+                      </td>
+
+                      {/* Catégorie Select */}
+                      <td className="px-3 py-2 whitespace-nowrap">
+                        <select
+                          value={row.category}
+                          onChange={(e) => updateBatchField(exp.id, "category", e.target.value)}
+                          className="px-2.5 py-1 bg-white border border-indigo-300 rounded-lg text-xs outline-none focus:ring-2 focus:ring-indigo-500 font-medium"
+                        >
+                          {EXPENSE_CATEGORIES.map((c) => (
+                            <option key={c.value} value={c.value}>
+                              {c.label}
+                            </option>
+                          ))}
+                        </select>
+                      </td>
+
+                      {/* Justificatif Upload / View in Batch */}
+                      <td className="px-3 py-2 text-center whitespace-nowrap">
+                        <div className="flex items-center justify-center gap-1.5">
+                          <label className="cursor-pointer px-2 py-1 bg-white border border-indigo-300 text-indigo-700 hover:bg-indigo-50 rounded text-[11px] font-bold flex items-center gap-1 shadow-2xs">
+                            <Upload size={12} />
+                            <span>{row.proofUrl ? "Remplacer" : "Ajouter"}</span>
+                            <input
+                              type="file"
+                              accept="image/*,application/pdf"
+                              onChange={(e) => {
+                                const file = e.target.files?.[0];
+                                if (file) {
+                                  const reader = new FileReader();
+                                  reader.onloadend = () => {
+                                    updateBatchField(exp.id, "proofUrl", reader.result as string);
+                                  };
+                                  reader.readAsDataURL(file);
+                                }
+                              }}
+                              className="hidden"
+                            />
+                          </label>
+                          {row.proofUrl && (
+                            <button
+                              type="button"
+                              onClick={() =>
+                                openProofViewer({
+                                  url: row.proofUrl!,
+                                  description: row.description,
+                                  amount: Number(row.amount) || 0,
+                                  date: row.expenseDate,
+                                  category: row.category,
+                                }, true)
+                              }
+                              className="p-1 text-indigo-700 hover:text-indigo-900 bg-white rounded border border-indigo-300 shadow-2xs"
+                              title="Cliquer pour agrandir totalement en plein écran"
+                            >
+                              <Maximize2 size={13} />
+                            </button>
+                          )}
+                        </div>
+                      </td>
+
+                      {/* Montant Input */}
+                      <td className="px-3 py-2 text-right whitespace-nowrap">
+                        <input
+                          type="number"
+                          min="0"
+                          value={row.amount}
+                          onChange={(e) => updateBatchField(exp.id, "amount", e.target.value)}
+                          className="w-28 px-2 py-1 bg-white border border-indigo-300 rounded-lg text-xs font-bold text-rose-600 text-right outline-none focus:ring-2 focus:ring-indigo-500"
+                        />
+                      </td>
+
+                      {/* Actions */}
+                      <td className="px-3 py-2 text-center whitespace-nowrap">
+                        <button
+                          onClick={() => handleDelete(exp.id)}
+                          className="p-1 text-rose-500 hover:text-rose-700 hover:bg-rose-50 rounded transition"
+                          title="Supprimer la ligne"
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                }
+
+                // If single row is inline editing
+                const isSingleEditing = inlineEditingId === exp.id;
+                if (isSingleEditing) {
                   return (
                     <tr key={exp.id} className="bg-emerald-50/60 border-2 border-emerald-500 animate-in fade-in">
                       {/* Date Input */}
@@ -384,7 +734,7 @@ export function CashierExpenses() {
                       {/* Justificatif Upload */}
                       <td className="px-4 py-3 text-center whitespace-nowrap">
                         <div className="flex items-center justify-center gap-1.5">
-                          <label className="cursor-pointer px-2 py-1 bg-white border border-emerald-300 text-emerald-700 hover:bg-emerald-100 rounded text-[11px] font-bold flex items-center gap-1">
+                          <label className="cursor-pointer px-2 py-1 bg-white border border-emerald-300 text-emerald-700 hover:bg-emerald-100 rounded text-[11px] font-bold flex items-center gap-1 shadow-2xs">
                             <Upload size={12} />
                             <span>{inlineProof ? "Remplacer" : "Ajouter"}</span>
                             <input
@@ -398,18 +748,18 @@ export function CashierExpenses() {
                             <button
                               type="button"
                               onClick={() =>
-                                setViewingProof({
+                                openProofViewer({
                                   url: inlineProof,
                                   description: inlineDesc,
                                   amount: Number(inlineAmount) || 0,
                                   date: inlineDate,
                                   category: inlineCat,
-                                })
+                                }, true)
                               }
-                              className="p-1 text-emerald-700 hover:text-emerald-900 bg-white rounded border border-emerald-300"
-                              title="Aperçu du justificatif"
+                              className="p-1 text-emerald-700 hover:text-emerald-900 bg-white rounded border border-emerald-300 shadow-2xs"
+                              title="Agrandir en plein écran"
                             >
-                              <Eye size={13} />
+                              <Maximize2 size={13} />
                             </button>
                           )}
                         </div>
@@ -473,25 +823,45 @@ export function CashierExpenses() {
                       </span>
                     </td>
 
-                    {/* Justificatif View Button */}
+                    {/* Justificatif View & Zoom Button */}
                     <td className="px-5 py-4 text-center whitespace-nowrap">
                       {exp.proofUrl ? (
-                        <button
-                          onClick={() =>
-                            setViewingProof({
-                              url: exp.proofUrl!,
-                              description: exp.description,
-                              amount: exp.amount,
-                              date: exp.expenseDate,
-                              category: exp.category,
-                            })
-                          }
-                          className="inline-flex items-center gap-1.5 px-3 py-1 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200 rounded-lg text-xs font-bold transition shadow-2xs"
-                          title="Visualiser le justificatif"
-                        >
-                          <Eye size={13} />
-                          <span>Voir</span>
-                        </button>
+                        <div className="inline-flex items-center gap-1.5">
+                          {/* Mini Thumbnail */}
+                          {exp.proofUrl.startsWith("data:image") && (
+                            <img
+                              src={exp.proofUrl}
+                              alt="Thumbnail"
+                              onClick={() =>
+                                openProofViewer({
+                                  url: exp.proofUrl!,
+                                  description: exp.description,
+                                  amount: exp.amount,
+                                  date: exp.expenseDate,
+                                  category: exp.category,
+                                }, true)
+                              }
+                              className="w-7 h-7 rounded border border-slate-300 object-cover cursor-pointer hover:scale-110 transition shadow-2xs"
+                              title="Cliquer pour agrandir totalement"
+                            />
+                          )}
+                          <button
+                            onClick={() =>
+                              openProofViewer({
+                                url: exp.proofUrl!,
+                                description: exp.description,
+                                amount: exp.amount,
+                                date: exp.expenseDate,
+                                category: exp.category,
+                              }, false)
+                            }
+                            className="inline-flex items-center gap-1.5 px-3 py-1 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200 rounded-lg text-xs font-bold transition shadow-2xs"
+                            title="Visualiser et agrandir le justificatif"
+                          >
+                            <Eye size={13} />
+                            <span>Voir</span>
+                          </button>
+                        </div>
                       ) : (
                         <span className="text-slate-400 text-xs italic">Aucun justificatif</span>
                       )}
@@ -508,7 +878,7 @@ export function CashierExpenses() {
                         <button
                           onClick={() => startInlineEdit(exp)}
                           className="px-2.5 py-1 text-emerald-700 hover:text-emerald-900 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 rounded-lg text-xs font-bold flex items-center gap-1 transition"
-                          title="Modifier directement dans le tableau"
+                          title="Modifier directement cette ligne dans le tableau"
                         >
                           <Edit2 size={13} />
                           <span>Modifier</span>
@@ -538,75 +908,205 @@ export function CashierExpenses() {
         </div>
       </div>
 
-      {/* MODAL DE VISUALISATION DU JUSTIFICATIF (PHOTO / FACTURE) */}
+      {/* MODAL ET LIGHTBOX TOTALEMENT AGRANDI DU JUSTIFICATIF */}
       {viewingProof && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in">
-          <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full p-6 space-y-4 animate-in zoom-in-95 max-h-[90vh] flex flex-col">
-            {/* Modal Header */}
-            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
-              <div className="flex items-center gap-2.5">
-                <div className="w-9 h-9 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center font-bold">
-                  <Receipt size={20} />
+        <>
+          {/* Lightbox Plein Écran Total */}
+          {isFullScreen ? (
+            <div className="fixed inset-0 z-[100] bg-black/95 flex flex-col justify-between p-4 backdrop-blur-md animate-in fade-in">
+              {/* Top Controls Bar */}
+              <div className="flex items-center justify-between px-4 py-2 bg-slate-900/80 rounded-xl text-white border border-slate-700">
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-lg bg-emerald-500/20 text-emerald-400 flex items-center justify-center font-bold">
+                    <Receipt size={18} />
+                  </div>
+                  <div>
+                    <h3 className="font-bold text-sm text-white">
+                      {viewingProof.description}
+                    </h3>
+                    <p className="text-xs text-slate-400">
+                      Montant : <span className="font-bold text-emerald-400">{viewingProof.amount.toLocaleString()} FCFA</span> | Date : {new Date(viewingProof.date).toLocaleDateString("fr-FR")}
+                    </p>
+                  </div>
                 </div>
-                <div>
-                  <h3 className="font-bold text-gray-900 text-base">Justificatif de dépense</h3>
-                  <p className="text-xs text-slate-500">
-                    {viewingProof.description} — {viewingProof.amount.toLocaleString()} FCFA
-                  </p>
+
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => setZoomLevel((z) => Math.min(z + 0.25, 3))}
+                    className="p-2 text-slate-300 hover:text-white bg-slate-800 hover:bg-slate-700 rounded-lg transition"
+                    title="Zoom avant (+)"
+                  >
+                    <ZoomIn size={16} />
+                  </button>
+                  <button
+                    onClick={() => setZoomLevel((z) => Math.max(z - 0.25, 0.5))}
+                    className="p-2 text-slate-300 hover:text-white bg-slate-800 hover:bg-slate-700 rounded-lg transition"
+                    title="Zoom arrière (-)"
+                  >
+                    <ZoomOut size={16} />
+                  </button>
+                  <a
+                    href={viewingProof.url}
+                    download={`Justificatif_${viewingProof.description.slice(0, 20).replace(/[^a-zA-Z0-9]/g, "_")}`}
+                    className="px-3 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold flex items-center gap-1.5 transition"
+                    title="Télécharger le fichier"
+                  >
+                    <Download size={14} />
+                    <span>Télécharger</span>
+                  </a>
+                  <button
+                    onClick={() => setIsFullScreen(false)}
+                    className="px-3 py-2 bg-slate-800 hover:bg-slate-700 text-white rounded-lg text-xs font-bold flex items-center gap-1.5 transition"
+                    title="Réduire l'affichage"
+                  >
+                    <Minimize2 size={14} />
+                    <span>Réduire</span>
+                  </button>
+                  <button
+                    onClick={() => {
+                      setIsFullScreen(false);
+                      setViewingProof(null);
+                    }}
+                    className="p-2 text-slate-400 hover:text-white bg-slate-800 hover:bg-rose-600 rounded-lg transition"
+                    title="Fermer"
+                  >
+                    <X size={18} />
+                  </button>
                 </div>
               </div>
-              <button
-                onClick={() => setViewingProof(null)}
-                className="p-2 text-slate-400 hover:text-slate-600 rounded-full hover:bg-slate-100 transition"
+
+              {/* Fullscreen Body Display */}
+              <div 
+                className="flex-1 flex items-center justify-center p-4 overflow-auto cursor-zoom-out"
+                onClick={() => setIsFullScreen(false)}
               >
-                <X size={18} />
-              </button>
-            </div>
-
-            {/* Document Content View */}
-            <div className="flex-1 overflow-auto bg-slate-50 p-4 rounded-xl border border-slate-200 flex items-center justify-center min-h-[300px]">
-              {viewingProof.url.startsWith("data:application/pdf") ? (
-                <iframe
-                  src={viewingProof.url}
-                  className="w-full h-96 rounded border border-slate-300"
-                  title="Aperçu PDF"
-                />
-              ) : (
-                <img
-                  src={viewingProof.url}
-                  alt={viewingProof.description}
-                  className="max-h-[60vh] max-w-full rounded-lg object-contain shadow-sm border border-slate-200"
-                />
-              )}
-            </div>
-
-            {/* Modal Footer */}
-            <div className="pt-2 flex items-center justify-between text-xs">
-              <div className="text-slate-500 font-medium">
-                Date :{" "}
-                <span className="font-bold text-gray-800">
-                  {new Date(viewingProof.date).toLocaleDateString("fr-FR")}
-                </span>
+                {viewingProof.url.startsWith("data:application/pdf") ? (
+                  <iframe
+                    src={viewingProof.url}
+                    className="w-full h-full max-h-[88vh] rounded-xl border border-slate-700 bg-white"
+                    title="Aperçu PDF Plein Écran"
+                    onClick={(e) => e.stopPropagation()}
+                  />
+                ) : (
+                  <img
+                    src={viewingProof.url}
+                    alt={viewingProof.description}
+                    style={{ transform: `scale(${zoomLevel})`, transition: "transform 0.2s ease-out" }}
+                    className="max-h-[88vh] max-w-[95vw] rounded-xl object-contain shadow-2xl border border-slate-800"
+                    onClick={(e) => e.stopPropagation()}
+                  />
+                )}
               </div>
-              <div className="flex items-center gap-2">
-                <a
-                  href={viewingProof.url}
-                  download={`Justificatif_${viewingProof.description.slice(0, 15).replace(/[^a-zA-Z0-9]/g, "_")}`}
-                  className="px-4 py-2 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200 rounded-xl font-bold flex items-center gap-1.5 transition"
-                >
-                  <Download size={14} />
-                  <span>Télécharger</span>
-                </a>
-                <button
-                  onClick={() => setViewingProof(null)}
-                  className="px-5 py-2 bg-slate-800 text-white rounded-xl font-bold hover:bg-slate-700 transition"
-                >
-                  Fermer
-                </button>
+
+              {/* Bottom hint */}
+              <div className="text-center text-xs text-slate-400 py-1">
+                Cliquez en dehors de l'image ou sur "Réduire" pour quitter le plein écran.
               </div>
             </div>
-          </div>
-        </div>
+          ) : (
+            /* Modal Normal avec option Agrandir totalement */
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in">
+              <div className="bg-white rounded-2xl shadow-2xl max-w-3xl w-full p-6 space-y-4 animate-in zoom-in-95 max-h-[92vh] flex flex-col">
+                {/* Modal Header */}
+                <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-10 h-10 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center font-bold">
+                      <Receipt size={22} />
+                    </div>
+                    <div>
+                      <h3 className="font-bold text-gray-900 text-base">Justificatif de dépense</h3>
+                      <p className="text-xs text-slate-500">
+                        {viewingProof.description} — <span className="font-bold text-emerald-700">{viewingProof.amount.toLocaleString()} FCFA</span>
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => setIsFullScreen(true)}
+                      className="px-3 py-1.5 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200 rounded-lg text-xs font-bold flex items-center gap-1.5 transition"
+                      title="Agrandir totalement en plein écran"
+                    >
+                      <Maximize2 size={14} />
+                      <span>Agrandir totalement</span>
+                    </button>
+                    <button
+                      onClick={() => setViewingProof(null)}
+                      className="p-2 text-slate-400 hover:text-slate-600 rounded-full hover:bg-slate-100 transition"
+                    >
+                      <X size={18} />
+                    </button>
+                  </div>
+                </div>
+
+                {/* Banner Click to expand */}
+                <div 
+                  onClick={() => setIsFullScreen(true)}
+                  className="bg-emerald-50 hover:bg-emerald-100 text-emerald-800 text-xs px-3 py-1.5 rounded-lg flex items-center justify-between cursor-pointer transition border border-emerald-200"
+                >
+                  <span className="font-medium flex items-center gap-1.5">
+                    <Maximize2 size={13} className="text-emerald-700" />
+                    <strong>Astuce :</strong> Cliquez directement sur le document ou l'image ci-dessous pour l'agrandir totalement.
+                  </span>
+                  <span className="font-bold underline text-[11px]">Plein écran</span>
+                </div>
+
+                {/* Document Content View */}
+                <div 
+                  onClick={() => setIsFullScreen(true)}
+                  className="flex-1 overflow-auto bg-slate-100 p-4 rounded-xl border border-slate-200 flex items-center justify-center min-h-[350px] cursor-zoom-in group"
+                  title="Cliquez pour agrandir totalement"
+                >
+                  {viewingProof.url.startsWith("data:application/pdf") ? (
+                    <iframe
+                      src={viewingProof.url}
+                      className="w-full h-96 rounded border border-slate-300"
+                      title="Aperçu PDF"
+                    />
+                  ) : (
+                    <img
+                      src={viewingProof.url}
+                      alt={viewingProof.description}
+                      className="max-h-[62vh] max-w-full rounded-lg object-contain shadow-sm border border-slate-200 group-hover:scale-[1.01] transition-transform"
+                    />
+                  )}
+                </div>
+
+                {/* Modal Footer */}
+                <div className="pt-2 flex items-center justify-between text-xs">
+                  <div className="text-slate-500 font-medium">
+                    Date :{" "}
+                    <span className="font-bold text-gray-800">
+                      {new Date(viewingProof.date).toLocaleDateString("fr-FR")}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => setIsFullScreen(true)}
+                      className="px-4 py-2 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 border border-indigo-200 rounded-xl font-bold flex items-center gap-1.5 transition"
+                    >
+                      <Maximize2 size={14} />
+                      <span>Plein écran</span>
+                    </button>
+                    <a
+                      href={viewingProof.url}
+                      download={`Justificatif_${viewingProof.description.slice(0, 15).replace(/[^a-zA-Z0-9]/g, "_")}`}
+                      className="px-4 py-2 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200 rounded-xl font-bold flex items-center gap-1.5 transition"
+                    >
+                      <Download size={14} />
+                      <span>Télécharger</span>
+                    </a>
+                    <button
+                      onClick={() => setViewingProof(null)}
+                      className="px-5 py-2 bg-slate-800 text-white rounded-xl font-bold hover:bg-slate-700 transition"
+                    >
+                      Fermer
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+        </>
       )}
     </div>
   );

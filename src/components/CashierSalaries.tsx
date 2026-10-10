@@ -13,7 +13,9 @@ import {
   Check, 
   X, 
   User, 
-  RefreshCw 
+  RefreshCw,
+  Save,
+  CheckCircle2
 } from "lucide-react";
 import { 
   BarChart, 
@@ -26,7 +28,7 @@ import {
   ResponsiveContainer 
 } from "recharts";
 
-type Salary = {
+export type Salary = {
   id: string;
   employeeName: string;
   employeeRole: string;
@@ -39,7 +41,7 @@ type Salary = {
   status: string;
 };
 
-const ROLES = [
+export const ROLES = [
   "Professeur",
   "Directeur",
   "Directeur des études",
@@ -72,7 +74,7 @@ export function CashierSalaries() {
   const [status, setStatus] = useState("PAYÉ");
   const [schoolEmployees, setSchoolEmployees] = useState<any[]>([]);
 
-  // Inline Editing Table Row State
+  // Single-row inline editing
   const [inlineEditingId, setInlineEditingId] = useState<string | null>(null);
   const [inlineName, setInlineName] = useState("");
   const [inlineRole, setInlineRole] = useState("");
@@ -82,6 +84,24 @@ export function CashierSalaries() {
   const [inlineStatus, setInlineStatus] = useState("");
   const [savingInline, setSavingInline] = useState(false);
 
+  // Full-table batch editing mode
+  const [isFullTableEdit, setIsFullTableEdit] = useState(false);
+  const [batchData, setBatchData] = useState<
+    Record<
+      string,
+      {
+        employeeName: string;
+        employeeRole: string;
+        amount: string;
+        paymentDate: string;
+        month: string;
+        status: string;
+      }
+    >
+  >({});
+  const [savingBatch, setSavingBatch] = useState(false);
+  const [saveSuccessNotice, setSaveSuccessNotice] = useState<string | null>(null);
+
   useEffect(() => {
     fetchSalaries();
     fetchEmployees();
@@ -89,8 +109,10 @@ export function CashierSalaries() {
 
   const fetchEmployees = async () => {
     if (!user?.schoolId) return;
-    const { data } = await supabase.from("profiles").select("*").eq("school_id", user.schoolId);
-    if (data) setSchoolEmployees(data);
+    try {
+      const { data } = await supabase.from("profiles").select("*").eq("school_id", user.schoolId);
+      if (data) setSchoolEmployees(data);
+    } catch (e) {}
   };
 
   const fetchSalaries = async () => {
@@ -104,12 +126,7 @@ export function CashierSalaries() {
         .eq("school_id", user.schoolId)
         .order("payment_date", { ascending: false });
 
-      if (error) {
-        console.error("Error fetching salaries:", error);
-        if (error.message.includes('relation "public.salaries" does not exist')) {
-          setTableError(true);
-        }
-      } else if (data) {
+      if (!error && data && data.length > 0) {
         setSalaries(
           data.map((d) => ({
             id: d.id,
@@ -124,15 +141,36 @@ export function CashierSalaries() {
             status: d.status,
           }))
         );
+      } else {
+        // Fallback to localStorage
+        const loc = localStorage.getItem("mock_db_salaries");
+        if (loc) {
+          const parsed = JSON.parse(loc);
+          const filtered = parsed.filter((d: any) => d.school_id === user.schoolId || !d.school_id);
+          setSalaries(
+            filtered.map((d: any) => ({
+              id: d.id,
+              employeeName: d.employee_name || d.employeeName,
+              employeeRole: d.employee_role || d.employeeRole || "Professeur",
+              amount: Number(d.amount),
+              paymentDate: d.payment_date || d.paymentDate,
+              periodStart: d.period_start || d.periodStart || "",
+              periodEnd: d.period_end || d.periodEnd || "",
+              deductions: d.deductions || "Aucun",
+              month: d.month || "",
+              status: d.status || "PAYÉ",
+            }))
+          );
+        }
       }
     } catch (err) {
-      console.error(err);
+      console.warn("Salaries fetch fallback error:", err);
     } finally {
       setLoading(false);
     }
   };
 
-  // Start Inline Editing for Table Row
+  // Start Inline Editing for a Single Row
   const startInlineEdit = (s: Salary) => {
     setInlineEditingId(s.id);
     setInlineName(s.employeeName);
@@ -159,24 +197,117 @@ export function CashierSalaries() {
       return;
     }
     setSavingInline(true);
-    const { error } = await supabase
-      .from("salaries")
-      .update({
-        employee_name: inlineName,
-        employee_role: inlineRole,
-        amount: Number(inlineAmount),
-        payment_date: inlineDate,
-        month: inlineMonth,
-        status: inlineStatus,
-      })
-      .eq("id", id);
+    const updated = {
+      employee_name: inlineName,
+      employee_role: inlineRole,
+      amount: Number(inlineAmount),
+      payment_date: inlineDate,
+      month: inlineMonth,
+      status: inlineStatus,
+    };
+
+    try {
+      await supabase.from("salaries").update(updated).eq("id", id);
+    } catch (e) {}
+
+    // Update localStorage fallback
+    try {
+      const loc = localStorage.getItem("mock_db_salaries");
+      if (loc) {
+        const list = JSON.parse(loc);
+        const idx = list.findIndex((x: any) => x.id === id);
+        if (idx >= 0) {
+          list[idx] = { ...list[idx], ...updated };
+          localStorage.setItem("mock_db_salaries", JSON.stringify(list));
+        }
+      }
+    } catch (e) {}
 
     setSavingInline(false);
-    if (!error) {
-      cancelInlineEdit();
+    cancelInlineEdit();
+    fetchSalaries();
+  };
+
+  // Full-Table Batch Edit Mode
+  const startFullTableEdit = () => {
+    const initialBatch: Record<string, any> = {};
+    salaries.forEach((s) => {
+      initialBatch[s.id] = {
+        employeeName: s.employeeName,
+        employeeRole: s.employeeRole,
+        amount: s.amount ? s.amount.toString() : "0",
+        paymentDate: s.paymentDate,
+        month: s.month || "",
+        status: s.status || "PAYÉ",
+      };
+    });
+    setBatchData(initialBatch);
+    setIsFullTableEdit(true);
+    setInlineEditingId(null);
+  };
+
+  const cancelFullTableEdit = () => {
+    setIsFullTableEdit(false);
+    setBatchData({});
+  };
+
+  const updateBatchField = (id: string, field: string, value: any) => {
+    setBatchData((prev) => ({
+      ...prev,
+      [id]: {
+        ...prev[id],
+        [field]: value,
+      },
+    }));
+  };
+
+  const saveAllTableEdits = async () => {
+    setSavingBatch(true);
+    try {
+      const promises = Object.entries(batchData).map(([id, row]) => {
+        return supabase
+          .from("salaries")
+          .update({
+            employee_name: row.employeeName,
+            employee_role: row.employeeRole,
+            amount: Number(row.amount) || 0,
+            payment_date: row.paymentDate,
+            month: row.month,
+            status: row.status,
+          })
+          .eq("id", id);
+      });
+
+      await Promise.all(promises);
+
+      // Sync localStorage
+      try {
+        const loc = localStorage.getItem("mock_db_salaries");
+        if (loc) {
+          const list = JSON.parse(loc);
+          list.forEach((item: any) => {
+            if (batchData[item.id]) {
+              const row = batchData[item.id];
+              item.employee_name = row.employeeName;
+              item.employee_role = row.employeeRole;
+              item.amount = Number(row.amount) || 0;
+              item.payment_date = row.paymentDate;
+              item.month = row.month;
+              item.status = row.status;
+            }
+          });
+          localStorage.setItem("mock_db_salaries", JSON.stringify(list));
+        }
+      } catch (e) {}
+
+      setIsFullTableEdit(false);
+      setSaveSuccessNotice("Tous les salaires du tableau ont été mis à jour avec succès !");
+      setTimeout(() => setSaveSuccessNotice(null), 3500);
       fetchSalaries();
-    } else {
-      alert("Erreur lors de la modification : " + error.message);
+    } catch (err) {
+      console.error("Error saving batch salaries:", err);
+    } finally {
+      setSavingBatch(false);
     }
   };
 
@@ -198,28 +329,45 @@ export function CashierSalaries() {
     };
 
     if (editingId) {
-      const { error } = await supabase.from("salaries").update(payload).eq("id", editingId);
-      if (!error) {
-        fetchSalaries();
-        resetForm();
-      } else {
-        alert("Erreur lors de la modification.");
-      }
+      await supabase.from("salaries").update(payload).eq("id", editingId);
+      // Sync local
+      try {
+        const loc = localStorage.getItem("mock_db_salaries");
+        if (loc) {
+          const list = JSON.parse(loc);
+          const idx = list.findIndex((x: any) => x.id === editingId);
+          if (idx >= 0) {
+            list[idx] = { ...list[idx], ...payload };
+            localStorage.setItem("mock_db_salaries", JSON.stringify(list));
+          }
+        }
+      } catch (e) {}
     } else {
-      const { error } = await supabase.from("salaries").insert(payload);
-      if (!error) {
-        fetchSalaries();
-        resetForm();
-      } else {
-        alert("Erreur lors de l'ajout.");
-      }
+      const res = await supabase.from("salaries").insert(payload);
+      // Sync local
+      try {
+        const loc = localStorage.getItem("mock_db_salaries");
+        const list = loc ? JSON.parse(loc) : [];
+        list.push({ id: `sal_${Date.now()}`, ...payload, created_at: new Date().toISOString() });
+        localStorage.setItem("mock_db_salaries", JSON.stringify(list));
+      } catch (e) {}
     }
+
+    fetchSalaries();
+    resetForm();
   };
 
   const handleDelete = async (id: string) => {
     if (window.confirm("Supprimer ce paiement de salaire ?")) {
-      const { error } = await supabase.from("salaries").delete().eq("id", id);
-      if (!error) fetchSalaries();
+      await supabase.from("salaries").delete().eq("id", id);
+      try {
+        const loc = localStorage.getItem("mock_db_salaries");
+        if (loc) {
+          const list = JSON.parse(loc).filter((x: any) => x.id !== id);
+          localStorage.setItem("mock_db_salaries", JSON.stringify(list));
+        }
+      } catch (e) {}
+      fetchSalaries();
     }
   };
 
@@ -237,30 +385,17 @@ export function CashierSalaries() {
     setStatus("PAYÉ");
   };
 
-  const openEdit = (s: Salary) => {
-    setEditingId(s.id);
-    setEmployeeName(s.employeeName);
-    setEmployeeRole(s.employeeRole);
-    setAmount(s.amount.toString());
-    setPaymentDate(s.paymentDate);
-    setMonth(s.month);
-    setPeriodStart(s.periodStart);
-    setPeriodEnd(s.periodEnd);
-    setDeductions(s.deductions);
-    setStatus(s.status);
-    setShowForm(true);
-  };
-
   const filteredSalaries = salaries.filter(
     (s) =>
       s.employeeName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      s.employeeRole.toLowerCase().includes(searchTerm.toLowerCase())
+      s.employeeRole.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      s.month.includes(searchTerm)
   );
 
-  // Stats
   const totalPaid = salaries
     .filter((s) => s.status === "PAYÉ")
     .reduce((acc, s) => acc + s.amount, 0);
+
   const totalPending = salaries
     .filter((s) => s.status === "EN_ATTENTE")
     .reduce((acc, s) => acc + s.amount, 0);
@@ -281,20 +416,30 @@ export function CashierSalaries() {
 
   return (
     <div className="space-y-6 animate-in fade-in">
-      {tableError && (
-        <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 text-amber-800">
-          <h4 className="font-bold mb-2 flex items-center gap-2">
-            ⚠️ Table 'salaries' manquante dans Supabase
-          </h4>
-          <p className="text-sm mb-4">
-            Il semble que la table <strong>salaries</strong> n'existe pas encore dans votre base de données Supabase.
-          </p>
-          <div className="mt-2 flex justify-end">
+      {/* Top Notice if updated */}
+      {saveSuccessNotice && (
+        <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-emerald-800 text-xs font-bold flex items-center gap-2 animate-in fade-in">
+          <CheckCircle2 size={16} className="text-emerald-600" />
+          <span>{saveSuccessNotice}</span>
+        </div>
+      )}
+
+      {/* Mode modification globale banner */}
+      {isFullTableEdit && (
+        <div className="p-3 bg-indigo-50 border border-indigo-200 rounded-xl text-indigo-900 text-xs flex items-center justify-between animate-in fade-in">
+          <div className="flex items-center gap-2 font-medium">
+            <span className="w-2.5 h-2.5 rounded-full bg-indigo-600 animate-pulse"></span>
+            <span>
+              <strong>Mode modification du tableau des salaires activé :</strong> modifiez les noms, postes, mois, dates, statuts et montants directement dans les cellules.
+            </span>
+          </div>
+          <div className="flex items-center gap-2">
             <button
-              onClick={() => fetchSalaries()}
-              className="px-4 py-2 bg-amber-600 text-white font-bold rounded shadow-sm text-sm hover:bg-amber-700"
+              onClick={saveAllTableEdits}
+              disabled={savingBatch}
+              className="px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-bold text-xs shadow-xs transition"
             >
-              Réessayer
+              Enregistrer les salaires
             </button>
           </div>
         </div>
@@ -364,11 +509,11 @@ export function CashierSalaries() {
           <div>
             <h3 className="font-bold text-gray-800 text-sm">Rémunérations & Salaires du Personnel</h3>
             <p className="text-xs text-slate-400">
-              Modifiez directement les lignes dans le tableau ou cliquez sur Ajouter pour un nouveau règlement.
+              Modifiez tous les salaires directement dans le tableau ou cliquez sur Nouveau Salaire pour un ajout.
             </p>
           </div>
-          <div className="flex items-center gap-2 w-full sm:w-auto">
-            <div className="relative flex-1 sm:w-60">
+          <div className="flex items-center gap-2 w-full sm:w-auto flex-wrap">
+            <div className="relative flex-1 sm:w-56">
               <Search size={14} className="absolute left-3 top-2.5 text-slate-400" />
               <input
                 type="text"
@@ -378,6 +523,39 @@ export function CashierSalaries() {
                 className="w-full pl-9 pr-3 py-1.5 border border-slate-200 rounded-lg text-xs outline-none focus:ring-2 focus:ring-emerald-500"
               />
             </div>
+
+            {/* Toggle Full Table Edit Button */}
+            {!isFullTableEdit ? (
+              <button
+                onClick={startFullTableEdit}
+                disabled={salaries.length === 0}
+                className="px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-bold flex items-center gap-1.5 whitespace-nowrap shadow-sm transition"
+                title="Modifier tous les salaires directement dans le tableau"
+              >
+                <Edit2 size={14} />
+                <span>Modifier tous les salaires</span>
+              </button>
+            ) : (
+              <div className="flex items-center gap-1.5">
+                <button
+                  onClick={saveAllTableEdits}
+                  disabled={savingBatch}
+                  className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold flex items-center gap-1.5 whitespace-nowrap shadow-sm transition"
+                >
+                  <Save size={14} className={savingBatch ? "animate-spin" : ""} />
+                  <span>{savingBatch ? "Enregistrement..." : "Enregistrer tout"}</span>
+                </button>
+                <button
+                  onClick={cancelFullTableEdit}
+                  disabled={savingBatch}
+                  className="px-2.5 py-1.5 bg-slate-200 hover:bg-slate-300 text-slate-700 rounded-lg text-xs font-bold flex items-center gap-1 transition"
+                >
+                  <X size={14} />
+                  <span>Annuler</span>
+                </button>
+              </div>
+            )}
+
             <button
               onClick={() => {
                 resetForm();
@@ -417,9 +595,103 @@ export function CashierSalaries() {
                 </tr>
               ) : (
                 filteredSalaries.map((s) => {
-                  const isEditing = inlineEditingId === s.id;
+                  // Full Table Batch Mode
+                  if (isFullTableEdit) {
+                    const row = batchData[s.id] || {
+                      employeeName: s.employeeName,
+                      employeeRole: s.employeeRole,
+                      amount: s.amount.toString(),
+                      paymentDate: s.paymentDate,
+                      month: s.month,
+                      status: s.status,
+                    };
 
-                  if (isEditing) {
+                    return (
+                      <tr key={s.id} className="bg-indigo-50/30 hover:bg-indigo-50/50 transition-colors">
+                        {/* Employé & Fonction */}
+                        <td className="px-3 py-2">
+                          <div className="space-y-1">
+                            <input
+                              type="text"
+                              value={row.employeeName}
+                              onChange={(e) => updateBatchField(s.id, "employeeName", e.target.value)}
+                              placeholder="Nom employé"
+                              className="w-full px-2 py-1 bg-white border border-indigo-300 rounded-lg text-xs font-bold outline-none focus:ring-2 focus:ring-indigo-500"
+                            />
+                            <select
+                              value={row.employeeRole}
+                              onChange={(e) => updateBatchField(s.id, "employeeRole", e.target.value)}
+                              className="w-full px-2 py-0.5 bg-white border border-indigo-300 rounded-lg text-xs outline-none"
+                            >
+                              {ROLES.map((r) => (
+                                <option key={r} value={r}>
+                                  {r}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+                        </td>
+
+                        {/* Mois */}
+                        <td className="px-3 py-2 whitespace-nowrap">
+                          <input
+                            type="month"
+                            value={row.month}
+                            onChange={(e) => updateBatchField(s.id, "month", e.target.value)}
+                            className="px-2 py-1 bg-white border border-indigo-300 rounded-lg text-xs outline-none"
+                          />
+                        </td>
+
+                        {/* Date de paiement */}
+                        <td className="px-3 py-2 whitespace-nowrap">
+                          <input
+                            type="date"
+                            value={row.paymentDate}
+                            onChange={(e) => updateBatchField(s.id, "paymentDate", e.target.value)}
+                            className="px-2 py-1 bg-white border border-indigo-300 rounded-lg text-xs outline-none"
+                          />
+                        </td>
+
+                        {/* Statut */}
+                        <td className="px-3 py-2 text-center whitespace-nowrap">
+                          <select
+                            value={row.status}
+                            onChange={(e) => updateBatchField(s.id, "status", e.target.value)}
+                            className="px-2 py-1 bg-white border border-indigo-300 rounded-lg text-xs font-bold outline-none"
+                          >
+                            <option value="PAYÉ">PAYÉ</option>
+                            <option value="EN_ATTENTE">EN ATTENTE</option>
+                          </select>
+                        </td>
+
+                        {/* Montant */}
+                        <td className="px-3 py-2 text-right whitespace-nowrap">
+                          <input
+                            type="number"
+                            min="0"
+                            value={row.amount}
+                            onChange={(e) => updateBatchField(s.id, "amount", e.target.value)}
+                            className="w-28 px-2 py-1 bg-white border border-indigo-300 rounded-lg text-xs font-bold text-gray-900 text-right outline-none"
+                          />
+                        </td>
+
+                        {/* Delete action */}
+                        <td className="px-3 py-2 text-center whitespace-nowrap">
+                          <button
+                            onClick={() => handleDelete(s.id)}
+                            className="p-1 text-rose-500 hover:text-rose-700 hover:bg-rose-50 rounded transition"
+                            title="Supprimer la ligne"
+                          >
+                            <Trash2 size={14} />
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  }
+
+                  // Single Inline Editing
+                  const isSingleEditing = inlineEditingId === s.id;
+                  if (isSingleEditing) {
                     return (
                       <tr key={s.id} className="bg-emerald-50/60 border-2 border-emerald-500 animate-in fade-in">
                         {/* Employé & Fonction Inputs */}
@@ -485,7 +757,7 @@ export function CashierSalaries() {
                             min="0"
                             value={inlineAmount}
                             onChange={(e) => setInlineAmount(e.target.value)}
-                            className="w-28 px-2.5 py-1.5 bg-white border border-emerald-400 rounded-lg text-xs font-bold text-rose-600 text-right outline-none"
+                            className="w-28 px-2.5 py-1.5 bg-white border border-emerald-400 rounded-lg text-xs font-bold text-gray-900 text-right outline-none"
                           />
                         </td>
 

@@ -73,7 +73,9 @@ export interface UnifiedTransaction {
   notes?: string;
 }
 
-interface CashierFinancialListProps {
+import { MultiSelectDropdown, OptionItem } from "./MultiSelectDropdown";
+
+export interface CashierFinancialListProps {
   schoolId?: string;
   schoolSettings?: any;
   academicYears?: { id?: string; name: string; status?: string }[];
@@ -104,7 +106,13 @@ export function CashierFinancialList({
   const [customEndDate, setCustomEndDate] = useState("");
   const [filterYear, setFilterYear] = useState<string>("ALL");
   const [filterPaymentMethod, setFilterPaymentMethod] = useState<string>("ALL");
-  const [filterStatus, setFilterStatus] = useState<"ALL" | "COMPLETED" | "PENDING">("ALL");
+  const [filterStatus, setFilterStatus] = useState<string>("ALL");
+
+  // Multi-select Checkbox Filter States
+  const [selectedClasses, setSelectedClasses] = useState<string[]>([]);
+  const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
+  const [selectedPaymentMethods, setSelectedPaymentMethods] = useState<string[]>([]);
+  const [selectedStatuses, setSelectedStatuses] = useState<string[]>([]);
 
   // Selection state for precise downloading
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -214,11 +222,12 @@ export function CashierFinancialList({
         const timestamp = !isNaN(dateObj.getTime()) ? dateObj.getTime() : Date.now();
         const pRef = p.reference || `REC-${String(p.id).slice(0, 8).toUpperCase()}`;
         const pYear = p.academic_year || st?.academic_year || schoolInfo?.academic_year || "2024-2025";
-        const pMethod = p.payment_method || p.network || "Espèces";
-        const pStatus =
-          p.status === "PENDING"
+        const pMethod = p.payment_method || p.method || "Espèces";
+        const rawStatus = (p.status || "").toUpperCase();
+        const pStatus: UnifiedTransaction["status"] =
+          rawStatus === "PENDING" || rawStatus === "EN_ATTENTE"
             ? "PENDING"
-            : p.status === "CANCELLED"
+            : rawStatus === "CANCELLED" || rawStatus === "REJECTED" || rawStatus === "REFUSED" || rawStatus === "DECLINED" || rawStatus === "REFUSE" || rawStatus === "ANNULE"
             ? "CANCELLED"
             : "COMPLETED";
 
@@ -617,6 +626,62 @@ export function CashierFinancialList({
     return true;
   };
 
+  const classOptions: OptionItem[] = useMemo(() => {
+    return availableClasses.map((cl) => ({
+      value: cl,
+      label: `Classe : ${cl}`
+    }));
+  }, [availableClasses]);
+
+  const categoryOptions: OptionItem[] = useMemo(() => [
+    { value: "TRANCHE_1", label: "1ère Tranche uniquement", group: "Tranches" },
+    { value: "TRANCHE_2", label: "2ème Tranche uniquement", group: "Tranches" },
+    { value: "TRANCHE_3", label: "3ème Tranche uniquement", group: "Tranches" },
+    { value: "ALL_TRANCHES", label: "Toutes les tranches ensemble (Tranches 1, 2 et 3)", group: "Tranches" },
+    { value: "SCOLARITE", label: "Scolarité (Solde / Global)", group: "Scolarité" },
+    { value: "INSCRIPTION", label: "Nouvelle Inscription uniquement", group: "Inscriptions" },
+    { value: "REINSCRIPTION", label: "Réinscription uniquement", group: "Inscriptions" },
+    { value: "ALL_INSCRIPTIONS", label: "Toutes les inscriptions ensemble", group: "Inscriptions" },
+    { value: "CANTINE", label: "Cantine", group: "Services" },
+    { value: "TRANSPORT", label: "Transport", group: "Services" },
+    { value: "TENUES", label: "Tenues", group: "Services" },
+    { value: "FOURNITURES", label: "Fournitures", group: "Services" },
+    { value: "AUTRE_RECETTE", label: "Autres recettes", group: "Services" },
+    { value: "ALL_SALARIES", label: "Tous les salaires réunis", group: "Salaires" },
+    { value: "SALAIRE_PROFESSEUR", label: "Salaires - Professeurs", group: "Salaires" },
+    { value: "SALAIRE_DIRECTION", label: "Salaires - Direction", group: "Salaires" },
+    { value: "SALAIRE_ETUDES", label: "Salaires - Direction des Études", group: "Salaires" },
+    { value: "SALAIRE_SECRETARIAT", label: "Salaires - Secrétariat", group: "Salaires" },
+    { value: "SALAIRE_SURVEILLANCE", label: "Salaires - Surveillance", group: "Salaires" },
+    { value: "SALAIRE_GARDIENNAGE", label: "Salaires - Gardiennage", group: "Salaires" },
+    { value: "SALAIRE_COMPTABILITE", label: "Salaires - Caisse & Comptabilité", group: "Salaires" },
+    { value: "SALAIRE_CHAUFFEUR", label: "Salaires - Chauffeur", group: "Salaires" },
+    { value: "SALAIRE_AUTRE", label: "Salaires - Autre personnel", group: "Salaires" },
+    { value: "ALL_EXPENSES", label: "Toutes les charges d'exploitation réunies", group: "Charges" },
+    { value: "MATERIEL_FOURNITURE", label: "Matériels et Fournitures de Bureau", group: "Charges" },
+    { value: "ENTRETIEN_REPARATION", label: "Entretien et réparations", group: "Charges" },
+    { value: "TRAVAUX", label: "Travaux et rénovations", group: "Charges" },
+    { value: "FACTURE_EAU_ELEC", label: "Factures Eau et Électricité", group: "Charges" },
+    { value: "CARBURANT", label: "Carburant et transport", group: "Charges" },
+    { value: "PRESTATAIRES", label: "Prestataires extérieurs", group: "Charges" },
+    { value: "IMPOTS", label: "Impôts et taxes", group: "Charges" },
+    { value: "COLLATIONS", label: "Collations et réceptions", group: "Charges" },
+    { value: "AUTRE_DEPENSE", label: "Autres charges", group: "Charges" }
+  ], []);
+
+  const paymentMethodOptions: OptionItem[] = useMemo(() => [
+    { value: "CASH", label: "Espèces (Caisse)" },
+    { value: "MOBILE", label: "Mobile Money (MTN / Moov / Celtiis / Wave)" },
+    { value: "BANK", label: "Virement Bancaire" },
+    { value: "CHECK", label: "Chèque" }
+  ], []);
+
+  const statusOptions: OptionItem[] = useMemo(() => [
+    { value: "COMPLETED", label: "Validées / Encaissées" },
+    { value: "PENDING", label: "En attente de validation" },
+    { value: "CANCELLED", label: "Transactions Refusées / Annulées" }
+  ], []);
+
   // Filtered Transactions
   const filteredTransactions = useMemo(() => {
     return transactions.filter((t) => {
@@ -638,13 +703,24 @@ export function CashierFinancialList({
       if (filterFlow !== "ALL" && t.type !== filterFlow) return false;
       if (viewMode !== "ALL" && t.type !== viewMode) return false;
 
-      // 3. Class Filter
-      if (filterClass !== "ALL") {
+      // 3. Class Filter (Single or Multiple checkboxes)
+      if (selectedClasses.length > 0) {
+        if (!t.studentClass || !selectedClasses.includes(t.studentClass)) return false;
+      } else if (filterClass !== "ALL") {
         if (!t.studentClass || t.studentClass !== filterClass) return false;
       }
 
-      // 4. Category Filter (Discrete OR Collective groups)
-      if (filterCategory !== "ALL") {
+      // 4. Category Filter (Single or Multiple checkboxes)
+      if (selectedCategories.length > 0) {
+        const matchesCategory = selectedCategories.some((cat) => {
+          if (cat === "ALL_TRANCHES") return t.categoryGroup === "TRANCHES";
+          if (cat === "ALL_INSCRIPTIONS") return t.categoryGroup === "INSCRIPTIONS";
+          if (cat === "ALL_SALARIES") return t.categoryGroup === "SALAIRES";
+          if (cat === "ALL_EXPENSES") return t.categoryGroup === "DEPENSES";
+          return t.categoryKey === cat;
+        });
+        if (!matchesCategory) return false;
+      } else if (filterCategory !== "ALL") {
         if (filterCategory === "ALL_TRANCHES") {
           if (t.categoryKey !== "TRANCHE_1" && t.categoryKey !== "TRANCHE_2" && t.categoryKey !== "TRANCHE_3") {
             return false;
@@ -669,8 +745,26 @@ export function CashierFinancialList({
       // 6. Academic Year
       if (filterYear !== "ALL" && t.academicYear !== filterYear) return false;
 
-      // 7. Payment Method
-      if (filterPaymentMethod !== "ALL") {
+      // 7. Payment Method (Single or Multiple checkboxes)
+      if (selectedPaymentMethods.length > 0) {
+        const methodLower = (t.paymentMethod || "").toLowerCase();
+        const matchesMethod = selectedPaymentMethods.some((pm) => {
+          if (pm === "CASH" && methodLower.includes("esp")) return true;
+          if (
+            pm === "MOBILE" &&
+            (methodLower.includes("mtn") ||
+              methodLower.includes("moov") ||
+              methodLower.includes("celtiis") ||
+              methodLower.includes("wave") ||
+              methodLower.includes("mobile"))
+          )
+            return true;
+          if (pm === "BANK" && (methodLower.includes("vir") || methodLower.includes("banq"))) return true;
+          if (pm === "CHECK" && (methodLower.includes("chèq") || methodLower.includes("cheq"))) return true;
+          return false;
+        });
+        if (!matchesMethod) return false;
+      } else if (filterPaymentMethod !== "ALL") {
         const methodLower = (t.paymentMethod || "").toLowerCase();
         if (filterPaymentMethod === "CASH" && !methodLower.includes("esp")) return false;
         if (
@@ -688,8 +782,26 @@ export function CashierFinancialList({
           return false;
       }
 
-      // 8. Status
-      if (filterStatus !== "ALL" && t.status !== filterStatus) return false;
+      // 8. Status & Strict Exclusion of Rejected Transactions
+      // "ne prends pas en compte les Transactions refusées dans le rendu des informations, c'est uniquement quand on voudra filtrer les transactions refusées que ca doit display ces informations"
+      const isRejected = t.status === "CANCELLED";
+      const wantsRejected =
+        selectedStatuses.includes("CANCELLED") ||
+        selectedStatuses.includes("REJECTED") ||
+        filterStatus === "CANCELLED" ||
+        filterStatus === "REJECTED";
+
+      // If this transaction was rejected/cancelled and user did not explicitly filter for rejected, ignore it completely!
+      if (isRejected && !wantsRejected) {
+        return false;
+      }
+
+      // If user selected explicit statuses
+      if (selectedStatuses.length > 0) {
+        if (!selectedStatuses.includes(t.status)) return false;
+      } else if (filterStatus !== "ALL") {
+        if (t.status !== filterStatus) return false;
+      }
 
       return true;
     });
@@ -699,13 +811,17 @@ export function CashierFinancialList({
     filterFlow,
     viewMode,
     filterClass,
+    selectedClasses,
     filterCategory,
+    selectedCategories,
     filterDatePreset,
     customStartDate,
     customEndDate,
     filterYear,
     filterPaymentMethod,
-    filterStatus
+    selectedPaymentMethods,
+    filterStatus,
+    selectedStatuses
   ]);
 
   // Category Metrics: 3 SEPARATED BOXES, NO CUMUL, NO "&"
@@ -978,13 +1094,17 @@ export function CashierFinancialList({
     setSearchTerm("");
     setFilterFlow("ALL");
     setFilterClass("ALL");
+    setSelectedClasses([]);
     setFilterCategory("ALL");
+    setSelectedCategories([]);
     setFilterDatePreset("ALL");
     setCustomStartDate("");
     setCustomEndDate("");
     setFilterYear("ALL");
     setFilterPaymentMethod("ALL");
+    setSelectedPaymentMethods([]);
     setFilterStatus("ALL");
+    setSelectedStatuses([]);
     setSelectedIds(new Set());
     setExportScope("FILTERED");
   };
@@ -993,11 +1113,15 @@ export function CashierFinancialList({
     searchTerm ||
     filterFlow !== "ALL" ||
     filterClass !== "ALL" ||
+    selectedClasses.length > 0 ||
     filterCategory !== "ALL" ||
+    selectedCategories.length > 0 ||
     filterDatePreset !== "ALL" ||
     filterYear !== "ALL" ||
     filterPaymentMethod !== "ALL" ||
-    filterStatus !== "ALL";
+    selectedPaymentMethods.length > 0 ||
+    filterStatus !== "ALL" ||
+    selectedStatuses.length > 0;
 
   return (
     <div className="space-y-6">
@@ -1457,94 +1581,26 @@ export function CashierFinancialList({
             </div>
           </div>
 
-          {/* 2. Filtre par Classe (Essentiel pour voir 1ère tranche par classe, etc.) */}
+          {/* 2. Filtre par Classe avec cases à cocher (Multi-sélection) */}
           <div>
-            <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-1">
-              Classe de l'élève
-            </label>
-            <select
-              value={filterClass}
-              onChange={(e) => setFilterClass(e.target.value)}
-              className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-800 focus:ring-2 focus:ring-emerald-500 focus:bg-white outline-none transition"
-            >
-              <option value="ALL">Toutes les classes</option>
-              {availableClasses.map((cl) => (
-                <option key={cl} value={cl}>
-                  Classe : {cl}
-                </option>
-              ))}
-            </select>
+            <MultiSelectDropdown
+              label="Classe(s) de l'élève"
+              options={classOptions}
+              selectedValues={selectedClasses}
+              onChange={setSelectedClasses}
+              placeholder="Toutes les classes"
+            />
           </div>
 
-          {/* 3. Catégorie Précise (NON JUMELÉE, SANS &) */}
+          {/* 3. Catégorie Précise avec cases à cocher (Multi-sélection, Sans Jumelage) */}
           <div className="lg:col-span-2">
-            <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-1">
-              Catégorie Précise (Sans Jumelage)
-            </label>
-            <select
-              value={filterCategory}
-              onChange={(e) => setFilterCategory(e.target.value)}
-              className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-800 focus:ring-2 focus:ring-emerald-500 focus:bg-white outline-none transition"
-            >
-              <option value="ALL">Toutes les catégories</option>
-
-              {/* TRANCHES DE SCOLARITÉ */}
-              <optgroup label="--- TRANCHES DE SCOLARITÉ ---">
-                <option value="ALL_TRANCHES">Toutes les tranches ensemble (Tranches 1, 2 et 3)</option>
-                <option value="TRANCHE_1">1ère Tranche uniquement</option>
-                <option value="TRANCHE_2">2ème Tranche uniquement</option>
-                <option value="TRANCHE_3">3ème Tranche uniquement</option>
-              </optgroup>
-
-              {/* SCOLARITÉS */}
-              <optgroup label="--- SCOLARITÉ GLOBALE ---">
-                <option value="SCOLARITE">Scolarité (Solde / Reste à payer)</option>
-              </optgroup>
-
-              {/* INSCRIPTIONS */}
-              <optgroup label="--- INSCRIPTIONS ---">
-                <option value="ALL_INSCRIPTIONS">Toutes les inscriptions (Nouvelles & Réinscriptions)</option>
-                <option value="INSCRIPTION">Nouvelle Inscription uniquement</option>
-                <option value="REINSCRIPTION">Réinscription uniquement</option>
-              </optgroup>
-
-              {/* SERVICES SCOLAIRES */}
-              <optgroup label="--- SERVICES SCOLAIRES ---">
-                <option value="CANTINE">Cantine</option>
-                <option value="TRANSPORT">Transport</option>
-                <option value="TENUES">Tenues</option>
-                <option value="FOURNITURES">Fournitures</option>
-                <option value="AUTRE_RECETTE">Autres recettes</option>
-              </optgroup>
-
-              {/* SALAIRES DU PERSONNEL */}
-              <optgroup label="--- SALAIRES DU PERSONNEL ---">
-                <option value="ALL_SALARIES">Tous les salaires réunis</option>
-                <option value="SALAIRE_PROFESSEUR">Salaires - Professeurs</option>
-                <option value="SALAIRE_DIRECTION">Salaires - Direction</option>
-                <option value="SALAIRE_ETUDES">Salaires - Direction des Études</option>
-                <option value="SALAIRE_SECRETARIAT">Salaires - Secrétariat</option>
-                <option value="SALAIRE_SURVEILLANCE">Salaires - Surveillance</option>
-                <option value="SALAIRE_GARDIENNAGE">Salaires - Gardiennage</option>
-                <option value="SALAIRE_COMPTABILITE">Salaires - Caisse & Comptabilité</option>
-                <option value="SALAIRE_CHAUFFEUR">Salaires - Chauffeur</option>
-                <option value="SALAIRE_AUTRE">Salaires - Autre personnel</option>
-              </optgroup>
-
-              {/* CHARGES D'EXPLOITATION */}
-              <optgroup label="--- CHARGES D'EXPLOITATION ---">
-                <option value="ALL_EXPENSES">Toutes les charges d'exploitation réunies</option>
-                <option value="MATERIEL_FOURNITURE">Matériels et Fournitures de Bureau</option>
-                <option value="ENTRETIEN_REPARATION">Entretien et réparations</option>
-                <option value="TRAVAUX">Travaux et rénovations</option>
-                <option value="FACTURE_EAU_ELEC">Factures Eau et Électricité</option>
-                <option value="CARBURANT">Carburant et transport</option>
-                <option value="PRESTATAIRES">Prestataires extérieurs</option>
-                <option value="IMPOTS">Impôts et taxes</option>
-                <option value="COLLATIONS">Collations et réceptions</option>
-                <option value="AUTRE_DEPENSE">Autres charges</option>
-              </optgroup>
-            </select>
+            <MultiSelectDropdown
+              label="Catégorie(s) Précise(s) (Sans jumelage)"
+              options={categoryOptions}
+              selectedValues={selectedCategories}
+              onChange={setSelectedCategories}
+              placeholder="Toutes les catégories"
+            />
           </div>
 
           {/* 4. Période */}
@@ -1555,7 +1611,7 @@ export function CashierFinancialList({
             <select
               value={filterDatePreset}
               onChange={(e) => setFilterDatePreset(e.target.value as any)}
-              className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium focus:ring-2 focus:ring-emerald-500 focus:bg-white outline-none transition"
+              className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium focus:ring-2 focus:ring-emerald-500 focus:bg-white outline-none transition cursor-pointer"
             >
               <option value="ALL">Toute la période</option>
               <option value="TODAY">Aujourd'hui</option>
@@ -1574,7 +1630,7 @@ export function CashierFinancialList({
             <select
               value={filterYear}
               onChange={(e) => setFilterYear(e.target.value)}
-              className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium focus:ring-2 focus:ring-emerald-500 focus:bg-white outline-none transition"
+              className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium focus:ring-2 focus:ring-emerald-500 focus:bg-white outline-none transition cursor-pointer"
             >
               <option value="ALL">Toutes les années</option>
               {schoolYears.map((y) => (
@@ -1588,25 +1644,29 @@ export function CashierFinancialList({
             </select>
           </div>
 
-          {/* 6. Mode de paiement */}
+          {/* 6. Mode de paiement avec cases à cocher */}
           <div>
-            <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-1">
-              Mode de paiement
-            </label>
-            <select
-              value={filterPaymentMethod}
-              onChange={(e) => setFilterPaymentMethod(e.target.value)}
-              className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium focus:ring-2 focus:ring-emerald-500 focus:bg-white outline-none transition"
-            >
-              <option value="ALL">Tous les modes</option>
-              <option value="CASH">Espèces (Caisse)</option>
-              <option value="MOBILE">Mobile Money (MTN / Moov / Celtiis)</option>
-              <option value="BANK">Virement Bancaire</option>
-              <option value="CHECK">Chèque</option>
-            </select>
+            <MultiSelectDropdown
+              label="Mode(s) de paiement"
+              options={paymentMethodOptions}
+              selectedValues={selectedPaymentMethods}
+              onChange={setSelectedPaymentMethods}
+              placeholder="Tous les modes"
+            />
           </div>
 
-          {/* 7. Type de flux */}
+          {/* 7. Statut avec cases à cocher (Transactions refusées masquées par défaut) */}
+          <div>
+            <MultiSelectDropdown
+              label="Statut des transactions"
+              options={statusOptions}
+              selectedValues={selectedStatuses}
+              onChange={setSelectedStatuses}
+              placeholder="Toutes valides (Refusées masquées)"
+            />
+          </div>
+
+          {/* 8. Type de flux */}
           <div>
             <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-1">
               Sens du flux
@@ -1614,7 +1674,7 @@ export function CashierFinancialList({
             <select
               value={filterFlow}
               onChange={(e) => setFilterFlow(e.target.value as any)}
-              className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium focus:ring-2 focus:ring-emerald-500 focus:bg-white outline-none transition"
+              className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium focus:ring-2 focus:ring-emerald-500 focus:bg-white outline-none transition cursor-pointer"
             >
               <option value="ALL">Tous les flux (Entrées et Sorties)</option>
               <option value="INCOME">🟢 Entrées (Recettes)</option>

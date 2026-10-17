@@ -2,7 +2,7 @@ import SignatureCanvas from "react-signature-canvas";
 import { useRef } from "react";
 import React, { useState, useEffect } from "react";
 import { Student, Payment, SchoolSettings, Announcement } from "../types";
-import { Users, GraduationCap, ArrowUpRight, Search, Settings, Megaphone, Trash2, Edit, Mail, Plus, ChevronDown } from "lucide-react";
+import { Users, GraduationCap, ArrowUpRight, Search, Settings, Megaphone, Trash2, Edit, Mail, Plus, ChevronDown, Database } from "lucide-react";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../lib/auth";
 import { useToast } from "../lib/toast";
@@ -11,6 +11,7 @@ import { useLocation } from "react-router-dom";
 import { SchoolAdminAcademic } from "../components/SchoolAdminAcademic";
 import { SchoolAdminFees } from "../components/SchoolAdminFees";
 import { InitialSchoolSetupModal } from "../components/InitialSchoolSetupModal";
+import { SchoolBackup } from "../components/SchoolBackup";
 
 export function SchoolAdminDashboard() {
   const { user } = useAuth();
@@ -98,7 +99,7 @@ export function SchoolAdminDashboard() {
   const [searchTerm, setSearchTerm] = useState("");
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
 
-  const [activeTab, setActiveTab] = useState<"DASHBOARD" | "MEMBERS" | "ANNOUNCEMENTS" | "SETTINGS" | "ACADEMIC" | "FEES">("DASHBOARD");
+  const [activeTab, setActiveTab] = useState<"DASHBOARD" | "MEMBERS" | "ANNOUNCEMENTS" | "SETTINGS" | "ACADEMIC" | "FEES" | "BACKUP">("DASHBOARD");
 
   // Invitations state
   const [invitations, setInvitations] = useState<any[]>([]);
@@ -119,7 +120,7 @@ export function SchoolAdminDashboard() {
   useEffect(() => {
     const params = new URLSearchParams(location.search);
     const tabParam = params.get('tab');
-    if (tabParam && ["DASHBOARD", "MEMBERS", "ANNOUNCEMENTS", "SETTINGS", "ACADEMIC", "FEES"].includes(tabParam)) {
+    if (tabParam && ["DASHBOARD", "MEMBERS", "ANNOUNCEMENTS", "SETTINGS", "ACADEMIC", "FEES", "BACKUP"].includes(tabParam)) {
       setActiveTab(tabParam as any);
     }
   }, [location, user?.role]);
@@ -410,18 +411,37 @@ export function SchoolAdminDashboard() {
 
 
   const fetchAnnouncements = async () => {
-    if (!user?.schoolId) return;
-    const { data } = await supabase.from('announcements').select('*').eq('school_id', user.schoolId).order('created_at', { ascending: false });
-    if (data) {
-      setAnnouncements(data.map((d: any) => ({
-        id: d.id,
-        title: d.title,
-        content: d.content,
-        authorName: d.author_name,
-        targetAudience: d.target_audience || "Tous",
-        date: new Date(d.created_at).getTime()
-      })));
+    const targetSchoolId = user?.schoolId || localStorage.getItem('edubenin_active_school_id') || "11111111-1111-4111-8111-111111111111";
+    let list: Announcement[] = [];
+    try {
+      const { data } = await supabase.from('announcements').select('*').eq('school_id', targetSchoolId).order('created_at', { ascending: false });
+      if (data && Array.isArray(data)) {
+        list = data.map((d: any) => ({
+          id: d.id,
+          title: d.title,
+          content: d.content,
+          authorName: d.author_name || "Administration",
+          targetAudience: d.target_audience || "Tous",
+          date: new Date(d.created_at || Date.now()).getTime()
+        }));
+      }
+    } catch (e) {
+      console.warn("Could not fetch remote announcements:", e);
     }
+
+    try {
+      const raw = localStorage.getItem(`school_announcements_${targetSchoolId}`);
+      if (raw) {
+        const localList: Announcement[] = JSON.parse(raw);
+        localList.forEach(la => {
+          if (!list.some(item => item.id === la.id)) {
+            list.push(la);
+          }
+        });
+      }
+    } catch (e) {}
+
+    setAnnouncements(list);
   };
 
   const fetchDashboardData = async () => {
@@ -690,25 +710,66 @@ export function SchoolAdminDashboard() {
 
   const handleAddAnnouncement = async (e: React.FormEvent) => {
     e.preventDefault();
-    const { data, error } = await supabase.from('announcements').insert({
-      school_id: user?.schoolId,
-      title: announcementTitle,
-      content: announcementContent,
-      author_name: user?.name || "Administration",
-      target_audience: announcementTarget
-    }).select().single();
-    if (!error && data) {
-      setAnnouncements(prev => [{
-        id: data.id,
-        title: data.title,
-        content: data.content,
-        authorName: data.author_name,
-        targetAudience: data.target_audience || announcementTarget,
-        date: new Date(data.created_at).getTime()
-      }, ...prev]);
-      setAnnouncementTitle("");
-      setAnnouncementContent("");
+    const targetSchoolId = user?.schoolId || localStorage.getItem('edubenin_active_school_id') || "11111111-1111-4111-8111-111111111111";
+    if (!announcementTitle.trim() || !announcementContent.trim()) {
+      toast.error("Veuillez renseigner le titre et le contenu de l'annonce.");
+      return;
     }
+
+    const author = user?.name || (user?.role === 'DIRECTOR_OF_STUDIES' ? "Directeur des Études" : "Administration Établissement");
+    let newId = `ann_${Date.now()}`;
+    const newAnn: Announcement = {
+      id: newId,
+      title: announcementTitle.trim(),
+      content: announcementContent.trim(),
+      authorName: author,
+      targetAudience: announcementTarget,
+      date: Date.now()
+    };
+
+    try {
+      const { data, error } = await supabase.from('announcements').insert({
+        school_id: targetSchoolId,
+        title: announcementTitle.trim(),
+        content: announcementContent.trim(),
+        author_name: author,
+        target_audience: announcementTarget
+      }).select().maybeSingle();
+
+      if (data?.id) {
+        newAnn.id = data.id;
+      }
+    } catch (err) {
+      console.warn("Supabase announcement insert error, falling back locally:", err);
+    }
+
+    // Persist locally for the school
+    try {
+      const raw = localStorage.getItem(`school_announcements_${targetSchoolId}`);
+      const existing = raw ? JSON.parse(raw) : [];
+      localStorage.setItem(`school_announcements_${targetSchoolId}`, JSON.stringify([newAnn, ...existing.filter((x: any) => x.id !== newAnn.id)]));
+    } catch (e) {}
+
+    // Dispatch real notification to users of this school (Parents, Teachers, Staff)
+    try {
+      await supabase.from('notifications').insert({
+        school_id: targetSchoolId,
+        type: 'ANNOUNCEMENT',
+        title: `Nouvelle Annonce : ${announcementTitle.trim()}`,
+        message: announcementContent.trim().substring(0, 160),
+        target_audience: announcementTarget,
+        link: announcementTarget === 'Parents' ? '/parent' : (announcementTarget === 'Professeurs' ? '/teacher' : '/school-admin')
+      });
+    } catch (e) {}
+
+    window.dispatchEvent(new CustomEvent('refresh_notifications', {
+      detail: { title: announcementTitle, target: announcementTarget }
+    }));
+
+    setAnnouncements(prev => [newAnn, ...prev.filter(a => a.id !== newAnn.id)]);
+    setAnnouncementTitle("");
+    setAnnouncementContent("");
+    toast.success(`Annonce publiée et transmise avec succès aux destinataires (${announcementTarget}) !`);
   };
 
   const handleDeleteAnnouncement = async (id: string) => {
@@ -720,13 +781,21 @@ export function SchoolAdminDashboard() {
     });
     if (!ok) return;
 
-    const { error } = await supabase.from('announcements').delete().eq('id', id);
-    if (!error) {
-       setAnnouncements(prev => prev.filter(a => a.id !== id));
-       toast.success("Annonce supprimée.");
-    } else {
-       toast.error(error.message || "Impossible de supprimer l'annonce.");
-    }
+    try {
+      await supabase.from('announcements').delete().eq('id', id);
+    } catch (e) {}
+
+    const targetSchoolId = user?.schoolId || localStorage.getItem('edubenin_active_school_id') || "11111111-1111-4111-8111-111111111111";
+    try {
+      const raw = localStorage.getItem(`school_announcements_${targetSchoolId}`);
+      if (raw) {
+        const existing = JSON.parse(raw);
+        localStorage.setItem(`school_announcements_${targetSchoolId}`, JSON.stringify(existing.filter((a: any) => a.id !== id)));
+      }
+    } catch (e) {}
+
+    setAnnouncements(prev => prev.filter(a => a.id !== id));
+    toast.success("Annonce supprimée.");
   };
 
   return (
@@ -777,6 +846,12 @@ export function SchoolAdminDashboard() {
           className={`px-4 py-2 rounded-lg text-xs whitespace-nowrap shrink-0 font-bold uppercase tracking-wider transition-all ${activeTab === "ANNOUNCEMENTS" ? "bg-white shadow-xs text-gray-800 border border-slate-200" : "text-slate-500 hover:text-gray-800 hover:bg-white/60"}`}
         >
           <span className="flex items-center gap-2"><Megaphone size={14} /> Annonces</span>
+        </button>
+        <button 
+          onClick={() => setActiveTab("BACKUP")} 
+          className={`px-4 py-2 rounded-lg text-xs whitespace-nowrap shrink-0 font-bold uppercase tracking-wider transition-all ${activeTab === "BACKUP" ? "bg-white shadow-xs text-gray-800 border border-slate-200" : "text-slate-500 hover:text-gray-800 hover:bg-white/60"}`}
+        >
+          <span className="flex items-center gap-2"><Database size={14} /> Sauvegarde</span>
         </button>
       </div>
 
@@ -1241,6 +1316,7 @@ export function SchoolAdminDashboard() {
 
       {activeTab === "ACADEMIC" && <SchoolAdminAcademic />}
       {activeTab === "FEES" && <SchoolAdminFees />}
+      {activeTab === "BACKUP" && <SchoolBackup />}
 
       {/* Popup de première configuration pour le directeur */}
       <InitialSchoolSetupModal

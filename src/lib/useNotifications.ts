@@ -46,44 +46,68 @@ export function useNotifications() {
   const [loading, setLoading] = useState(true);
 
   const fetchNotifications = async () => {
-    if (!user?.schoolId) {
+    const targetSchoolId = user?.schoolId || localStorage.getItem('edubenin_active_school_id');
+    if (!targetSchoolId) {
       setLoading(false);
       return;
     }
 
     try {
-      const readIds = JSON.parse(localStorage.getItem(`read_notifications_${user.id}`) || '[]');
+      const readIds = JSON.parse(localStorage.getItem(`read_notifications_${user?.id || 'guest'}`) || '[]');
       const notifs: AppNotification[] = [];
 
       // 1. Fetch Announcements
-
       let audienceFilter = 'Parents';
-      if (user.role === 'TEACHER') audienceFilter = 'Professeurs';
-      else if (['SECRETARY', 'CASHIER', 'SUPERVISOR', 'DIRECTOR_OF_STUDIES', 'SCHOOL_ADMIN'].includes(user.role)) audienceFilter = 'Administration';
-      
-      const targetSchoolId = user.schoolId || localStorage.getItem('edubenin_active_school_id');
+      if (user?.role === 'TEACHER') audienceFilter = 'Professeurs';
+      else if (['SECRETARY', 'CASHIER', 'SUPERVISOR', 'DIRECTOR_OF_STUDIES', 'SCHOOL_ADMIN'].includes(user?.role || '')) audienceFilter = 'Administration';
 
-      const { data: announcements } = await supabase
-        .from('announcements')
-        .select('*')
-        .eq('school_id', targetSchoolId)
-        .in('target_audience', [audienceFilter, 'Tous', 'ALL', 'TOUS'])
-        .order('created_at', { ascending: false })
-        .limit(15);
+      try {
+        const { data: announcements } = await supabase
+          .from('announcements')
+          .select('*')
+          .eq('school_id', targetSchoolId)
+          .in('target_audience', [audienceFilter, 'Tous', 'ALL', 'TOUS'])
+          .order('created_at', { ascending: false })
+          .limit(15);
 
-      if (announcements) {
-        announcements.forEach((a: any) => {
-          notifs.push({
-            id: `ann-${a.id}`,
-            type: 'ANNOUNCEMENT',
-            title: 'Nouvelle Annonce : ' + a.title,
-            message: a.content.substring(0, 120) + (a.content.length > 120 ? '...' : ''),
-            date: new Date(a.created_at).getTime(),
-            read: readIds.includes(`ann-${a.id}`),
-            link: user.role === 'PARENT' ? '/parent' : (user.role === 'TEACHER' ? '/teacher' : '/director/announcements')
+        if (announcements) {
+          announcements.forEach((a: any) => {
+            notifs.push({
+              id: `ann-${a.id}`,
+              type: 'ANNOUNCEMENT',
+              title: 'Nouvelle Annonce : ' + a.title,
+              message: a.content.substring(0, 120) + (a.content.length > 120 ? '...' : ''),
+              date: new Date(a.created_at).getTime(),
+              read: readIds.includes(`ann-${a.id}`),
+              link: user?.role === 'PARENT' ? '/parent' : (user?.role === 'TEACHER' ? '/teacher' : '/director/announcements')
+            });
           });
-        });
-      }
+        }
+      } catch (e) {}
+
+      // Fallback local announcements for the school
+      try {
+        const raw = localStorage.getItem(`school_announcements_${targetSchoolId}`);
+        if (raw) {
+          const localAnns: any[] = JSON.parse(raw);
+          localAnns.forEach((a: any) => {
+            const notifId = `ann-${a.id}`;
+            const target = a.targetAudience || a.target_audience || 'Tous';
+            const matchesAudience = target === 'Tous' || target === 'ALL' || target === audienceFilter;
+            if (matchesAudience && !notifs.some(n => n.id === notifId)) {
+              notifs.push({
+                id: notifId,
+                type: 'ANNOUNCEMENT',
+                title: 'Nouvelle Annonce : ' + a.title,
+                message: (a.content || '').substring(0, 120) + ((a.content || '').length > 120 ? '...' : ''),
+                date: a.date || Date.now(),
+                read: readIds.includes(notifId),
+                link: user?.role === 'PARENT' ? '/parent' : (user?.role === 'TEACHER' ? '/teacher' : '/director/announcements')
+              });
+            }
+          });
+        }
+      } catch (e) {}
 
       // 2. Fetch Support & DB Notifications for Admin, Director, Cashier, Secretary, Supervisor
       if (['SCHOOL_ADMIN', 'DIRECTOR_OF_STUDIES', 'CASHIER', 'SECRETARY', 'SUPERVISOR', 'TEACHER'].includes(user.role)) {

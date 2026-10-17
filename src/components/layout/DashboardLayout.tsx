@@ -1,6 +1,6 @@
 import { ReactNode, useState } from "react";
 import { useAuth } from "../../lib/auth";
-import { LogOut, LayoutDashboard, Users, CreditCard, BookOpen, Building, HelpCircle, User, UserCheck, Menu, X, Settings, Clock, FileText, Calendar, ArrowDownToLine, Banknote, Shield, AlertCircle, ShieldAlert, Award, Megaphone, FileSpreadsheet } from "lucide-react";
+import { LogOut, LayoutDashboard, Users, CreditCard, BookOpen, Building, HelpCircle, User, UserCheck, Menu, X, Settings, Clock, FileText, Calendar, ArrowDownToLine, Banknote, Shield, AlertCircle, ShieldAlert, Award, Megaphone, FileSpreadsheet, Database } from "lucide-react";
 import { Link, useLocation } from "react-router-dom";
 import { clsx } from "clsx";
 import { EduBeninLogo } from "../Logo";
@@ -63,6 +63,7 @@ export function DashboardLayout({ children }: { children: ReactNode }) {
           { name: "Professeurs", href: "/school-admin/teachers", icon: Users },
           { name: "Synthèse & Bilans", href: "/school-admin/stats", icon: BookOpen },
           { name: "Prospectus", href: "/school-admin/prospectus", icon: BookOpen },
+          { name: "Sauvegarde", href: "/school-admin?tab=BACKUP", icon: Database },
           { name: "Paramètres Établissement", href: "/school-admin?tab=SETTINGS", icon: Settings },
           commonSettings
         ];
@@ -128,6 +129,7 @@ export function DashboardLayout({ children }: { children: ReactNode }) {
           { name: "Synthèse & Bilans", href: "/school-admin/stats", icon: BookOpen },
           { name: "Prospectus", href: "/school-admin/prospectus", icon: BookOpen },
           { name: "Annonces", href: "/director/announcements", icon: Megaphone },
+          { name: "Sauvegarde", href: "/school-admin?tab=BACKUP", icon: Database },
           { name: "Paramètres Établissement", href: "/school-admin?tab=SETTINGS", icon: Settings },
           commonSettings
         ];

@@ -52,6 +52,8 @@ export function SchoolAdminFees() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
+  const [viewFormat, setViewFormat] = useState<"TABLE" | "LIST">("TABLE");
+
   const isAllLevelsSelected = selectedLevels.includes("ALL") || (LEVELS.length > 0 && LEVELS.every(l => selectedLevels.includes(l)));
 
   const fetchAcademicYears = async () => {
@@ -250,19 +252,48 @@ export function SchoolAdminFees() {
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
         <div>
-          <h2 className="text-lg font-bold text-gray-700">Configuration des Frais</h2>
+          <h2 className="text-lg font-bold text-gray-700">Frais de Scolarité & Services</h2>
           <p className="text-xs text-slate-500">Configurez ou modifiez directement les montants de chaque classe dans un tableau d'ensemble.</p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
+          {/* View format switcher */}
+          <div className="flex p-1 bg-slate-100 rounded-lg shrink-0">
+            <button
+              type="button"
+              onClick={() => setViewFormat("TABLE")}
+              className={`px-3 py-1.5 rounded-md text-xs font-bold transition flex items-center gap-1.5 ${
+                viewFormat === "TABLE"
+                  ? "bg-white text-gray-900 shadow-xs"
+                  : "text-slate-600 hover:text-gray-900"
+              }`}
+            >
+              <Table size={14} className="text-emerald-600" />
+              <span>Tableau Général</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setViewFormat("LIST")}
+              className={`px-3 py-1.5 rounded-md text-xs font-bold transition flex items-center gap-1.5 ${
+                viewFormat === "LIST"
+                  ? "bg-white text-gray-900 shadow-xs"
+                  : "text-slate-600 hover:text-gray-900"
+              }`}
+            >
+              <DollarSign size={14} className="text-blue-600" />
+              <span>Vue par Catégorie</span>
+            </button>
+          </div>
+
           <button 
             onClick={() => setShowTableModal(true)}
-            className="px-4 py-2 bg-indigo-600 text-white rounded text-sm font-bold uppercase tracking-wider hover:bg-indigo-700 transition-colors flex items-center gap-2 shadow-sm"
-            title="Modifier l'ensemble des frais dans un grand tableau rangé par classe"
+            className="px-3.5 py-1.5 bg-indigo-600 text-white rounded-lg text-xs font-bold uppercase tracking-wider hover:bg-indigo-700 transition flex items-center gap-1.5 shadow-xs"
+            title="Ouvrir le tableau en mode plein écran"
           >
-            <Table size={16} /> Modifier dans un tableau
+            <Table size={14} /> Plein écran
           </button>
           <button 
             onClick={() => { 
+              setViewFormat("LIST");
               setShowForm(!showForm); 
               setEditingId(null); 
               setErrorMessage(null);
@@ -270,9 +301,9 @@ export function SchoolAdminFees() {
                 setFormYear(academicYears[0].name);
               }
             }}
-            className="px-4 py-2 bg-emerald-600 text-white rounded text-sm font-bold uppercase tracking-wider hover:bg-emerald-700 transition-colors flex items-center gap-2 shadow-sm"
+            className="px-3.5 py-1.5 bg-emerald-600 text-white rounded-lg text-xs font-bold uppercase tracking-wider hover:bg-emerald-700 transition flex items-center gap-1.5 shadow-xs"
           >
-            <Plus size={16} /> Ajouter des Frais
+            <Plus size={14} /> Ajouter des Frais
           </button>
         </div>
       </div>
@@ -301,20 +332,35 @@ export function SchoolAdminFees() {
         </div>
       )}
 
-      <div className="flex p-1 bg-slate-100 rounded-lg shrink-0 overflow-x-auto max-w-fit">
-        <button 
-          onClick={() => setActiveTab("MANDATORY")} 
-          className={`px-4 py-2 rounded text-xs font-bold uppercase tracking-wider transition-colors ${activeTab === "MANDATORY" ? "bg-white shadow-sm text-gray-700" : "text-slate-500 hover:text-gray-700"}`}
-        >
-          Frais Scolaires
-        </button>
-        <button 
-          onClick={() => setActiveTab("OPTIONAL")} 
-          className={`px-4 py-2 rounded text-xs font-bold uppercase tracking-wider transition-colors ${activeTab === "OPTIONAL" ? "bg-white shadow-sm text-gray-700" : "text-slate-500 hover:text-gray-700"}`}
-        >
-          Services Optionnels
-        </button>
-      </div>
+      {viewFormat === "TABLE" ? (
+        <FeeTableModal
+          isOpen={true}
+          embedded={true}
+          onClose={() => {}}
+          academicYears={academicYears}
+          currentYear={formYear || (academicYears[0]?.name ?? "2024-2025")}
+          onSaved={() => {
+            fetchFees();
+            setSuccessMessage("Grille des frais sauvegardée avec succès !");
+            setTimeout(() => setSuccessMessage(null), 4000);
+          }}
+        />
+      ) : (
+        <>
+          <div className="flex p-1 bg-slate-100 rounded-lg shrink-0 overflow-x-auto max-w-fit">
+            <button 
+              onClick={() => setActiveTab("MANDATORY")} 
+              className={`px-4 py-2 rounded text-xs font-bold uppercase tracking-wider transition-colors ${activeTab === "MANDATORY" ? "bg-white shadow-sm text-gray-700" : "text-slate-500 hover:text-gray-700"}`}
+            >
+              Frais Scolaires
+            </button>
+            <button 
+              onClick={() => setActiveTab("OPTIONAL")} 
+              className={`px-4 py-2 rounded text-xs font-bold uppercase tracking-wider transition-colors ${activeTab === "OPTIONAL" ? "bg-white shadow-sm text-gray-700" : "text-slate-500 hover:text-gray-700"}`}
+            >
+              Services Optionnels
+            </button>
+          </div>
 
       <div className="flex flex-wrap gap-4 bg-white p-4 rounded-xl shadow-sm border border-slate-200">
         <div>
@@ -598,6 +644,8 @@ export function SchoolAdminFees() {
           </tbody>
         </table>
       </div>
+      </>
+      )}
 
       {/* Details Modal */}
       {selectedFeeDetails && (

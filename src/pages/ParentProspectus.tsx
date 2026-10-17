@@ -1,46 +1,53 @@
 import React, { useState, useEffect } from "react";
 import { useAuth } from "../lib/auth";
-import { FileText, Download, Edit2, Check, Upload, Save, X, Plus, Trash2, Eye } from "lucide-react";
+import { useToast } from "../lib/toast";
+import { FileText, Download, Edit2, Check, Upload, Save, X, Plus, Trash2, Eye, CheckCircle2 } from "lucide-react";
 import { supabase } from "../lib/supabase";
+import { loadProspectus, saveProspectus } from "../lib/prospectusStorage";
 
 export function ParentProspectus() {
   const { user } = useAuth();
+  const toast = useToast();
   const [imageUrl, setImageUrl] = useState("https://images.unsplash.com/photo-1523050854058-8df90110c9f1?auto=format&fit=crop&q=80&w=2400");
   const [bottomImageUrl, setBottomImageUrl] = useState("");
   const [isEditing, setIsEditing] = useState(false);
   const [previewMode, setPreviewMode] = useState(false);
+  const [saveSuccess, setSaveSuccess] = useState(false);
   
   const [sections, setSections] = useState<any[]>([
      { type: "TEXT", title: "Nos Valeurs", content: "• Excellence académique\n• Rigueur" },
      { type: "TEXT", title: "Informations Pratiques", content: "**Horaires :** 08h00 - 17h00\n**Cantine :** Disponible" }
   ]);
 
-  const canEdit = user?.role === 'SCHOOL_ADMIN' || user?.role === 'CASHIER';
+  const canEdit = user?.role === 'SCHOOL_ADMIN' || user?.role === 'CASHIER' || user?.role === 'DIRECTOR_OF_STUDIES' || user?.role === 'SUPER_ADMIN';
+
+  const effectiveSchoolId = user?.schoolId || localStorage.getItem('edubenin_active_school_id') || "11111111-1111-4111-8111-111111111111";
 
   useEffect(() => {
-    if (!user?.schoolId) return;
-    supabase.from('fee_config').select('description').eq('school_id', user.schoolId).eq('level', 'PROSPECTUS_DATA').single().then(({data}) => {
-      if (data && data.description) {
-        try {
-          const parsed = JSON.parse(data.description);
-          setImageUrl(parsed.imageUrl || imageUrl);
-          setBottomImageUrl(parsed.bottomImageUrl || "");
-          if (parsed.sections) setSections(parsed.sections);
-        } catch(e) {}
+    async function loadData() {
+      const persisted = await loadProspectus(effectiveSchoolId);
+      if (persisted) {
+        if (persisted.imageUrl) setImageUrl(persisted.imageUrl);
+        if (persisted.bottomImageUrl !== undefined) setBottomImageUrl(persisted.bottomImageUrl || "");
+        if (Array.isArray(persisted.sections) && persisted.sections.length > 0) setSections(persisted.sections);
       }
-    });
-  }, [user?.schoolId]);
+    }
+    loadData();
+  }, [effectiveSchoolId]);
 
-  const handleSave = () => {
-    if (user?.schoolId) {
-      const payload = JSON.stringify({ imageUrl, bottomImageUrl, sections });
-      supabase.from('fee_config').select('id').eq('school_id', user.schoolId).eq('level', 'PROSPECTUS_DATA').single().then(({data}) => {
-        if (data) {
-          supabase.from('fee_config').update({ description: payload }).eq('id', data.id).then(() => {});
-        } else {
-          supabase.from('fee_config').insert({ school_id: user.schoolId, level: 'PROSPECTUS_DATA', type: 'DATA', amount: 0, description: payload }).then(() => {});
-        }
+  const handleSave = async () => {
+    try {
+      await saveProspectus(effectiveSchoolId, {
+        imageUrl,
+        bottomImageUrl,
+        sections
       });
+      setSaveSuccess(true);
+      toast.success("Prospectus et images enregistrés avec succès !");
+      setTimeout(() => setSaveSuccess(false), 3500);
+    } catch (err: any) {
+      console.error("Save error:", err);
+      toast.error("Erreur lors de l'enregistrement du prospectus.");
     }
     setIsEditing(false);
     setPreviewMode(false);
@@ -51,8 +58,9 @@ export function ParentProspectus() {
     if (file) {
       const reader = new FileReader();
       reader.onloadend = () => {
-        if (isBottom) setBottomImageUrl(reader.result as string);
-        else setImageUrl(reader.result as string);
+        const result = reader.result as string;
+        if (isBottom) setBottomImageUrl(result);
+        else setImageUrl(result);
       };
       reader.readAsDataURL(file);
     }
@@ -126,6 +134,13 @@ export function ParentProspectus() {
           </button>
         </div>
       </div>
+
+      {saveSuccess && (
+        <div className="mb-6 p-4 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-xl flex items-center gap-3 animate-in fade-in shadow-xs font-semibold text-sm max-w-4xl mx-auto">
+          <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
+          <span>Le prospectus, les images et les sections ont été sauvegardés avec succès ! Ils restent conservés lors des prochaines visites et actualisations de la page.</span>
+        </div>
+      )}
 
       <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden max-w-4xl mx-auto print:shadow-none print:border-none">
         

@@ -1,5 +1,7 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useRef } from "react";
 import { Student, Payment, FeeConfig, LEVELS } from "../types";
+import html2pdf from "html2pdf.js";
+import { MultiSelectDropdown, OptionItem } from "./MultiSelectDropdown";
 import { 
   AlertTriangle, 
   Search, 
@@ -20,7 +22,11 @@ import {
   X,
   FileText,
   BadgeAlert,
-  Coins
+  Coins,
+  FileSpreadsheet,
+  Eye,
+  RefreshCw,
+  Share2
 } from "lucide-react";
 import { getRandomStudentPhoto } from "../lib/studentPhotos";
 import { supabase } from "../lib/supabase";
@@ -127,6 +133,14 @@ export function CashierDebts({
   const [filterYear, setFilterYear] = useState("ALL");
   const [filterAlert, setFilterAlert] = useState<"ALL" | "OVERDUE" | "UPCOMING">("ALL");
   const [sortBy, setSortBy] = useState<"DEBT_DESC" | "OVERDUE_DESC" | "NAME">("OVERDUE_DESC");
+
+  // Multi-select Checkbox Filter States
+  const [selectedClasses, setSelectedClasses] = useState<string[]>([]);
+  const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
+  const [selectedYears, setSelectedYears] = useState<string[]>([]);
+  const [selectedAlerts, setSelectedAlerts] = useState<string[]>([]);
+  const [isExportingPdf, setIsExportingPdf] = useState(false);
+  const [toastNotice, setToastNotice] = useState<string | null>(null);
   
   // Selected student for details modal
   const [selectedProfile, setSelectedProfile] = useState<StudentDebtProfile | null>(null);
@@ -153,6 +167,38 @@ export function CashierDebts({
     });
     return Array.from(set).sort().reverse();
   }, [academicYears, students]);
+
+  // Options definitions for MultiSelectDropdown
+  const classOptions: OptionItem[] = useMemo(() => {
+    return availableClasses.map((cls) => ({
+      value: cls,
+      label: `Classe : ${cls}`
+    }));
+  }, [availableClasses]);
+
+  const yearOptions: OptionItem[] = useMemo(() => {
+    return availableYears.map((yr) => ({
+      value: yr,
+      label: `Année : ${yr}`
+    }));
+  }, [availableYears]);
+
+  const categoryOptions: OptionItem[] = useMemo(() => [
+    { value: "Scolarité", label: "Scolarité (Générale)", group: "Scolarité" },
+    { value: "Tranche 1", label: "1ère Tranche", group: "Tranches" },
+    { value: "Tranche 2", label: "2ème Tranche", group: "Tranches" },
+    { value: "Tranche 3", label: "3ème Tranche", group: "Tranches" },
+    { value: "Inscription", label: "Frais d'inscription", group: "Inscriptions" },
+    { value: "Cantine", label: "Cantine scolaire", group: "Services" },
+    { value: "Transport", label: "Transport scolaire", group: "Services" },
+    { value: "Uniforme", label: "Tenues & Uniformes", group: "Services" },
+    { value: "Autre", label: "Autres prestations", group: "Services" }
+  ], []);
+
+  const alertOptions: OptionItem[] = useMemo(() => [
+    { value: "OVERDUE", label: "🚨 Échéances dépassées (Retards)" },
+    { value: "UPCOMING", label: "⏰ Échéances à venir" }
+  ], []);
 
   // Compute debt profiles for all students
   const studentDebtProfiles = useMemo(() => {
@@ -382,26 +428,55 @@ export function CashierDebts({
     return debtorProfiles.filter(profile => {
       const student = profile.student;
 
-      // Filter by academic year
-      if (filterYear !== "ALL") {
+      // 1. Filter by academic year (single or multi)
+      if (selectedYears.length > 0) {
+        if (!selectedYears.includes(profile.academicYear)) return false;
+      } else if (filterYear !== "ALL") {
         if (profile.academicYear !== filterYear) return false;
       }
 
-      // Filter by class / level
-      if (filterClass !== "ALL") {
+      // 2. Filter by class / level (single or multi)
+      if (selectedClasses.length > 0) {
+        if (!student.level || !selectedClasses.includes(student.level)) return false;
+      } else if (filterClass !== "ALL") {
         if (student.level !== filterClass) return false;
       }
 
-      // Filter by alert status
-      if (filterAlert === "OVERDUE" && !profile.hasOverdueAlert) return false;
-      if (filterAlert === "UPCOMING" && profile.hasOverdueAlert) return false;
+      // 3. Filter by category of debt (single or multi)
+      if (selectedCategories.length > 0) {
+        const hasMatchingDebt = profile.unpaidItems.some(item => {
+          const catName = (item.category || "").toLowerCase();
+          const feeName = (item.name || "").toLowerCase();
+          return selectedCategories.some(selectedCat => {
+            const scLower = selectedCat.toLowerCase();
+            return catName.includes(scLower) || feeName.includes(scLower);
+          });
+        });
+        if (!hasMatchingDebt) return false;
+      }
 
-      // Filter by search term
+      // 4. Filter by alert status
+      if (selectedAlerts.length > 0) {
+        const matchesAlert = selectedAlerts.some(a => {
+          if (a === "OVERDUE") return profile.hasOverdueAlert;
+          if (a === "UPCOMING") return !profile.hasOverdueAlert;
+          return true;
+        });
+        if (!matchesAlert) return false;
+      } else if (filterAlert === "OVERDUE" && !profile.hasOverdueAlert) {
+        return false;
+      } else if (filterAlert === "UPCOMING" && profile.hasOverdueAlert) {
+        return false;
+      }
+
+      // 5. Filter by search term
       if (searchTerm.trim()) {
         const query = searchTerm.toLowerCase();
         const fullName = `${student.firstName || ''} ${student.lastName || ''}`.toLowerCase();
         const matricule = (student.matricule || '').toLowerCase();
-        if (!fullName.includes(query) && !matricule.includes(query)) return false;
+        const contact = (student.fatherContact || student.motherContact || student.guardianContact || '').toLowerCase();
+        const parentName = (student.fatherName || student.motherName || student.guardianName || '').toLowerCase();
+        if (!fullName.includes(query) && !matricule.includes(query) && !contact.includes(query) && !parentName.includes(query)) return false;
       }
 
       return true;
@@ -420,7 +495,139 @@ export function CashierDebts({
       }
       return 0;
     });
-  }, [debtorProfiles, filterYear, filterClass, filterAlert, searchTerm, sortBy]);
+  }, [debtorProfiles, filterYear, selectedYears, filterClass, selectedClasses, selectedCategories, filterAlert, selectedAlerts, searchTerm, sortBy]);
+
+  const resetFilters = () => {
+    setSearchTerm("");
+    setFilterClass("ALL");
+    setSelectedClasses([]);
+    setFilterYear("ALL");
+    setSelectedYears([]);
+    setSelectedCategories([]);
+    setFilterAlert("ALL");
+    setSelectedAlerts([]);
+    setSortBy("OVERDUE_DESC");
+  };
+
+  const hasActiveFilters =
+    searchTerm ||
+    filterClass !== "ALL" ||
+    selectedClasses.length > 0 ||
+    filterYear !== "ALL" ||
+    selectedYears.length > 0 ||
+    selectedCategories.length > 0 ||
+    filterAlert !== "ALL" ||
+    selectedAlerts.length > 0;
+
+  // Export Debts as PDF
+  const handleExportDebtsPDF = () => {
+    const element = document.getElementById("printable-debts-doc");
+    if (!element) {
+      alert("Erreur lors de la préparation du document d'export.");
+      return;
+    }
+
+    setIsExportingPdf(true);
+    const dateFormatted = new Date().toISOString().split("T")[0];
+    const schoolNameSlug = (user?.schoolName || localStorage.getItem('edubenin_active_school_name') || "Ecole").replace(/[^a-zA-Z0-9]/g, "_");
+    const fileName = `Liste_Creances_${schoolNameSlug}_${dateFormatted}.pdf`;
+
+    element.style.display = "block";
+    element.style.visibility = "visible";
+    element.style.position = "fixed";
+    element.style.left = "0px";
+    element.style.top = "0px";
+    element.style.width = "1120px";
+    element.style.zIndex = "999999";
+    element.style.backgroundColor = "#ffffff";
+
+    setTimeout(() => {
+      const opt = {
+        margin: [8, 8, 8, 8] as [number, number, number, number],
+        filename: fileName,
+        image: { type: "jpeg" as const, quality: 0.98 },
+        html2canvas: { scale: 1.5, useCORS: true, logging: false },
+        jsPDF: { unit: "mm" as const, format: "a4" as const, orientation: "landscape" as const },
+        pagebreak: { mode: ["avoid-all", "css", "legacy"] }
+      };
+
+      html2pdf()
+        .set(opt)
+        .from(element)
+        .save()
+        .then(() => {
+          element.style.display = "none";
+          element.style.visibility = "hidden";
+          element.style.zIndex = "-1000";
+          setIsExportingPdf(false);
+          setToastNotice("Document des créances téléchargé en PDF avec succès !");
+          setTimeout(() => setToastNotice(null), 3500);
+        })
+        .catch((err: any) => {
+          console.error("Erreur PDF:", err);
+          element.style.display = "none";
+          element.style.visibility = "hidden";
+          setIsExportingPdf(false);
+          alert("Erreur lors de la génération PDF.");
+        });
+    }, 350);
+  };
+
+  // Export Debts as CSV / Excel
+  const handleExportDebtsCSV = () => {
+    const headers = [
+      "Matricule",
+      "Nom",
+      "Prénom",
+      "Classe",
+      "Année Scolaire",
+      "Total Attendu (FCFA)",
+      "Total Déjà Payé (FCFA)",
+      "Reste à Payer (FCFA)",
+      "Taux de Règlement (%)",
+      "Statut Échéance",
+      "Frais Impayés Détaillés",
+      "Parent Référent",
+      "Téléphone Parent"
+    ];
+
+    const rows = displayedProfiles.map(p => {
+      const s = p.student;
+      const parentName = s.fatherName || s.motherName || s.guardianName || "";
+      const parentPhone = s.fatherContact || s.motherContact || s.guardianContact || "";
+      const unpaidDetails = p.unpaidItems.map(i => `${i.name}: ${i.remainingAmount} FCFA (${i.limitStr || 'sans date'})`).join(" | ");
+
+      return [
+        `"${s.matricule || s.id.substring(0, 8)}"`,
+        `"${s.lastName || ''}"`,
+        `"${s.firstName || ''}"`,
+        `"${s.level || ''}"`,
+        `"${p.academicYear || ''}"`,
+        p.totalExpected,
+        p.totalPaid,
+        p.totalRemaining,
+        `${p.percentPaid}%`,
+        p.hasOverdueAlert ? `"RETARD (${p.maxDaysOverdue} jours)"` : '"À jour / À venir"',
+        `"${unpaidDetails.replace(/"/g, '""')}"`,
+        `"${parentName.replace(/"/g, '""')}"`,
+        `"${parentPhone.replace(/"/g, '""')}"`
+      ];
+    });
+
+    const csvContent = "\uFEFF" + [headers.join(";"), ...rows.map(r => r.join(";"))].join("\n");
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    const dateFormatted = new Date().toISOString().split("T")[0];
+    link.href = url;
+    link.download = `Creances_Scolaires_${dateFormatted}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+    setToastNotice("Fichier CSV des créances téléchargé avec succès !");
+    setTimeout(() => setToastNotice(null), 3500);
+  };
 
   // Send WhatsApp reminder to parent
   const handleSendWhatsAppReminder = (profile: StudentDebtProfile) => {
@@ -589,92 +796,183 @@ export function CashierDebts({
         </div>
       )}
 
-      {/* 3. Filters & Controls Bar */}
-      <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex flex-col gap-3">
-        <div className="flex flex-col md:flex-row items-center justify-between gap-3">
-          
-          {/* Search box */}
-          <div className="relative w-full md:w-80">
-            <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-            <input
-              type="text"
-              placeholder="Rechercher par nom, prénom, matricule..."
-              value={searchTerm}
-              onChange={e => setSearchTerm(e.target.value)}
-              className="w-full pl-9 pr-4 py-2 border border-slate-200 rounded-lg text-xs focus:ring-2 focus:ring-emerald-500 focus:border-transparent outline-none bg-slate-50/50"
-            />
-            {searchTerm && (
-              <button 
-                onClick={() => setSearchTerm("")} 
-                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
-              >
-                <X size={14} />
-              </button>
+      {/* Toast Notice */}
+      {toastNotice && (
+        <div className="fixed top-6 right-6 z-50 bg-emerald-600 text-white px-5 py-3 rounded-2xl shadow-xl flex items-center gap-3 animate-in fade-in slide-in-from-top-4 font-bold text-xs">
+          <CheckCircle2 size={18} />
+          <span>{toastNotice}</span>
+        </div>
+      )}
+
+      {/* PDF Export Loading Screen */}
+      {isExportingPdf && (
+        <div className="fixed inset-0 z-[9999999] bg-slate-900/80 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl p-6 shadow-2xl max-w-sm w-full text-center space-y-4">
+            <div className="w-12 h-12 rounded-2xl bg-emerald-100 text-emerald-600 flex items-center justify-center mx-auto animate-pulse">
+              <Download size={24} />
+            </div>
+            <div>
+              <h3 className="font-black text-gray-900 text-base">Génération de la Liste des Créances</h3>
+              <p className="text-xs text-slate-500 mt-1">
+                Compilation des élèves débiteurs et calcul des soldes en cours...
+              </p>
+            </div>
+            <div className="w-full bg-slate-100 rounded-full h-2 overflow-hidden">
+              <div className="bg-emerald-600 h-2 rounded-full animate-indeterminate"></div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 3. FILTRES PERTINENTS & PRÉCIS (AVEC MULTI-SÉLECTION CASES À COCHER & EXPORT) */}
+      <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs space-y-4">
+        
+        {/* Panel Header */}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Filter size={16} className="text-emerald-600" />
+            <h3 className="font-bold text-gray-900 text-xs uppercase tracking-wide">
+              Filtres Pertinents & Précis (Créances & Impayés)
+            </h3>
+            {hasActiveFilters && (
+              <span className="text-[10px] bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full font-bold">
+                Actifs
+              </span>
             )}
           </div>
-
-          {/* Quick Selectors: Academic Year, Class, Alert, Sort */}
-          <div className="flex flex-wrap items-center gap-2 w-full md:w-auto justify-end">
-            
-            {/* Filter Academic Year */}
-            <div className="flex items-center gap-1.5 bg-slate-50 border border-slate-200 px-2.5 py-1.5 rounded-lg text-xs">
-              <Calendar size={14} className="text-slate-500" />
-              <select
-                value={filterYear}
-                onChange={e => setFilterYear(e.target.value)}
-                className="bg-transparent text-xs font-semibold text-gray-700 outline-none cursor-pointer"
-              >
-                <option value="ALL">Toutes les années</option>
-                {availableYears.map(yr => (
-                  <option key={yr} value={yr}>{yr}</option>
-                ))}
-              </select>
-            </div>
-
-            {/* Filter Class / Level */}
-            <div className="flex items-center gap-1.5 bg-slate-50 border border-slate-200 px-2.5 py-1.5 rounded-lg text-xs">
-              <Filter size={14} className="text-slate-500" />
-              <select
-                value={filterClass}
-                onChange={e => setFilterClass(e.target.value)}
-                className="bg-transparent text-xs font-semibold text-gray-700 outline-none cursor-pointer"
-              >
-                <option value="ALL">Toutes les classes</option>
-                {availableClasses.map(cls => (
-                  <option key={cls} value={cls}>{cls}</option>
-                ))}
-              </select>
-            </div>
-
-            {/* Filter Status Alert */}
-            <select
-              value={filterAlert}
-              onChange={e => setFilterAlert(e.target.value as any)}
-              className={`px-3 py-1.5 border rounded-lg text-xs font-bold outline-none cursor-pointer ${
-                filterAlert === "OVERDUE"
-                  ? "bg-rose-50 border-rose-300 text-rose-700"
-                  : "bg-slate-50 border-slate-200 text-gray-700"
-              }`}
+          {hasActiveFilters && (
+            <button
+              onClick={resetFilters}
+              className="text-xs text-rose-600 hover:text-rose-800 font-bold flex items-center gap-1 transition"
             >
-              <option value="ALL">Tous les débiteurs</option>
-              <option value="OVERDUE">🚨 Échéance dépassée uniquement</option>
-              <option value="UPCOMING">⏰ Échéances à venir</option>
-            </select>
+              <X size={14} />
+              <span>Réinitialiser les filtres</span>
+            </button>
+          )}
+        </div>
 
-            {/* Sort order */}
-            <div className="flex items-center gap-1.5 bg-slate-50 border border-slate-200 px-2.5 py-1.5 rounded-lg text-xs">
-              <ArrowUpDown size={14} className="text-slate-500" />
+        {/* Filters Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3">
+          
+          {/* 1. Recherche globale */}
+          <div className="xl:col-span-2">
+            <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-1">
+              Recherche élève / parent
+            </label>
+            <div className="relative">
+              <Search size={14} className="absolute left-3 top-2.5 text-slate-400" />
+              <input
+                type="text"
+                placeholder="Nom, matricule, parent, contact..."
+                value={searchTerm}
+                onChange={e => setSearchTerm(e.target.value)}
+                className="w-full pl-9 pr-8 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium focus:ring-2 focus:ring-emerald-500 focus:bg-white outline-none transition"
+              />
+              {searchTerm && (
+                <button 
+                  onClick={() => setSearchTerm("")} 
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                >
+                  <X size={13} />
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* 2. Multi-sélection Classes */}
+          <div>
+            <MultiSelectDropdown
+              label="Classe(s) de l'élève"
+              options={classOptions}
+              selectedValues={selectedClasses}
+              onChange={setSelectedClasses}
+              placeholder="Toutes les classes"
+            />
+          </div>
+
+          {/* 3. Multi-sélection Catégories d'impayés */}
+          <div>
+            <MultiSelectDropdown
+              label="Catégorie(s) de frais"
+              options={categoryOptions}
+              selectedValues={selectedCategories}
+              onChange={setSelectedCategories}
+              placeholder="Toutes les catégories"
+            />
+          </div>
+
+          {/* 4. Multi-sélection Années */}
+          <div>
+            <MultiSelectDropdown
+              label="Année(s) Scolaire(s)"
+              options={yearOptions}
+              selectedValues={selectedYears}
+              onChange={setSelectedYears}
+              placeholder="Toutes les années"
+            />
+          </div>
+
+          {/* 5. Statut & Alertes */}
+          <div>
+            <MultiSelectDropdown
+              label="Statut d'échéance"
+              options={alertOptions}
+              selectedValues={selectedAlerts}
+              onChange={setSelectedAlerts}
+              placeholder="Tous les débiteurs"
+            />
+          </div>
+        </div>
+
+        {/* Toolbar: Sort & Action Buttons (Download PDF, Export CSV, Print) */}
+        <div className="pt-3 border-t border-slate-100 flex flex-col md:flex-row items-start md:items-center justify-between gap-3">
+          
+          {/* Sort Selector */}
+          <div className="flex items-center gap-2 text-xs">
+            <span className="font-bold text-slate-500">Trier par :</span>
+            <div className="flex items-center gap-1.5 bg-slate-50 border border-slate-200 px-3 py-1.5 rounded-xl text-xs">
+              <ArrowUpDown size={13} className="text-slate-500" />
               <select
                 value={sortBy}
                 onChange={e => setSortBy(e.target.value as any)}
-                className="bg-transparent text-xs font-semibold text-gray-700 outline-none cursor-pointer"
+                className="bg-transparent text-xs font-bold text-slate-700 outline-none cursor-pointer"
               >
-                <option value="OVERDUE_DESC">Tri : Urgences / Retards d'abord</option>
-                <option value="DEBT_DESC">Tri : Montant restant décroissant</option>
-                <option value="NAME">Tri : Nom de famille (A-Z)</option>
+                <option value="OVERDUE_DESC">🚨 Urgences / Retards d'abord</option>
+                <option value="DEBT_DESC">💰 Solde impayé décroissant</option>
+                <option value="NAME">🔤 Nom de famille (A-Z)</option>
               </select>
             </div>
+          </div>
 
+          {/* Download & Export Action Buttons */}
+          <div className="flex items-center gap-2 flex-wrap w-full md:w-auto">
+            <button
+              onClick={() => window.print()}
+              className="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold flex items-center gap-1.5 transition"
+              title="Imprimer directement la liste"
+            >
+              <Printer size={15} />
+              <span>Imprimer</span>
+            </button>
+
+            <button
+              onClick={handleExportDebtsCSV}
+              className="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold flex items-center gap-1.5 transition"
+              title="Exporter les créances pour tableur Excel ou Google Sheets"
+            >
+              <FileSpreadsheet size={15} className="text-emerald-600" />
+              <span>Exporter Excel / CSV</span>
+            </button>
+
+            <button
+              onClick={handleExportDebtsPDF}
+              disabled={isExportingPdf}
+              className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold flex items-center gap-2 shadow-sm transition"
+              title="Télécharger la liste officielle des créances en format PDF"
+            >
+              {isExportingPdf ? <RefreshCw size={15} className="animate-spin" /> : <Download size={15} />}
+              <span>Télécharger Créances (PDF)</span>
+            </button>
           </div>
         </div>
 

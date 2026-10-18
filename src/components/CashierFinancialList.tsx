@@ -223,13 +223,44 @@ export function CashierFinancialList({
         const pRef = p.reference || `REC-${String(p.id).slice(0, 8).toUpperCase()}`;
         const pYear = p.academic_year || st?.academic_year || schoolInfo?.academic_year || "2024-2025";
         const pMethod = p.payment_method || p.method || "Espèces";
-        const rawStatus = (p.status || "").toUpperCase();
-        const pStatus: UnifiedTransaction["status"] =
-          rawStatus === "PENDING" || rawStatus === "EN_ATTENTE"
-            ? "PENDING"
-            : rawStatus === "CANCELLED" || rawStatus === "REJECTED" || rawStatus === "REFUSED" || rawStatus === "DECLINED" || rawStatus === "REFUSE" || rawStatus === "ANNULE"
-            ? "CANCELLED"
-            : "COMPLETED";
+        const rawStatus = (p.status || "").toString().trim().toUpperCase();
+        let pStatus: UnifiedTransaction["status"] = "CANCELLED";
+
+        if (
+          rawStatus === "FAILED" ||
+          rawStatus === "REJECTED" ||
+          rawStatus === "CANCELLED" ||
+          rawStatus === "REFUSED" ||
+          rawStatus === "REFUSE" ||
+          rawStatus === "REFUSÉ" ||
+          rawStatus === "REFUSÉE" ||
+          rawStatus === "DECLINED" ||
+          rawStatus === "ANNULE" ||
+          rawStatus === "ANNULÉ" ||
+          rawStatus === "ANNULÉE" ||
+          rawStatus === "ECHOUE" ||
+          rawStatus === "ÉCHOUÉ" ||
+          rawStatus === "ÉCHOUÉE"
+        ) {
+          pStatus = "CANCELLED";
+        } else if (
+          rawStatus === "PENDING" ||
+          rawStatus === "EN_ATTENTE" ||
+          rawStatus === "WAITING"
+        ) {
+          pStatus = "PENDING";
+        } else if (
+          rawStatus === "COMPLETED" ||
+          rawStatus === "VALIDE" ||
+          rawStatus === "VALIDÉ" ||
+          rawStatus === "VALIDÉE" ||
+          rawStatus === "PAID" ||
+          rawStatus === "SUCCESS"
+        ) {
+          pStatus = "COMPLETED";
+        } else {
+          pStatus = "CANCELLED";
+        }
 
         const items = Array.isArray(p.items) && p.items.length > 0 ? p.items : null;
 
@@ -677,9 +708,9 @@ export function CashierFinancialList({
   ], []);
 
   const statusOptions: OptionItem[] = useMemo(() => [
-    { value: "COMPLETED", label: "Validées / Encaissées" },
-    { value: "PENDING", label: "En attente de validation" },
-    { value: "CANCELLED", label: "Transactions Refusées / Annulées" }
+    { value: "COMPLETED", label: "Validées / Encaissées uniquement" },
+    { value: "PENDING", label: "En attente de validation (Non encaissées)" },
+    { value: "CANCELLED", label: "Transactions Refusées / Rejetées (Non encaissées)" }
   ], []);
 
   // Filtered Transactions
@@ -782,25 +813,18 @@ export function CashierFinancialList({
           return false;
       }
 
-      // 8. Status & Strict Exclusion of Rejected Transactions
-      // "ne prends pas en compte les Transactions refusées dans le rendu des informations, c'est uniquement quand on voudra filtrer les transactions refusées que ca doit display ces informations"
-      const isRejected = t.status === "CANCELLED";
-      const wantsRejected =
-        selectedStatuses.includes("CANCELLED") ||
-        selectedStatuses.includes("REJECTED") ||
-        filterStatus === "CANCELLED" ||
-        filterStatus === "REJECTED";
-
-      // If this transaction was rejected/cancelled and user did not explicitly filter for rejected, ignore it completely!
-      if (isRejected && !wantsRejected) {
-        return false;
-      }
-
-      // If user selected explicit statuses
+      // 8. Status : Affichage strict des vérifications validées & exclusion des transactions refusées / non encaissées
+      // "au niveau des enregistrements , ca montre des transactions qui ont eté refusés, or dans la tab verifications, la transaction a ete refusée c'est a dire qu'on n'a pas encaissé la somme. please corrige moi la liste financiere pour que ca donne les bonnes informations des verifications validées"
       if (selectedStatuses.length > 0) {
         if (!selectedStatuses.includes(t.status)) return false;
       } else if (filterStatus !== "ALL") {
         if (t.status !== filterStatus) return false;
+      } else {
+        // Par défaut (aucun filtre de statut explicite), afficher STRICTEMENT les transactions validées et encaissées
+        // Les transactions refusées (FAILED / CANCELLED) ou en attente ne sont pas encaissées et ne polluent pas les enregistrements officiels !
+        if (t.status !== "COMPLETED") {
+          return false;
+        }
       }
 
       return true;
@@ -1512,11 +1536,12 @@ export function CashierFinancialList({
                   <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
                   <XAxis
                     dataKey="name"
-                    tick={{ fontSize: 10, fill: "#64748b" }}
+                    tick={{ fontSize: 10, fill: "#475569", fontWeight: 600 }}
                     interval={0}
-                    angle={-15}
-                    textAnchor="end"
-                    height={40}
+                    angle={0}
+                    textAnchor="middle"
+                    height={30}
+                    tickFormatter={(name: string) => (name && name.length > 15 ? `${name.substring(0, 13)}…` : name)}
                   />
                   <YAxis
                     tick={{ fontSize: 10, fill: "#64748b" }}
@@ -1655,14 +1680,14 @@ export function CashierFinancialList({
             />
           </div>
 
-          {/* 7. Statut avec cases à cocher (Transactions refusées masquées par défaut) */}
+          {/* 7. Statut avec cases à cocher (Transactions validées par défaut, refusées masquées) */}
           <div>
             <MultiSelectDropdown
-              label="Statut des transactions"
+              label="Statut des vérifications"
               options={statusOptions}
               selectedValues={selectedStatuses}
               onChange={setSelectedStatuses}
-              placeholder="Toutes valides (Refusées masquées)"
+              placeholder="Validées uniquement (Par défaut)"
             />
           </div>
 
@@ -1931,8 +1956,20 @@ export function CashierFinancialList({
                       {/* Mode & Statut */}
                       <td className="py-3 px-4 whitespace-nowrap">
                         <div className="text-slate-700 font-semibold">{t.paymentMethod}</div>
-                        <div className="text-[10px] text-slate-400">
-                          {t.status === "COMPLETED" ? "Validé" : t.status === "PENDING" ? "En attente" : "Annulé"}
+                        <div className="mt-0.5">
+                          {t.status === "COMPLETED" ? (
+                            <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                              Validé / Encaissé
+                            </span>
+                          ) : t.status === "PENDING" ? (
+                            <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-200">
+                              En attente
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-rose-50 text-rose-700 border border-rose-200">
+                              Refusé (Non encaissé)
+                            </span>
+                          )}
                         </div>
                       </td>
 
@@ -2046,6 +2083,22 @@ export function CashierFinancialList({
                 <span className="font-semibold text-gray-800">
                   {selectedTransactionDetail.academicYear}
                 </span>
+              </div>
+              <div className="flex justify-between py-1 border-b border-slate-50 items-center">
+                <span className="text-slate-500">Statut vérification :</span>
+                {selectedTransactionDetail.status === "COMPLETED" ? (
+                  <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                    Validé / Encaissé
+                  </span>
+                ) : selectedTransactionDetail.status === "PENDING" ? (
+                  <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-200">
+                    En attente de vérification
+                  </span>
+                ) : (
+                  <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-rose-50 text-rose-700 border border-rose-200">
+                    Refusé (Non encaissé)
+                  </span>
+                )}
               </div>
               {selectedTransactionDetail.notes && (
                 <div className="pt-1">

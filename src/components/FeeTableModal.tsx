@@ -649,7 +649,11 @@ export function FeeTableModal({
       )}
 
       {/* Excel-like Table View */}
-      <div className={`flex-1 overflow-auto bg-slate-100 p-2 sm:p-4 ${embedded ? "max-h-[650px]" : ""}`}>
+      <div className={`flex-1 overflow-auto touch-scroll bg-slate-100 p-2 sm:p-4 ${embedded ? "max-h-[650px]" : ""}`}>
+        <div className="sm:hidden px-3 py-1.5 mb-2 bg-emerald-50 text-emerald-800 rounded-lg border border-emerald-200 text-[11px] font-semibold flex items-center justify-between">
+          <span>👉 Glissez horizontalement pour voir toutes les colonnes</span>
+          <span className="text-[10px] uppercase font-bold text-emerald-600">Tableau</span>
+        </div>
         <div className="bg-white rounded-lg border border-slate-200 shadow-xs overflow-hidden inline-block min-w-full">
           <table className="w-full text-left border-collapse text-xs">
             <thead className="bg-slate-800 text-white uppercase text-[10px] font-bold sticky top-0 z-20 shadow-xs">

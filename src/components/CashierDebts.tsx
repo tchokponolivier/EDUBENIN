@@ -1006,8 +1006,8 @@ export function CashierDebts({
             </p>
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse">
+          <div className="overflow-x-auto touch-scroll">
+            <table className="w-full min-w-[720px] text-left border-collapse">
               <thead>
                 <tr className="bg-slate-50 text-slate-500 text-[11px] font-bold uppercase tracking-wider border-b border-slate-200">
                   <th className="px-4 py-3">Élève & Classe</th>

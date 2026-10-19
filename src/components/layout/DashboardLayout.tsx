@@ -1,12 +1,11 @@
 import { ReactNode, useState } from "react";
 import { useAuth } from "../../lib/auth";
-import { LogOut, LayoutDashboard, Users, CreditCard, BookOpen, Building, HelpCircle, User, UserCheck, Menu, X, Settings, Clock, FileText, Calendar, ArrowDownToLine, Banknote, Shield, AlertCircle, ShieldAlert, Award, Megaphone, FileSpreadsheet, Database, MessageCircle, Sparkles } from "lucide-react";
+import { LogOut, LayoutDashboard, Users, CreditCard, BookOpen, Building, HelpCircle, User, UserCheck, Menu, X, Settings, Clock, FileText, Calendar, ArrowDownToLine, Banknote, Shield, AlertCircle, ShieldAlert, Award, Megaphone, FileSpreadsheet, Database, MessageCircle } from "lucide-react";
 import { Link, useLocation } from "react-router-dom";
 import { clsx } from "clsx";
 import { EduBeninLogo } from "../Logo";
 import { UserSettingsModal } from "../UserSettingsModal";
 import { NotificationMenu } from "../NotificationMenu";
-import { PageContextualGuide } from "../PageContextualGuide";
 import { supabase } from "../../lib/supabase";
 import { useEffect } from "react";
 
@@ -155,26 +154,94 @@ export function DashboardLayout({ children }: { children: ReactNode }) {
 
   const navigation = getNavigation();
 
+  // Mobile Bottom Quick Navigation
+  const getMobileBottomNav = () => {
+    switch (user.role) {
+      case "PARENT":
+        return [
+          { name: "Enfants", href: "/parent", icon: Users },
+          { name: "Payer", href: "/parent/payments", icon: CreditCard },
+          { name: "Prospectus", href: "/parent/prospectus", icon: BookOpen },
+          { name: "Aide", href: "/help?role=PARENT", icon: HelpCircle },
+        ];
+      case "TEACHER":
+        return [
+          { name: "Notes", href: "/teacher", icon: BookOpen },
+          { name: "Prospectus", href: "/teacher/prospectus", icon: BookOpen },
+          { name: "Profil", href: "#settings", icon: User, action: () => setIsSettingsOpen(true) },
+          { name: "Aide", href: "/help?role=TEACHER", icon: HelpCircle },
+        ];
+      case "CASHIER":
+        return [
+          { name: "Finances", href: "/school-admin/payments?tab=FINANCIAL_LIST", icon: FileSpreadsheet },
+          { name: "Caisse", href: "/school-admin/payments?tab=DAILY_SUMMARY", icon: Clock },
+          { name: "Vérif", href: "/school-admin/payments?tab=VERIFICATION", icon: CreditCard },
+          { name: "Créances", href: "/school-admin/payments?tab=CREANCES", icon: AlertCircle },
+        ];
+      case "SECRETARY":
+        return [
+          { name: "Inscriptions", href: "/school-admin/students?tab=STUDENTS", icon: Users },
+          { name: "Élèves", href: "/school-admin/students-list", icon: Users },
+          { name: "Docs", href: "/school-admin/students?tab=DOCUMENTS", icon: FileText },
+          { name: "Aide", href: "/help?role=SECRETARY", icon: HelpCircle },
+        ];
+      case "SUPERVISOR":
+        return [
+          { name: "Discipline", href: "/supervisor?tab=DISCIPLINE", icon: ShieldAlert },
+          { name: "Absences", href: "/supervisor?tab=ABSENCES", icon: Clock },
+          { name: "Sorties", href: "/supervisor?tab=TRIPS", icon: Building },
+          { name: "Aide", href: "/help?role=SUPERVISOR", icon: HelpCircle },
+        ];
+      case "SCHOOL_ADMIN":
+      case "DIRECTOR_OF_STUDIES":
+      default:
+        return [
+          { name: "Accueil", href: "/school-admin", icon: LayoutDashboard },
+          { name: "Finances", href: "/school-admin/payments?tab=FINANCIAL_LIST", icon: Banknote },
+          { name: "Élèves", href: "/school-admin/students-list", icon: Users },
+          { name: "Aide", href: `/help?role=${user.role}`, icon: HelpCircle },
+        ];
+    }
+  };
+
+  const mobileBottomNav = getMobileBottomNav();
+
   return (
-    <div className="min-h-screen bg-slate-50 font-sans text-gray-700 flex text-sm relative">
-      {/* Sidebar */}
-      <aside className={clsx("w-64 bg-slate-900 text-white flex-col shrink-0 md:flex z-50",
-        isMobileMenuOpen ? "fixed inset-y-0 left-0 flex" : "hidden"
+    <div className="min-h-screen bg-slate-50 font-sans text-gray-700 flex text-sm relative overflow-x-hidden">
+      {/* Mobile Drawer Backdrop */}
+      {isMobileMenuOpen && (
+        <div 
+          className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-40 md:hidden transition-opacity duration-200" 
+          onClick={() => setIsMobileMenuOpen(false)}
+          aria-hidden="true"
+        />
+      )}
+
+      {/* Sidebar (Desktop sticky & Mobile off-canvas slide-in) */}
+      <aside className={clsx(
+        "bg-slate-900 text-white flex-col shrink-0 z-50 transition-transform duration-300 ease-in-out",
+        "w-72 max-w-[85vw] md:w-64",
+        "fixed inset-y-0 left-0 md:static flex",
+        isMobileMenuOpen ? "translate-x-0 shadow-2xl" : "-translate-x-full md:translate-x-0"
       )}>
-        <div className="p-6 border-b border-slate-700 flex justify-between items-center">
+        <div className="p-4 sm:p-6 border-b border-slate-800 flex justify-between items-center shrink-0">
           <div>
-            <div className="flex items-center gap-3 mb-1">
-              <EduBeninLogo className="w-8 h-8" />
-              <h1 className="text-lg font-bold leading-none tracking-tight">EDU-BENIN</h1>
+            <div className="flex items-center gap-2.5 mb-1">
+              <EduBeninLogo className="w-7 h-7 sm:w-8 sm:h-8" />
+              <h1 className="text-base sm:text-lg font-bold leading-none tracking-tight">EDU-BENIN</h1>
             </div>
-            <p className="text-[10px] text-emerald-400 uppercase tracking-widest mt-2">Gestion Scolaire</p>
+            <p className="text-[10px] text-emerald-400 uppercase tracking-widest mt-1.5 font-medium">Gestion Scolaire</p>
           </div>
-          <button onClick={() => setIsMobileMenuOpen(false)} className="md:hidden text-slate-400 hover:text-white">
+          <button 
+            onClick={() => setIsMobileMenuOpen(false)} 
+            className="md:hidden w-9 h-9 flex items-center justify-center rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition"
+            aria-label="Fermer le menu"
+          >
             <X className="w-5 h-5" />
           </button>
         </div>
         
-        <nav className="flex-1 overflow-y-auto p-4 space-y-2">
+        <nav className="flex-1 overflow-y-auto p-3 sm:p-4 space-y-1.5 touch-scroll">
           {navigation.map((item) => {
             const itemPath = item.href.split('?')[0];
             const currentTab = new URLSearchParams(location.search).get('tab');
@@ -187,12 +254,12 @@ export function DashboardLayout({ children }: { children: ReactNode }) {
                   key={item.name}
                   onClick={() => { (item as any).action(); setIsMobileMenuOpen(false); }}
                   className={clsx(
-                    "flex items-center gap-3 px-3 py-2 rounded transition-colors font-medium w-full text-left",
-                    "text-slate-400 hover:text-white hover:bg-slate-800"
+                    "flex items-center gap-3 px-3.5 py-2.5 rounded-xl transition-colors font-medium w-full text-left text-xs sm:text-sm min-h-[44px]",
+                    "text-slate-400 hover:text-white hover:bg-slate-800 active:scale-98"
                   )}
                 >
-                  <ItemIcon className="w-4 h-4" />
-                  {item.name}
+                  <ItemIcon className="w-4 h-4 shrink-0" />
+                  <span className="truncate">{item.name}</span>
                 </button>
               );
             }
@@ -202,87 +269,148 @@ export function DashboardLayout({ children }: { children: ReactNode }) {
                 to={item.href}
                 onClick={() => setIsMobileMenuOpen(false)}
                 className={clsx(
-                  "flex items-center gap-3 px-3 py-2 rounded transition-colors font-medium",
+                  "flex items-center gap-3 px-3.5 py-2.5 rounded-xl transition-colors font-medium text-xs sm:text-sm min-h-[44px]",
                   isActive 
-                    ? "bg-emerald-600 text-white" 
-                    : "text-slate-400 hover:text-white"
+                    ? "bg-emerald-600 text-white shadow-sm" 
+                    : "text-slate-400 hover:text-white hover:bg-slate-800/80 active:scale-98"
                 )}
               >
-                <ItemIcon className="w-4 h-4" />
-                {item.name}
+                <ItemIcon className="w-4 h-4 shrink-0" />
+                <span className="truncate">{item.name}</span>
               </Link>
             );
           })}
         </nav>
         
-        <div className="p-4 mt-auto border-t border-slate-700 bg-slate-950/50">
-          <div className="flex items-center gap-3 mb-4">
-            <div className="w-10 h-10 rounded-full bg-slate-700 border border-slate-600 flex items-center justify-center font-bold text-white shrink-0 overflow-hidden">
+        <div className="p-4 mt-auto border-t border-slate-800 bg-slate-950/70 shrink-0">
+          <div className="flex items-center gap-3 mb-3">
+            <div className="w-9 h-9 rounded-full bg-slate-700 border border-slate-600 flex items-center justify-center font-bold text-white shrink-0 overflow-hidden text-xs">
               {user.avatar ? <img src={user.avatar} alt="Profile" className="w-full h-full object-cover" /> : user.name.charAt(0).toUpperCase()}
             </div>
-            <div className="overflow-hidden flex-1">
-              <p className="text-xs font-medium truncate text-white">{user.name}</p>
+            <div className="overflow-hidden flex-1 min-w-0">
+              <p className="text-xs font-semibold truncate text-white">{user.name}</p>
               <p className="text-[10px] text-slate-400 truncate capitalize">{user.role.replace('_', ' ').toLowerCase()}</p>
             </div>
-            <button onClick={() => setIsSettingsOpen(true)} className="text-slate-400 hover:text-white p-1 ml-auto">
+            <button 
+              onClick={() => { setIsSettingsOpen(true); setIsMobileMenuOpen(false); }} 
+              className="text-slate-400 hover:text-white p-2 rounded-lg hover:bg-slate-800 transition"
+              title="Paramètres de profil"
+            >
               <Settings className="w-4 h-4" />
             </button>
           </div>
           <button
             onClick={logout}
-            className="w-full flex items-center gap-3 px-3 py-2 rounded text-[10px] font-bold uppercase tracking-wider text-red-400 hover:bg-slate-800 transition-colors"
+            className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-xl text-xs font-bold text-red-400 hover:text-red-300 hover:bg-slate-800/80 transition min-h-[40px]"
           >
             <LogOut className="w-4 h-4" />
-            Déconnexion
+            <span>Déconnexion</span>
           </button>
         </div>
       </aside>
 
       {/* Main content */}
-      <main className="flex-1 flex flex-col min-w-0">
-        <header className="h-16 bg-white border-b border-slate-200 px-4 md:px-8 flex items-center justify-between shrink-0 gap-2">
-          <div className="flex items-center gap-2 md:gap-4 overflow-hidden">
-            <h2 className="text-xl font-bold text-gray-700 truncate">{schoolName || user?.schoolName || localStorage.getItem('edubenin_active_school_name') || "Établissement Scolaire"}</h2>
-            <span className="shrink-0 px-2 md:px-3 py-1 bg-emerald-100 text-emerald-800 rounded-full text-[10px] md:text-xs font-bold uppercase tracking-wider shadow-sm">Année {academicYear}</span>
+      <main className="flex-1 flex flex-col min-w-0 max-w-full">
+        {/* Top Header */}
+        <header className="h-14 sm:h-16 bg-white border-b border-slate-200 px-3 sm:px-6 md:px-8 flex items-center justify-between shrink-0 gap-2 sticky top-0 z-20 shadow-2xs">
+          <div className="flex items-center gap-2 sm:gap-3 overflow-hidden min-w-0">
+            <h2 className="text-sm sm:text-base md:text-lg font-bold text-gray-800 truncate leading-snug">
+              {schoolName || user?.schoolName || localStorage.getItem('edubenin_active_school_name') || "Établissement Scolaire"}
+            </h2>
+            {academicYear && (
+              <span className="hidden sm:inline-flex shrink-0 px-2 sm:px-2.5 py-0.5 bg-emerald-100 text-emerald-800 rounded-full text-[10px] font-bold uppercase tracking-wider">
+                {academicYear}
+              </span>
+            )}
           </div>
-          <div className="flex items-center gap-2 md:gap-4">
-            <div className="hidden md:flex items-center gap-2 px-3 py-1.5 bg-slate-100 rounded text-xs font-medium">
-              <span className="w-2 h-2 rounded-full bg-emerald-500"></span> Système En Ligne
+
+          <div className="flex items-center gap-1.5 sm:gap-3 shrink-0">
+            <div className="hidden lg:flex items-center gap-1.5 px-2.5 py-1 bg-slate-100 rounded-md text-xs font-medium text-slate-600">
+              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span> En Ligne
             </div>
-            <button
-              onClick={() => window.dispatchEvent(new CustomEvent("open_page_guide"))}
-              className="flex items-center gap-1.5 px-2.5 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 rounded-lg text-xs font-bold transition-colors border border-emerald-200"
-              title="Afficher les explications de cette page"
-            >
-              <Sparkles size={14} className="text-emerald-600" />
-              <span className="hidden sm:inline">Guide de la page</span>
-            </button>
+
             <Link
               to={`/help?role=${user.role}`}
-              className="flex items-center gap-1.5 px-2.5 py-1.5 bg-slate-100 hover:bg-emerald-50 text-slate-700 hover:text-emerald-700 rounded-lg text-xs font-bold transition-colors"
-              title="Centre d'Aide & Guide d'Utilisation"
+              className="flex items-center gap-1 sm:gap-1.5 px-2 py-1.5 sm:px-2.5 bg-slate-100 hover:bg-emerald-50 text-slate-700 hover:text-emerald-700 rounded-lg text-xs font-bold transition-colors shrink-0"
+              title="Centre d'Aide & Procédures"
             >
               <HelpCircle size={15} className="text-emerald-600" />
               <span className="hidden sm:inline">Aide & Guide</span>
             </Link>
+
             <NotificationMenu />
-            <div className="hidden md:block w-px h-6 bg-slate-200"></div>
-            <button onClick={() => setIsMobileMenuOpen(true)} className="md:hidden text-slate-500 hover:text-emerald-600 p-2">
-              <Menu className="w-6 h-6" />
+
+            <div className="hidden md:block w-px h-5 bg-slate-200"></div>
+
+            {/* Mobile Hamburger Button */}
+            <button 
+              onClick={() => setIsMobileMenuOpen(true)} 
+              className="md:hidden w-9 h-9 flex items-center justify-center rounded-lg hover:bg-slate-100 text-slate-600 active:scale-95 transition"
+              aria-label="Ouvrir le menu latéral"
+            >
+              <Menu className="w-5 h-5" />
             </button>
           </div>
         </header>
 
-        {isMobileMenuOpen && (
-          <div className="fixed inset-0 bg-slate-900/50 z-40 md:hidden" onClick={() => setIsMobileMenuOpen(false)}></div>
-        )}
-
-        <div className="flex-1 overflow-y-auto bg-slate-50">
-          <div className="p-4 md:p-8">
-            <PageContextualGuide />
+        {/* Scrollable Viewport with Bottom Padding for Mobile Nav */}
+        <div className="flex-1 overflow-y-auto bg-slate-50 touch-scroll">
+          <div className="p-3 sm:p-5 md:p-8 pb-24 md:pb-8 max-w-full overflow-x-hidden">
             {children}
           </div>
         </div>
+
+        {/* Mobile Bottom Navigation Bar (Fluid, Native-feel & Thumb-friendly) */}
+        <nav className="md:hidden fixed bottom-0 left-0 right-0 z-30 bg-white/95 backdrop-blur-md border-t border-slate-200 safe-pb px-1 py-1 shadow-lg flex items-center justify-around">
+          {mobileBottomNav.map((bItem) => {
+            const bPath = bItem.href.split('?')[0];
+            const currentTab = new URLSearchParams(location.search).get('tab');
+            const itemTab = bItem.href.split('?tab=')[1];
+            const isActive = (location.pathname === bPath && (!itemTab || currentTab === itemTab)) || 
+                             (location.pathname.startsWith(bPath) && bPath !== '/school-admin' && bPath !== '/parent' && bPath !== '/teacher' && !itemTab);
+            const BIcon = bItem.icon;
+            
+            if ((bItem as any).action) {
+              return (
+                <button
+                  key={bItem.name}
+                  onClick={(bItem as any).action}
+                  className="flex flex-col items-center justify-center py-1 px-2 min-w-[56px] min-h-[48px] text-slate-500 hover:text-slate-900 transition active:scale-95"
+                >
+                  <BIcon size={19} />
+                  <span className="text-[10px] font-semibold mt-0.5">{bItem.name}</span>
+                </button>
+              );
+            }
+
+            return (
+              <Link
+                key={bItem.name}
+                to={bItem.href}
+                className={clsx(
+                  "flex flex-col items-center justify-center py-1 px-2 min-w-[56px] min-h-[48px] rounded-lg transition active:scale-95",
+                  isActive
+                    ? "text-emerald-700 font-bold"
+                    : "text-slate-500 hover:text-slate-900"
+                )}
+              >
+                <BIcon size={19} className={isActive ? "text-emerald-600 stroke-[2.4]" : "text-slate-500"} />
+                <span className="text-[10px] font-semibold mt-0.5 truncate">{bItem.name}</span>
+              </Link>
+            );
+          })}
+
+          {/* Menu Drawer Opener */}
+          <button
+            onClick={() => setIsMobileMenuOpen(true)}
+            className="flex flex-col items-center justify-center py-1 px-2 min-w-[56px] min-h-[48px] text-slate-500 hover:text-slate-900 transition active:scale-95"
+            aria-label="Toutes les rubriques"
+          >
+            <Menu size={19} />
+            <span className="text-[10px] font-semibold mt-0.5">Plus</span>
+          </button>
+        </nav>
+
         <UserSettingsModal isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} />
       </main>
     </div>

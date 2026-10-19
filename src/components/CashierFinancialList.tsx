@@ -1840,8 +1840,8 @@ export function CashierFinancialList({
         </div>
 
         {/* Table Content */}
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs border-collapse">
+        <div className="overflow-x-auto touch-scroll">
+          <table className="w-full min-w-[760px] text-left text-xs border-collapse">
             <thead className="bg-slate-50 text-[10px] uppercase tracking-wider text-slate-500 font-bold border-b border-slate-200">
               <tr>
                 <th className="py-3.5 px-4 w-10 text-center">

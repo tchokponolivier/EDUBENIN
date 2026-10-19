@@ -30,6 +30,7 @@ import { SchoolOnboarding } from './pages/SchoolOnboarding';
 import { LoadingSkeleton } from './components/layout/LoadingSkeleton';
 import { SuperAdminDashboard } from './pages/SuperAdmin';
 import { SupervisorDashboard } from "./pages/SupervisorDashboard";
+import { HelpCenterPage } from "./pages/HelpCenter";
 
 // Role-based Dashboards (Placeholders for SuperAdmin and Teacher for now)
 
@@ -127,6 +128,7 @@ export default function App() {
               <Route path="/director/bulletins" element={<ProtectedRoute allowedRoles={['DIRECTOR_OF_STUDIES', 'SCHOOL_ADMIN', 'SECRETARY']}><DirectorBulletins /></ProtectedRoute>} />
               <Route path="/director/announcements" element={<ProtectedRoute allowedRoles={['DIRECTOR_OF_STUDIES', 'SCHOOL_ADMIN']}><DirectorAnnouncements /></ProtectedRoute>} />
               <Route path="/teacher/profile" element={<ProtectedRoute allowedRoles={['TEACHER']}><TeacherProfile /></ProtectedRoute>} />
+              <Route path="/help" element={<ProtectedRoute><HelpCenterPage /></ProtectedRoute>} />
             </Routes>
           </AuthProvider>
         </ConfirmProvider>

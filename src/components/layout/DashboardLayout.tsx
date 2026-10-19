@@ -1,11 +1,12 @@
 import { ReactNode, useState } from "react";
 import { useAuth } from "../../lib/auth";
-import { LogOut, LayoutDashboard, Users, CreditCard, BookOpen, Building, HelpCircle, User, UserCheck, Menu, X, Settings, Clock, FileText, Calendar, ArrowDownToLine, Banknote, Shield, AlertCircle, ShieldAlert, Award, Megaphone, FileSpreadsheet, Database } from "lucide-react";
+import { LogOut, LayoutDashboard, Users, CreditCard, BookOpen, Building, HelpCircle, User, UserCheck, Menu, X, Settings, Clock, FileText, Calendar, ArrowDownToLine, Banknote, Shield, AlertCircle, ShieldAlert, Award, Megaphone, FileSpreadsheet, Database, MessageCircle, Sparkles } from "lucide-react";
 import { Link, useLocation } from "react-router-dom";
 import { clsx } from "clsx";
 import { EduBeninLogo } from "../Logo";
 import { UserSettingsModal } from "../UserSettingsModal";
 import { NotificationMenu } from "../NotificationMenu";
+import { PageContextualGuide } from "../PageContextualGuide";
 import { supabase } from "../../lib/supabase";
 import { useEffect } from "react";
 
@@ -45,10 +46,12 @@ export function DashboardLayout({ children }: { children: ReactNode }) {
 
   const getNavigation = () => {
     const commonSettings = { name: "Mon Profil", href: "#settings", icon: User, action: () => setIsSettingsOpen(true) };
+    const commonHelp = { name: "Aide & Guide", href: `/help?role=${user.role}`, icon: HelpCircle };
     switch (user.role) {
       case "SUPER_ADMIN":
         return [
           { name: "Administration", href: "/super-admin", icon: Shield },
+          commonHelp,
           commonSettings
         ];
       case "SCHOOL_ADMIN":
@@ -65,6 +68,7 @@ export function DashboardLayout({ children }: { children: ReactNode }) {
           { name: "Prospectus", href: "/school-admin/prospectus", icon: BookOpen },
           { name: "Sauvegarde", href: "/school-admin?tab=BACKUP", icon: Database },
           { name: "Paramètres Établissement", href: "/school-admin?tab=SETTINGS", icon: Settings },
+          commonHelp,
           commonSettings
         ];
       case "SUPERVISOR":
@@ -75,6 +79,7 @@ export function DashboardLayout({ children }: { children: ReactNode }) {
           { name: "Sorties & Mouvements", href: "/supervisor?tab=TRIPS", icon: Building },
           { name: "Absences Profs", href: "/supervisor?tab=TEACHER_ABSENCES", icon: Users },
           { name: "Matériel", href: "/supervisor?tab=MATERIALS", icon: BookOpen },
+          commonHelp,
           commonSettings
         ];
       case "SECRETARY":
@@ -88,6 +93,7 @@ export function DashboardLayout({ children }: { children: ReactNode }) {
           { name: "Courriers", href: "/school-admin/students?tab=MAILS", icon: FileText },
           { name: "Épreuves", href: "/school-admin/students?tab=EXAMS", icon: BookOpen },
           { name: "Planning", href: "/school-admin/students?tab=PLANNING", icon: Calendar },
+          commonHelp,
           commonSettings
         ];
       case "CASHIER":
@@ -104,6 +110,7 @@ export function DashboardLayout({ children }: { children: ReactNode }) {
           { name: "Liste des Élèves", href: "/school-admin/students-list", icon: Users },
           { name: "Professeurs", href: "/school-admin/teachers", icon: Users },
           { name: "Prospectus", href: "/school-admin/prospectus", icon: BookOpen },
+          commonHelp,
           commonSettings
         ];
       case "PARENT":
@@ -111,7 +118,8 @@ export function DashboardLayout({ children }: { children: ReactNode }) {
           { name: "Mes Enfants", href: "/parent", icon: Users },
           { name: "Paiements", href: "/parent/payments", icon: CreditCard },
           { name: "Prospectus", href: "/parent/prospectus", icon: BookOpen },
-          { name: "Assistance", href: "/parent/support", icon: HelpCircle },
+          { name: "Assistance", href: "/parent/support", icon: MessageCircle },
+          commonHelp,
           commonSettings
         ];
       case "DIRECTOR_OF_STUDIES":
@@ -131,12 +139,13 @@ export function DashboardLayout({ children }: { children: ReactNode }) {
           { name: "Annonces", href: "/director/announcements", icon: Megaphone },
           { name: "Sauvegarde", href: "/school-admin?tab=BACKUP", icon: Database },
           { name: "Paramètres Établissement", href: "/school-admin?tab=SETTINGS", icon: Settings },
+          commonHelp,
           commonSettings
         ];
       case "TEACHER":
         return [
           { name: "Mes Classes & Notes", href: "/teacher", icon: BookOpen },
-          
+          commonHelp,
           commonSettings
         ];
       default:
@@ -240,6 +249,22 @@ export function DashboardLayout({ children }: { children: ReactNode }) {
             <div className="hidden md:flex items-center gap-2 px-3 py-1.5 bg-slate-100 rounded text-xs font-medium">
               <span className="w-2 h-2 rounded-full bg-emerald-500"></span> Système En Ligne
             </div>
+            <button
+              onClick={() => window.dispatchEvent(new CustomEvent("open_page_guide"))}
+              className="flex items-center gap-1.5 px-2.5 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 rounded-lg text-xs font-bold transition-colors border border-emerald-200"
+              title="Afficher les explications de cette page"
+            >
+              <Sparkles size={14} className="text-emerald-600" />
+              <span className="hidden sm:inline">Guide de la page</span>
+            </button>
+            <Link
+              to={`/help?role=${user.role}`}
+              className="flex items-center gap-1.5 px-2.5 py-1.5 bg-slate-100 hover:bg-emerald-50 text-slate-700 hover:text-emerald-700 rounded-lg text-xs font-bold transition-colors"
+              title="Centre d'Aide & Guide d'Utilisation"
+            >
+              <HelpCircle size={15} className="text-emerald-600" />
+              <span className="hidden sm:inline">Aide & Guide</span>
+            </Link>
             <NotificationMenu />
             <div className="hidden md:block w-px h-6 bg-slate-200"></div>
             <button onClick={() => setIsMobileMenuOpen(true)} className="md:hidden text-slate-500 hover:text-emerald-600 p-2">
@@ -254,6 +279,7 @@ export function DashboardLayout({ children }: { children: ReactNode }) {
 
         <div className="flex-1 overflow-y-auto bg-slate-50">
           <div className="p-4 md:p-8">
+            <PageContextualGuide />
             {children}
           </div>
         </div>
